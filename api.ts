@@ -1,0 +1,297 @@
+import type {
+  EnterpriseGamesPayload,
+  PitcherProfilesPayload,
+  PitchingAuditSummaryPayload,
+  PitchingGameRecap,
+  PitchingRecapEmailResponse,
+  PitchingRecapSettings,
+  PitchingReplayResponse,
+  PreventableRunsFeatureContribution,
+  PreventableRunsOpportunitiesPayload,
+  PreventableRunsOpportunityRow,
+  PreventableRunsPitcherSummary,
+  PreventableRunsTeamSummary,
+  RunSavingBoardPayload,
+} from "./types";
+
+const DEFAULT_API_BASE = "https://aroncm--abs-challenge-api-tuned-fastapi-app-tuned.modal.run";
+const viteEnv = import.meta.env ?? {};
+const API_BASE = (viteEnv.VITE_BASEBALL_BRAIN_API_BASE ?? DEFAULT_API_BASE).replace(/\/+$/, "");
+
+export function getConfiguredApiBase(): string {
+  return API_BASE;
+}
+
+export class ApiConfigurationError extends Error {
+  constructor() {
+    super("Baseball brAIn API base is not configured.");
+    this.name = "ApiConfigurationError";
+  }
+}
+
+async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (!API_BASE) {
+    throw new ApiConfigurationError();
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(init.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      if (typeof payload?.detail === "string") {
+        detail = payload.detail;
+      }
+    } catch {
+      // Keep the HTTP status as the useful fallback.
+    }
+    throw new Error(detail);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export type RunSavingBoardQuery = {
+  league?: "mlb" | "triple_a";
+  team?: string;
+  date?: string;
+  limit?: number;
+};
+
+export function fetchRunSavingBoard(query: RunSavingBoardQuery = {}): Promise<RunSavingBoardPayload> {
+  const params = new URLSearchParams();
+  params.set("league", query.league ?? "mlb");
+  if (query.team) params.set("team", query.team);
+  if (query.date) params.set("date", query.date);
+  if (query.limit != null) params.set("limit", String(Math.min(query.limit, 50)));
+  return fetchJson<RunSavingBoardPayload>(`/v1/enterprise/run-saving/board?${params.toString()}`);
+}
+
+type ApiRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ApiRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as ApiRecord) : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function pick(source: ApiRecord, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (source[key] !== undefined) return source[key];
+  }
+  return undefined;
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function stringOrNull(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return null;
+}
+
+function booleanOrNull(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1 ? true : value === 0 ? false : null;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return null;
+}
+
+function mapFeatureContribution(value: unknown): PreventableRunsFeatureContribution {
+  const item = asRecord(value);
+  return {
+    feature: stringOrNull(pick(item, "feature")) ?? "unknown",
+    value: numberOrNull(pick(item, "value")),
+    weight: numberOrNull(pick(item, "weight")),
+    contribution: numberOrNull(pick(item, "contribution")),
+  };
+}
+
+function mapTeamSummary(value: unknown): PreventableRunsTeamSummary {
+  const item = asRecord(value);
+  return {
+    team: stringOrNull(pick(item, "team")) ?? "",
+    windowCount: numberOrNull(pick(item, "windowCount", "window_count")) ?? 0,
+    totalProjectedPreventableRuns: numberOrNull(pick(item, "totalProjectedPreventableRuns", "total_projected_preventable_runs")) ?? 0,
+    avgProjectedPreventableRuns: numberOrNull(pick(item, "avgProjectedPreventableRuns", "avg_projected_preventable_runs")) ?? 0,
+    avgProjectedDamageProbability: numberOrNull(pick(item, "avgProjectedDamageProbability", "avg_projected_damage_probability")) ?? 0,
+    actualPreventableRunsProxy: numberOrNull(pick(item, "actualPreventableRunsProxy", "actual_preventable_runs_proxy")),
+    damageRate: numberOrNull(pick(item, "damageRate", "damage_rate")),
+    missedHookDamageCount: numberOrNull(pick(item, "missedHookDamageCount", "missed_hook_damage_count")) ?? 0,
+  };
+}
+
+function mapPitcherSummary(value: unknown): PreventableRunsPitcherSummary {
+  const item = asRecord(value);
+  return {
+    team: stringOrNull(pick(item, "team")) ?? "",
+    pitcherId: stringOrNull(pick(item, "pitcherId", "pitcher_id")),
+    pitcherName: stringOrNull(pick(item, "pitcherName", "pitcher_name")) ?? "Pitcher",
+    windowCount: numberOrNull(pick(item, "windowCount", "window_count")) ?? 0,
+    totalProjectedPreventableRuns: numberOrNull(pick(item, "totalProjectedPreventableRuns", "total_projected_preventable_runs")) ?? 0,
+    avgProjectedPreventableRuns: numberOrNull(pick(item, "avgProjectedPreventableRuns", "avg_projected_preventable_runs")) ?? 0,
+    avgProjectedDamageProbability: numberOrNull(pick(item, "avgProjectedDamageProbability", "avg_projected_damage_probability")) ?? 0,
+    actualPreventableRunsProxy: numberOrNull(pick(item, "actualPreventableRunsProxy", "actual_preventable_runs_proxy")),
+    damageRate: numberOrNull(pick(item, "damageRate", "damage_rate")),
+  };
+}
+
+function mapOpportunityRow(value: unknown): PreventableRunsOpportunityRow {
+  const item = asRecord(value);
+  const productionDegradation = numberOrNull(pick(item, "productionDegradation", "production_degradation"));
+  const normalizedDegradation = numberOrNull(pick(item, "normalizedDegradation", "normalized_degradation"));
+  return {
+    gameId: stringOrNull(pick(item, "gameId", "game_id")) ?? "",
+    gameDate: stringOrNull(pick(item, "gameDate", "game_date")),
+    team: stringOrNull(pick(item, "team", "fieldingTeam", "fielding_team")) ?? "",
+    opponent: stringOrNull(pick(item, "opponent", "battingTeam", "batting_team")) ?? "",
+    pitcherId: stringOrNull(pick(item, "pitcherId", "pitcher_id")),
+    pitcherName: stringOrNull(pick(item, "pitcherName", "pitcher_name")) ?? "Pitcher",
+    inning: numberOrNull(pick(item, "inning")),
+    half: stringOrNull(pick(item, "half")),
+    outs: numberOrNull(pick(item, "outs")),
+    baseState: stringOrNull(pick(item, "baseState", "base_state")),
+    pitchCount: numberOrNull(pick(item, "pitchCount", "pitch_count")),
+    status: stringOrNull(pick(item, "status", "recommendationStatus", "recommendation_status")),
+    damageRunsNext6Outs: numberOrNull(pick(item, "damageRunsNext6Outs", "damage_runs_next_6_outs")),
+    projectedDamageProbability: numberOrNull(pick(item, "projectedDamageProbability", "projected_damage_probability")),
+    projectedRunsThroughNextPocket: numberOrNull(pick(item, "projectedRunsThroughNextPocket", "projected_runs_through_next_pocket")),
+    projectedPreventableRuns: numberOrNull(pick(item, "projectedPreventableRuns", "projected_preventable_runs")),
+    actualRunsThroughNextPocket: numberOrNull(pick(item, "actualRunsThroughNextPocket", "actual_runs_through_next_pocket")),
+    actualPreventableRunsProxy: numberOrNull(pick(item, "actualPreventableRunsProxy", "actual_preventable_runs_proxy")),
+    actualChangeWithinNextPocket: booleanOrNull(pick(item, "actualChangeWithinNextPocket", "actual_change_within_next_pocket")),
+    damageFlag: numberOrNull(pick(item, "damageFlag", "damage_flag")),
+    missedHookDamageFlag: numberOrNull(pick(item, "missedHookDamageFlag", "missed_hook_damage_flag")),
+    productionDegradation,
+    normalizedDegradation,
+    decisionDelta: numberOrNull(pick(item, "decisionDelta", "decision_delta")),
+    calibratedPreventableSignal: numberOrNull(pick(item, "calibratedPreventableSignal", "calibrated_preventable_signal")),
+    calibrationBucket: stringOrNull(pick(item, "calibrationBucket", "calibration_bucket")),
+    calibrationSampleCount: numberOrNull(pick(item, "calibrationSampleCount", "calibration_sample_count")),
+    calibrationMeanDamage: numberOrNull(pick(item, "calibrationMeanDamage", "calibration_mean_damage")),
+    calibrationConfidence: numberOrNull(pick(item, "calibrationConfidence", "calibration_confidence")),
+    leverageIndex: numberOrNull(pick(item, "leverageIndex", "leverage_index")),
+    degradationScore: numberOrNull(pick(item, "degradationScore", "degradation_score")) ?? productionDegradation ?? normalizedDegradation,
+    decayVelocity: numberOrNull(pick(item, "decayVelocity", "decay_velocity")),
+    decayAcceleration: numberOrNull(pick(item, "decayAcceleration", "decay_acceleration")),
+    topFeatures: asArray(pick(item, "topFeatures", "top_features", "topFeatureContributions", "top_feature_contributions")).map(mapFeatureContribution),
+  };
+}
+
+function normalizePreventableRunsPayload(value: unknown): PreventableRunsOpportunitiesPayload {
+  const payload = asRecord(value);
+  const rows = asArray(pick(payload, "rows")).map(mapOpportunityRow);
+  const summaryValue = pick(payload, "summary");
+  const summary = summaryValue && typeof summaryValue === "object" ? mapTeamSummary(summaryValue) : null;
+  return {
+    status: stringOrNull(pick(payload, "status")) ?? "unavailable",
+    generatedAt: stringOrNull(pick(payload, "generatedAt", "generated_at")),
+    season: numberOrNull(pick(payload, "season")),
+    team: stringOrNull(pick(payload, "team")),
+    rowCount: numberOrNull(pick(payload, "rowCount", "row_count")) ?? rows.length,
+    sourceRows: numberOrNull(pick(payload, "sourceRows", "source_rows")),
+    source: stringOrNull(pick(payload, "source")),
+    summary,
+    teamSummaries: asArray(pick(payload, "teamSummaries", "team_summaries")).map(mapTeamSummary),
+    pitcherSummaries: asArray(pick(payload, "pitcherSummaries", "pitcher_summaries")).map(mapPitcherSummary),
+    rows,
+  };
+}
+
+export function fetchPreventableRunsOpportunities(
+  query: { season?: number | string; team?: string; gameId?: string | null; limit?: number } = {},
+): Promise<PreventableRunsOpportunitiesPayload> {
+  const params = new URLSearchParams();
+  if (query.season) params.set("season", String(query.season));
+  if (query.team) params.set("team", query.team);
+  if (query.gameId) params.set("game_id", query.gameId);
+  if (query.limit != null) params.set("limit", String(query.limit));
+  return fetchJson<unknown>(`/v1/pitching/preventable-runs/opportunities?${params.toString()}`).then(normalizePreventableRunsPayload);
+}
+
+export function fetchEnterpriseGames(query: RunSavingBoardQuery = {}): Promise<EnterpriseGamesPayload> {
+  const params = new URLSearchParams();
+  params.set("league", query.league ?? "mlb");
+  if (query.team) params.set("team", query.team);
+  if (query.date) params.set("date", query.date);
+  if (query.limit != null) params.set("limit", String(query.limit));
+  return fetchJson<EnterpriseGamesPayload>(`/v1/enterprise/run-saving/games?${params.toString()}`);
+}
+
+export function fetchPitcherProfiles(query: RunSavingBoardQuery & { year?: string } = {}): Promise<PitcherProfilesPayload> {
+  const params = new URLSearchParams();
+  params.set("league", query.league ?? "mlb");
+  if (query.team) params.set("team", query.team);
+  if (query.year) params.set("year", query.year);
+  if (query.limit != null) params.set("limit", String(query.limit));
+  return fetchJson<PitcherProfilesPayload>(`/v1/enterprise/run-saving/pitcher-profiles?${params.toString()}`);
+}
+
+export function fetchPitchingAuditSummary(
+  query: RunSavingBoardQuery & {
+    year?: string;
+    leverage_band?: "ROUTINE" | "ELEVATED" | "HIGH";
+    status?: "STAY" | "WATCH" | "PREP" | "PULL_NOW";
+    actual_outcome?: "changed" | "stayed";
+  } = {},
+): Promise<PitchingAuditSummaryPayload> {
+  const params = new URLSearchParams();
+  params.set("league", query.league ?? "mlb");
+  params.set("limit", String(query.limit ?? 500));
+  if (query.team) params.set("team", query.team);
+  if (query.year) params.set("year", query.year);
+  if (query.leverage_band) params.set("leverage_band", query.leverage_band);
+  if (query.status) params.set("status", query.status);
+  if (query.actual_outcome) params.set("actual_outcome", query.actual_outcome);
+  return fetchJson<PitchingAuditSummaryPayload>(`/v1/pitching/audit/summary?${params.toString()}`);
+}
+
+export function fetchPitchingReplay(gameId: string, league: "mlb" | "triple_a" = "mlb"): Promise<PitchingReplayResponse> {
+  return fetchJson<PitchingReplayResponse>(`/v1/pitching/replay/${encodeURIComponent(gameId)}?league=${league}`);
+}
+
+export function fetchPitchingRecap(gameId: string, league: "mlb" | "triple_a" = "mlb"): Promise<PitchingGameRecap> {
+  return fetchJson<PitchingGameRecap>(`/v1/pitching/recap/${encodeURIComponent(gameId)}?league=${league}`);
+}
+
+export function fetchPitchingRecapSettings(league: "mlb" | "triple_a" = "mlb"): Promise<PitchingRecapSettings> {
+  return fetchJson<PitchingRecapSettings>(`/v1/pitching/recap-settings?league=${league}`);
+}
+
+export function savePitchingRecapSettings(
+  patch: Partial<PitchingRecapSettings>,
+  league: "mlb" | "triple_a" = "mlb",
+): Promise<PitchingRecapSettings> {
+  return fetchJson<PitchingRecapSettings>(`/v1/pitching/recap-settings?league=${league}`, {
+    method: "POST",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function sendPitchingRecapEmail(
+  params: { game_id: string; team: string; recipient?: string; send?: boolean },
+  league: "mlb" | "triple_a" = "mlb",
+): Promise<PitchingRecapEmailResponse> {
+  return fetchJson<PitchingRecapEmailResponse>(`/v1/pitching/recap-email?league=${league}`, {
+    method: "POST",
+    body: JSON.stringify(params),
+  });
+}
