@@ -1218,6 +1218,16 @@ function auditReviewPointLabel(window: PitchingAuditWindow): string {
 
 function auditWindowReasonLabels(window: PitchingAuditWindow): string[] {
   const reasons: string[] = [];
+  const driver = String(window.trigger_driver_type ?? "").trim();
+  const driverLabels: Record<string, string> = {
+    pitcher_degradation: "Pitcher-driven decline",
+    game_context: "Game state raised urgency",
+    relief_alternative: "Better relief path available",
+    workload_guardrail: "Workload guardrail applied",
+    mixed_pitcher_context: "Pitcher decline plus game state",
+    mixed: "Combined staff-deployment signal",
+  };
+  if (driverLabels[driver]) reasons.push(driverLabels[driver]);
   const baseFlags = baseStateFlags(typeof window.base_state === "string" ? window.base_state : null);
   const runners = Number(baseFlags.first) + Number(baseFlags.second) + Number(baseFlags.third);
   if (runners >= 2) reasons.push("Runners in scoring position");
@@ -1232,6 +1242,13 @@ function auditWindowReasonLabels(window: PitchingAuditWindow): string[] {
     if (!reasons.includes(label)) reasons.push(label);
   }
   return reasons.slice(0, 3);
+}
+
+function auditDecisionSummary(window: PitchingAuditWindow): string | null {
+  const summary = String(window.decision_summary ?? window.gm_summary ?? "").trim();
+  if (!summary) return null;
+  const [firstSentence] = summary.split(/(?<=\.)\s+/);
+  return firstSentence || summary;
 }
 
 function auditRunExposureLabel(window: PitchingAuditWindow): string {
@@ -1312,6 +1329,7 @@ function SeasonAuditOpportunityRow({
   const priority = Math.min(100, Math.round(auditPriorityValue(row)));
   const bucketCopy = matrixBucketCopy(opportunity.cell);
   const reviewLevel = priority >= 90 ? "Immediate staff review" : priority >= 70 ? "High-priority review" : "Staff review";
+  const decisionSummary = auditDecisionSummary(row);
   const gameId = String(row.game_id ?? row.game_pk ?? "");
 
   return (
@@ -1326,7 +1344,7 @@ function SeasonAuditOpportunityRow({
       </div>
       <div>
         <strong>{reviewLevel}</strong>
-        <span>{bucketCopy.title} · {auditStatus(row)}</span>
+        <span>{decisionSummary ?? `${bucketCopy.title} · ${auditStatus(row)}`}</span>
       </div>
       <div>
         <strong>{auditRunExposureLabel(row)}</strong>
