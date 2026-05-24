@@ -511,76 +511,6 @@ function pullWindowMetrics(entry: PitchingReplayEntry | null): { stuff: string; 
   };
 }
 
-function degradationLevel(score: number | null): string {
-  if (score == null) return UNAVAILABLE;
-  if (score >= 1.05) return "critical";
-  if (score >= 0.82) return "high";
-  if (score >= 0.65) return "elevated";
-  if (score >= 0.45) return "watch";
-  return "stable";
-}
-
-function replayRecommendationSummary(entry: PitchingReplayEntry | null): string {
-  if (!entry) return "No model explanation is attached to this pitch.";
-  const recommendation = record(entry.recommendation);
-  const summary = String(recommendation.gm_summary ?? recommendation.decision_summary ?? "").trim();
-  if (summary) return summary;
-  const driver = String(recommendation.trigger_driver_type ?? "").trim();
-  if (driver === "game_context") {
-    return "The pitcher's mound condition was not independently extreme, but the game state made the same signs more urgent.";
-  }
-  if (driver === "pitcher_degradation") {
-    return "The signal was driven primarily by pitcher condition before accounting for leverage.";
-  }
-  if (driver === "relief_alternative") {
-    return "The model saw a better available relief path than continuing with the starter.";
-  }
-  if (driver === "workload_guardrail") {
-    return "The starter had signs of stress, but workload and timing guardrails moderated the recommendation.";
-  }
-  return "The signal combined pitcher condition, game context, and available relief alternatives.";
-}
-
-function replayConditionSummary(entry: PitchingReplayEntry | null): string {
-  if (!entry) return UNAVAILABLE;
-  const recommendation = record(entry.recommendation);
-  const state = replayState(entry);
-  const score =
-    num(recommendation.independent_degradation_score) ??
-    num(state.enhanced_degradation_score) ??
-    num(state.degradation_score);
-  const level = String(recommendation.independent_degradation_level ?? "").trim() || degradationLevel(score);
-  return score == null ? UNAVAILABLE : `${fmtNumber(score, 2)} · ${level}`;
-}
-
-function replayUrgencySummary(entry: PitchingReplayEntry | null): string {
-  if (!entry) return UNAVAILABLE;
-  const recommendation = record(entry.recommendation);
-  const score = num(recommendation.leveraged_degradation_score);
-  const level = String(recommendation.leveraged_degradation_level ?? "").trim();
-  const leverage = fmtNumber(entry.snapshot.leverage_index, 2);
-  if (score != null || level) {
-    return `${score == null ? "Context-adjusted" : fmtNumber(score, 2)} · ${level || degradationLevel(score)} · LI ${leverage}`;
-  }
-  return `LI ${leverage} · ${statusLabel(entry.recommendation.status)} urgency`;
-}
-
-function replaySignalDwellSummary(entries: PitchingReplayEntry[], statuses: string[], selectedIndex: number): string {
-  if (entries.length === 0) return UNAVAILABLE;
-  const cappedIndex = Math.min(Math.max(selectedIndex, 0), entries.length - 1);
-  const currentPitch = pitchCount(entries[cappedIndex]);
-  const parts: string[] = [];
-  for (const label of ["WATCH", "PREP", "PULL NOW"]) {
-    const targetRank = statusRank(label);
-    const firstIndex = statuses.findIndex((status, index) => index <= cappedIndex && statusRank(status) >= targetRank);
-    if (firstIndex < 0) continue;
-    const firstPitch = pitchCount(entries[firstIndex]);
-    const pitchesInZone = Math.max(0, currentPitch - firstPitch);
-    parts.push(`${label} since pitch ${firstPitch}${pitchesInZone > 0 ? ` (${pitchesInZone} pitches)` : ""}`);
-  }
-  return parts.length ? parts.join(" · ") : "No action signal reached yet.";
-}
-
 function relieverRssLabel(pitcher: PitchingRecapPitcher): string {
   if (pitcher.rss_score == null) return UNAVAILABLE;
   return `${statusLabel(pitcher.rss_label)} ${fmtNumber(pitcher.rss_score, 2)}`;
@@ -1288,16 +1218,6 @@ function auditReviewPointLabel(window: PitchingAuditWindow): string {
 
 function auditWindowReasonLabels(window: PitchingAuditWindow): string[] {
   const reasons: string[] = [];
-  const driver = String(window.trigger_driver_type ?? "").trim();
-  const driverLabels: Record<string, string> = {
-    pitcher_degradation: "Pitcher-driven decline",
-    game_context: "Game state raised urgency",
-    relief_alternative: "Better relief path available",
-    workload_guardrail: "Workload guardrail applied",
-    mixed_pitcher_context: "Pitcher decline plus game state",
-    mixed: "Combined staff-deployment signal",
-  };
-  if (driverLabels[driver]) reasons.push(driverLabels[driver]);
   const baseFlags = baseStateFlags(typeof window.base_state === "string" ? window.base_state : null);
   const runners = Number(baseFlags.first) + Number(baseFlags.second) + Number(baseFlags.third);
   if (runners >= 2) reasons.push("Runners in scoring position");
@@ -1312,13 +1232,6 @@ function auditWindowReasonLabels(window: PitchingAuditWindow): string[] {
     if (!reasons.includes(label)) reasons.push(label);
   }
   return reasons.slice(0, 3);
-}
-
-function auditDecisionSummary(window: PitchingAuditWindow): string | null {
-  const summary = String(window.decision_summary ?? window.gm_summary ?? "").trim();
-  if (!summary) return null;
-  const [firstSentence] = summary.split(/(?<=\.)\s+/);
-  return firstSentence || summary;
 }
 
 function auditRunExposureLabel(window: PitchingAuditWindow): string {
@@ -1399,7 +1312,6 @@ function SeasonAuditOpportunityRow({
   const priority = Math.min(100, Math.round(auditPriorityValue(row)));
   const bucketCopy = matrixBucketCopy(opportunity.cell);
   const reviewLevel = priority >= 90 ? "Immediate staff review" : priority >= 70 ? "High-priority review" : "Staff review";
-  const decisionSummary = auditDecisionSummary(row);
   const gameId = String(row.game_id ?? row.game_pk ?? "");
 
   return (
@@ -1414,7 +1326,7 @@ function SeasonAuditOpportunityRow({
       </div>
       <div>
         <strong>{reviewLevel}</strong>
-        <span>{decisionSummary ?? `${bucketCopy.title} · ${auditStatus(row)}`}</span>
+        <span>{bucketCopy.title} · {auditStatus(row)}</span>
       </div>
       <div>
         <strong>{auditRunExposureLabel(row)}</strong>
@@ -1721,10 +1633,6 @@ function GameAudit({
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
   const eventLabel = selected && replay ? entryEventLabel(selected, previous, displayStatus, previousStatus, replay) : null;
-  const pitcherOnlyCondition = replayConditionSummary(pullEntry ?? selected);
-  const gameContextUrgency = replayUrgencySummary(pullEntry ?? selected);
-  const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
-  const modelDecisionSummary = replayRecommendationSummary(pullEntry ?? selected);
   const degradationPressure = selectedState?.normalized_degradation_score ?? scaledPercent(selectedState?.enhanced_degradation_score ?? selectedState?.degradation_score, 3);
   const commandPressure = Math.max(
     scaledPercent(selectedState?.zone_miss_distance_10, 0.8),
@@ -2045,22 +1953,6 @@ function GameAudit({
               <div>
                 <strong>Actual result</strong>
                 <p>{exitAndDamageCopy(keyPitcher)}</p>
-              </div>
-              <div>
-                <strong>Pitcher-only condition</strong>
-                <p>{pitcherOnlyCondition}</p>
-              </div>
-              <div>
-                <strong>Game-context urgency</strong>
-                <p>{gameContextUrgency}</p>
-              </div>
-              <div>
-                <strong>Signal dwell</strong>
-                <p>{signalDwellSummary}</p>
-              </div>
-              <div>
-                <strong>Why it fired</strong>
-                <p>{modelDecisionSummary}</p>
               </div>
             </div>
           </article>
