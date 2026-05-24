@@ -1,21 +1,21 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
-  ArrowsClockwise,
-  CalendarBlank,
-  ChartLineUp,
+  ArrowDownWideNarrow as SortDescending,
+  BarChart3 as PresentationChart,
+  Calendar as CalendarBlank,
   Files,
-  type Icon,
-  ListDashes,
-  MagnifyingGlass,
-  PresentationChart,
-  SortDescending,
-  SquaresFour,
-  Strategy,
-  TrendDown,
+  Grid2X2 as SquaresFour,
+  LineChart as ChartLineUp,
+  List as ListDashes,
+  Network as Strategy,
+  RefreshCw as ArrowsClockwise,
+  Search as MagnifyingGlass,
+  TrendingDown as TrendDown,
+  type LucideIcon as Icon,
   Users,
-  UsersThree,
-} from "@phosphor-icons/react";
+  UsersRound as UsersThree,
+} from "lucide-react";
 import {
   ApiConfigurationError,
   fetchEnterpriseGames,
@@ -1041,7 +1041,7 @@ function Header({
         onClick={() => onWorkflowChange(item.id)}
       >
         <span className="cmdx-nav-icon" aria-hidden="true">
-          <Icon size={18} weight="bold" />
+          <Icon size={18} />
         </span>
         <span className="cmdx-nav-copy">
           <strong>{item.label}</strong>
@@ -1099,7 +1099,7 @@ function Header({
           aria-label={loadState === "ready" ? "Data ready. Refresh data." : loadState === "loading" ? "Loading data. Refresh data." : "Data needs attention. Refresh data."}
           title={loadState === "ready" ? "Data ready" : loadState === "loading" ? "Loading data" : "Data needs attention"}
         >
-          <ArrowsClockwise size={15} weight="bold" aria-hidden="true" />
+          <ArrowsClockwise size={15} aria-hidden="true" />
           <span>Refresh Data</span>
         </button>
 
@@ -1269,7 +1269,7 @@ function DriverChip({ reason }: { reason: string }) {
 
   return (
     <span className={driverChipClass(reason)}>
-      {Icon ? <Icon size={12} weight="bold" aria-hidden="true" /> : null}
+      {Icon ? <Icon size={12} aria-hidden="true" /> : null}
       {reason}
     </span>
   );
@@ -1442,7 +1442,7 @@ function CalibratedOpportunityRow({
     <button type="button" className="calibrated-row" onClick={() => row.gameId && onOpenGameAudit(row.gameId)}>
       <div className="review-game-cell">
         <strong>{row.team || "Team"} vs {row.opponent || "Opponent"}</strong>
-        <span className="review-date-line"><CalendarBlank size={12} weight="bold" aria-hidden="true" /> {formatDateText(row.gameDate)}</span>
+        <span className="review-date-line"><CalendarBlank size={12} aria-hidden="true" /> {formatDateText(row.gameDate)}</span>
         <span>{windowCount} review window{windowCount === 1 ? "" : "s"} · {pitcherCount} pitcher{pitcherCount === 1 ? "" : "s"}</span>
       </div>
       <div className="review-pitcher-cell">
@@ -2023,7 +2023,7 @@ function SeasonAuditOpportunityRow({
     <button type="button" className="calibrated-row" onClick={() => onOpenGameAudit(gameId)} disabled={!gameId}>
       <div className="review-game-cell">
         <strong>{teams.matchup}</strong>
-        <span className="review-date-line"><CalendarBlank size={12} weight="bold" aria-hidden="true" /> {formatDateText(auditGameDate(row))}</span>
+        <span className="review-date-line"><CalendarBlank size={12} aria-hidden="true" /> {formatDateText(auditGameDate(row))}</span>
         <span>{windowCount} review window{windowCount === 1 ? "" : "s"} · {pitcherCount} pitcher{pitcherCount === 1 ? "" : "s"}</span>
       </div>
       <div className="review-pitcher-cell">
@@ -2192,7 +2192,7 @@ function CommandDriverChip({ reason }: { reason: string }) {
 
   return (
     <span className="cmdx-driver-chip">
-      {Icon ? <Icon size={12} weight="bold" aria-hidden="true" /> : null}
+      {Icon ? <Icon size={12} aria-hidden="true" /> : null}
       {reason}
     </span>
   );
@@ -2248,7 +2248,7 @@ function CommandReviewRowCard({
         <div className="cmdx-row-meta">
           <strong className="cmdx-matchup-pill">{row.matchup}</strong>
           <span className="cmdx-row-date">
-            <CalendarBlank size={14} weight="bold" aria-hidden="true" />
+            <CalendarBlank size={14} aria-hidden="true" />
             {row.date}
           </span>
         </div>
@@ -2272,7 +2272,7 @@ function CommandReviewRowCard({
           <span>Recommendation</span>
           <strong>
             <b className={`cmdx-status cmdx-status--${signalClass(row.status)}`}>{row.status}</b>
-            <ArrowRight size={18} weight="bold" aria-hidden="true" />
+            <ArrowRight size={18} aria-hidden="true" />
             {bucketTransitionLabel(row.bucketLabel)}
           </strong>
           <em>{row.decisionText}</em>
@@ -2312,7 +2312,7 @@ function LegacyCommandReviewRowCard({
       <div className="audit-row-game">
         <strong>{row.matchup}</strong>
         <span>
-          <CalendarBlank size={12} weight="bold" aria-hidden="true" />
+          <CalendarBlank size={12} aria-hidden="true" />
           {row.date}
         </span>
         <em>{row.pitcherMeta}</em>
@@ -2552,7 +2552,7 @@ function CommandCenter({
                 <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
-              <CalendarBlank size={15} weight="bold" aria-hidden="true" />
+              <CalendarBlank size={15} aria-hidden="true" />
             </span>
           </label>
         </div>
@@ -2560,7 +2560,7 @@ function CommandCenter({
 
       <section className="cmdx-overview" aria-label="Staff allocation overview">
         <div className="cmdx-section-title">
-          <SquaresFour size={22} weight="fill" aria-hidden="true" />
+          <SquaresFour size={22} aria-hidden="true" />
           <div>
             <h2>Staff-Allocation Overview</h2>
             <p>Regular-season audit inventory by primary decision type.</p>
@@ -2582,7 +2582,7 @@ function CommandCenter({
                 .join(" ")}
               onClick={() => setAllocationFilter(bucket.key)}
             >
-              {bucket.key === "all" ? <Files size={92} weight="fill" aria-hidden="true" /> : null}
+              {bucket.key === "all" ? <Files size={92} aria-hidden="true" /> : null}
               <span>{bucket.label}</span>
               <strong>{bucket.value}</strong>
               <em>
@@ -2607,7 +2607,7 @@ function CommandCenter({
         <section className="cmdx-queue">
           <div className="cmdx-queue-title">
             <div>
-              <ListDashes size={22} weight="fill" aria-hidden="true" />
+              <ListDashes size={22} aria-hidden="true" />
               <h2>{selectedReviewHeading}</h2>
               <span className={bucketSourceGames.length > 0 ? "cmdx-source-ready" : "cmdx-source-pending"}>
                 <i aria-hidden="true" />
@@ -2615,7 +2615,7 @@ function CommandCenter({
               </span>
             </div>
             <button type="button" className="cmdx-sort-button" onClick={onRefresh}>
-              <SortDescending size={16} weight="bold" aria-hidden="true" />
+              <SortDescending size={16} aria-hidden="true" />
               Sort by Decision Delta
             </button>
           </div>
