@@ -3664,6 +3664,7 @@ export default function App() {
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
   const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50 });
+  const preventableRunsGameId = workflow === "audit" ? selectedGameId : null;
   const {
     payload: preventableRuns,
     error: preventableRunsError,
@@ -3672,9 +3673,9 @@ export default function App() {
   } = usePreventableRunsOpportunities({
     season,
     team: selectedTeam.abbr,
-    gameId: selectedGameId,
+    gameId: preventableRunsGameId,
     limit: 5000,
-    scope: selectedGameId ? "top" : "game_matrix",
+    scope: preventableRunsGameId ? "top" : "game_matrix",
   });
   const apiBase = getConfiguredApiBase();
 
