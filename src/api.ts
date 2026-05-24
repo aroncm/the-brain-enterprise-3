@@ -159,18 +159,26 @@ function mapOpportunityRow(value: unknown): PreventableRunsOpportunityRow {
   const productionDegradation = numberOrNull(pick(item, "productionDegradation", "production_degradation"));
   const normalizedDegradation = numberOrNull(pick(item, "normalizedDegradation", "normalized_degradation"));
   return {
-    gameId: stringOrNull(pick(item, "gameId", "game_id")) ?? "",
-    gameDate: stringOrNull(pick(item, "gameDate", "game_date")),
-    team: stringOrNull(pick(item, "team", "fieldingTeam", "fielding_team")) ?? "",
-    opponent: stringOrNull(pick(item, "opponent", "battingTeam", "batting_team")) ?? "",
-    pitcherId: stringOrNull(pick(item, "pitcherId", "pitcher_id")),
+    raw: item,
+    gameId:
+      stringOrNull(
+        pick(item, "gameId", "game_id", "gamePk", "game_pk", "gamePK", "game_pk_id", "mlbGamePk", "mlb_game_pk"),
+      ) ?? "",
+    gameDate: stringOrNull(pick(item, "gameDate", "game_date", "gameDateEt", "game_date_et", "date")),
+    team:
+      stringOrNull(
+        pick(item, "team", "fieldingTeam", "fielding_team", "decisionTeam", "decision_team", "club", "club_abbr"),
+      ) ?? "",
+    opponent:
+      stringOrNull(pick(item, "opponent", "battingTeam", "batting_team", "opponentTeam", "opponent_team")) ?? "",
+    pitcherId: stringOrNull(pick(item, "pitcherId", "pitcher_id", "pitcher", "mlbPitcherId", "mlb_pitcher_id")),
     pitcherName: stringOrNull(pick(item, "pitcherName", "pitcher_name")) ?? "Pitcher",
-    inning: numberOrNull(pick(item, "inning")),
-    half: stringOrNull(pick(item, "half")),
-    outs: numberOrNull(pick(item, "outs")),
-    baseState: stringOrNull(pick(item, "baseState", "base_state")),
-    pitchCount: numberOrNull(pick(item, "pitchCount", "pitch_count")),
-    status: stringOrNull(pick(item, "status", "recommendationStatus", "recommendation_status")),
+    inning: numberOrNull(pick(item, "inning", "inning_number")),
+    half: stringOrNull(pick(item, "half", "inningHalf", "inning_half", "topBottom", "top_bottom")),
+    outs: numberOrNull(pick(item, "outs", "out_count", "outs_when_up")),
+    baseState: stringOrNull(pick(item, "baseState", "base_state", "base_state_code", "bases")),
+    pitchCount: numberOrNull(pick(item, "pitchCount", "pitch_count", "pitchNumber", "pitch_number", "pitch_count_in_game")),
+    status: stringOrNull(pick(item, "status", "recommendationStatus", "recommendation_status", "signal", "modelStatus", "model_status")),
     damageRunsNext6Outs: numberOrNull(pick(item, "damageRunsNext6Outs", "damage_runs_next_6_outs")),
     projectedDamageProbability: numberOrNull(pick(item, "projectedDamageProbability", "projected_damage_probability")),
     projectedRunsThroughNextPocket: numberOrNull(pick(item, "projectedRunsThroughNextPocket", "projected_runs_through_next_pocket")),
@@ -182,7 +190,14 @@ function mapOpportunityRow(value: unknown): PreventableRunsOpportunityRow {
     missedHookDamageFlag: numberOrNull(pick(item, "missedHookDamageFlag", "missed_hook_damage_flag")),
     productionDegradation,
     normalizedDegradation,
+    recommendedRelieverId: stringOrNull(pick(item, "recommendedRelieverId", "recommended_reliever_id")),
+    recommendedRelieverName: stringOrNull(pick(item, "recommendedRelieverName", "recommended_reliever_name")),
+    starterValueNextWindow: numberOrNull(pick(item, "starterValueNextWindow", "starter_value_next_3_hitters")),
+    bestRelieverValueNextWindow: numberOrNull(pick(item, "bestRelieverValueNextWindow", "best_reliever_value_next_3_hitters")),
     decisionDelta: numberOrNull(pick(item, "decisionDelta", "decision_delta")),
+    allocationBucket: stringOrNull(pick(item, "allocationBucket", "allocation_bucket")),
+    peakWindow: booleanOrNull(pick(item, "peakWindow", "peak_window")),
+    windowCount: numberOrNull(pick(item, "windowCount", "window_count")),
     calibratedPreventableSignal: numberOrNull(pick(item, "calibratedPreventableSignal", "calibrated_preventable_signal")),
     calibrationBucket: stringOrNull(pick(item, "calibrationBucket", "calibration_bucket")),
     calibrationSampleCount: numberOrNull(pick(item, "calibrationSampleCount", "calibration_sample_count")),
@@ -217,13 +232,14 @@ function normalizePreventableRunsPayload(value: unknown): PreventableRunsOpportu
 }
 
 export function fetchPreventableRunsOpportunities(
-  query: { season?: number | string; team?: string; gameId?: string | null; limit?: number } = {},
+  query: { season?: number | string; team?: string; gameId?: string | null; limit?: number; scope?: "top" | "game_matrix" | "all_games" } = {},
 ): Promise<PreventableRunsOpportunitiesPayload> {
   const params = new URLSearchParams();
   if (query.season) params.set("season", String(query.season));
   if (query.team) params.set("team", query.team);
   if (query.gameId) params.set("game_id", query.gameId);
   if (query.limit != null) params.set("limit", String(query.limit));
+  if (query.scope) params.set("scope", query.scope);
   return fetchJson<unknown>(`/v1/pitching/preventable-runs/opportunities?${params.toString()}`).then(normalizePreventableRunsPayload);
 }
 

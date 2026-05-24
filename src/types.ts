@@ -146,6 +146,7 @@ export type PreventableRunsFeatureContribution = {
 };
 
 export type PreventableRunsOpportunityRow = {
+  raw?: Record<string, unknown>;
   gameId: string;
   gameDate: string | null;
   team: string;
@@ -169,7 +170,14 @@ export type PreventableRunsOpportunityRow = {
   missedHookDamageFlag?: number | null;
   productionDegradation?: number | null;
   normalizedDegradation?: number | null;
+  recommendedRelieverId?: string | null;
+  recommendedRelieverName?: string | null;
+  starterValueNextWindow?: number | null;
+  bestRelieverValueNextWindow?: number | null;
   decisionDelta?: number | null;
+  allocationBucket?: string | null;
+  peakWindow?: boolean | null;
+  windowCount?: number | null;
   calibratedPreventableSignal?: number | null;
   calibrationBucket: string | null;
   calibrationSampleCount: number | null;
@@ -384,6 +392,13 @@ export type PitchingReplayEntry = {
     decision_delta?: number;
     estimated_win_probability_delta?: number;
     starter_risk_level?: string;
+    independent_degradation_score?: number | null;
+    independent_degradation_level?: string | null;
+    leveraged_degradation_score?: number | null;
+    leveraged_degradation_level?: string | null;
+    trigger_driver_type?: string | null;
+    gm_summary?: string | null;
+    decision_summary?: string | null;
     top_reason_codes: string[];
   };
   top_candidates?: Array<{
