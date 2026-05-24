@@ -1331,19 +1331,19 @@ function pitcherInitials(name: string): string {
 }
 
 function allocationCellForOpportunity(row: PreventableRunsOpportunityRow): MatrixCell {
-  const explicitCell = explicitAllocationCellForOpportunity(row);
-  if (explicitCell) return explicitCell;
-
-  const starterValue = row.starterValueNextWindow;
+  const starterDegradation = row.normalizedDegradation;
   const bullpenValue = row.bestRelieverValueNextWindow;
-  if (starterValue != null && bullpenValue != null) {
-    const starterAboveAverage = starterValue >= 0;
-    const bullpenAboveAverage = bullpenValue >= 0;
+  if (starterDegradation != null && bullpenValue != null) {
+    const starterAboveAverage = starterDegradation < 0.45;
+    const bullpenAboveAverage = bullpenValue >= 0.65;
     if (starterAboveAverage && bullpenAboveAverage) return "standard";
     if (!starterAboveAverage && bullpenAboveAverage) return "tandem";
     if (starterAboveAverage && !bullpenAboveAverage) return "push";
     return "workload";
   }
+
+  const explicitCell = explicitAllocationCellForOpportunity(row);
+  if (explicitCell) return explicitCell;
 
   return "standard";
 }
