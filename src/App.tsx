@@ -8,7 +8,6 @@ import {
   Grid2X2 as SquaresFour,
   LineChart as ChartLineUp,
   List as ListDashes,
-  Network as Strategy,
   RefreshCw as ArrowsClockwise,
   Search as MagnifyingGlass,
   TrendingDown as TrendDown,
@@ -50,7 +49,7 @@ import type {
 } from "./types";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
-type Workflow = "command" | "audit" | "allocation" | "roster" | "briefings";
+type Workflow = "command" | "audit" | "allocation" | "briefings";
 type Team = { abbr: string; name: string; club: string; division: string };
 type MatrixCell = "standard" | "tandem" | "push" | "workload";
 
@@ -124,19 +123,17 @@ const MLB_TEAMS: Team[] = [
   { abbr: "WSH", name: "Washington Nationals", club: "Nationals", division: "NL East" },
 ];
 
-const WORKFLOWS: Array<{ id: Workflow; label: string; question: string }> = [
-  { id: "command", label: "In-Season Audit", question: "Where did we have opportunities to prevent runs?" },
-  { id: "audit", label: "Game Audit", question: "What happened pitch by pitch?" },
-  { id: "allocation", label: "Pitcher Allocation", question: "How should we deploy the staff?" },
-  { id: "roster", label: "Roster Construction", question: "What staff gaps should we solve?" },
-  { id: "briefings", label: "Briefings", question: "Who receives postgame intelligence?" },
+const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
+  { id: "command", label: "Season Insights" },
+  { id: "audit", label: "Game Replays" },
+  { id: "allocation", label: "Staff Review" },
+  { id: "briefings", label: "Briefings" },
 ];
 
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
   command: ChartLineUp,
   audit: MagnifyingGlass,
   allocation: UsersThree,
-  roster: Strategy,
   briefings: PresentationChart,
 };
 
@@ -1045,7 +1042,6 @@ function Header({
         </span>
         <span className="cmdx-nav-copy">
           <strong>{item.label}</strong>
-          <span>{item.question}</span>
         </span>
       </button>
     );
@@ -1058,10 +1054,8 @@ function Header({
       </div>
 
       <nav className="cmdx-sidebar-nav" aria-label="Primary workflows">
-        <span className="cmdx-sidebar-section">Core Tools</span>
-        {WORKFLOWS.slice(0, 3).map(renderWorkflowButton)}
-        <span className="cmdx-sidebar-section cmdx-sidebar-section--planning">Planning</span>
-        {WORKFLOWS.slice(3).map(renderWorkflowButton)}
+        <span className="cmdx-sidebar-section">Pitching Intelligence</span>
+        {WORKFLOWS.map(renderWorkflowButton)}
       </nav>
 
       <div className="cmdx-sidebar-footer">
@@ -1312,6 +1306,13 @@ function matrixBucketShortLabel(cell: MatrixCell): string {
   if (cell === "push") return "Push starter";
   if (cell === "workload") return "Workload";
   return "Standard";
+}
+
+function matrixBucketDefinition(cell: MatrixCell): string {
+  if (cell === "tandem") return "Starter is fading and relief path is optimal";
+  if (cell === "push") return "Starter is stronger than available alternatives";
+  if (cell === "workload") return "Starter and alternatives are both sub-optimal";
+  return "Starter rates well and bullpen alternative is also usable";
 }
 
 function pitcherInitials(name: string): string {
@@ -2227,6 +2228,13 @@ function bucketTransitionLabel(bucketLabel: string): string {
   return bucketLabel;
 }
 
+function commandRowInsight(row: CommandReviewRowModel): string {
+  if (row.reasons.length > 0) return row.reasons[0];
+  if (row.decisionText) return row.decisionText;
+  if (row.damageRisk != null) return `${fmtPct(row.damageRisk)} scoring damage risk at the peak decision window`;
+  return "Open Game Replay for pitch-by-pitch context";
+}
+
 function CommandReviewRowCard({
   row,
   onOpenGameAudit,
@@ -2234,8 +2242,8 @@ function CommandReviewRowCard({
   row: CommandReviewRowModel;
   onOpenGameAudit: (gameId: string) => void;
 }) {
-  const impact = impactParts(row.impactText);
   const hasGame = Boolean(row.gameId);
+  const insight = commandRowInsight(row);
 
   return (
     <button
@@ -2252,13 +2260,7 @@ function CommandReviewRowCard({
             {row.date}
           </span>
         </div>
-        <div className="cmdx-impact-badge">
-          <span>{impactLabelText(impact.label)}</span>
-          <div className="cmdx-impact-value-stack">
-            <strong>{impact.value}</strong>
-            {row.secondaryImpactText ? <em>{row.secondaryImpactText}</em> : null}
-          </div>
-        </div>
+        <span className={`cmdx-category-pill cmdx-category-pill--${row.bucket}`}>{row.bucketLabel}</span>
       </div>
       <div className="cmdx-row-body">
         <div className="cmdx-pitcher-cell">
@@ -2268,21 +2270,23 @@ function CommandReviewRowCard({
             <em>{row.reviewPoint}</em>
           </div>
         </div>
-        <div className="cmdx-rec-cell">
-          <span>Recommendation</span>
+        <div className="cmdx-row-metrics">
+          <div>
+            <span>Decision Delta</span>
+            <strong>{fmtSigned(row.decisionDelta, 2)}</strong>
+          </div>
+          <div>
+            <span>Run Exposure</span>
+            <strong>{fmtRuns(row.runExposure)}</strong>
+          </div>
+        </div>
+        <div className="cmdx-row-insight">
+          <span>Peak Window Insight</span>
           <strong>
             <b className={`cmdx-status cmdx-status--${signalClass(row.status)}`}>{row.status}</b>
-            <ArrowRight size={18} aria-hidden="true" />
             {bucketTransitionLabel(row.bucketLabel)}
           </strong>
-          <em>{row.decisionText}</em>
-        </div>
-        <div className="cmdx-reason-cell">
-          {row.reasons.length === 0 ? (
-            <span className="cmdx-driver-chip">Open pitch audit</span>
-          ) : (
-            row.reasons.slice(0, 4).map((reason) => <CommandDriverChip key={reason} reason={reason} />)
-          )}
+          <em>{insight}</em>
         </div>
       </div>
       <span className="cmdx-row-pitcher-meta">{row.pitcherMeta}</span>
@@ -2459,67 +2463,51 @@ function CommandCenter({
       ? allCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity))
       : allSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games));
   allReviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
-  const selectedDecisionDelta = maxIfAny(reviewRows.map((row) => row.decisionDelta));
-  const allDecisionDelta = maxIfAny(allReviewRows.map((row) => row.decisionDelta));
-  const selectedRunExposure = maxIfAny(reviewRows.map((row) => row.runExposure)) ?? 0;
-  const allRunExposure = maxIfAny(allReviewRows.map((row) => row.runExposure)) ?? 0;
-  const headerDecisionDelta = selectedDecisionDelta ?? allDecisionDelta ?? (selectedRunExposure || allRunExposure || displayedRuns);
-  const damageRateText = fmtPct(calibratedDamageRate);
-  const bucketRunExposure = (bucket: MatrixCell) =>
-    maxIfAny(allReviewRows.filter((row) => row.bucket === bucket).map((row) => row.runExposure)) ?? 0;
-  const bucketDecisionDelta = (bucket: MatrixCell) =>
-    maxIfAny(allReviewRows.filter((row) => row.bucket === bucket).map((row) => row.decisionDelta));
+  const averageDecisionDelta = avg(allReviewRows.map((row) => row.decisionDelta));
+  const totalRunExposure = sumIfAny(allReviewRows.map((row) => row.runExposure));
   const overviewBuckets: Array<{
     key: MatrixCell | "all";
     label: string;
     value: number;
-    decisionDelta?: number;
-    runExposure?: number;
+    definition?: string;
     variant: "all" | "tandem" | "standard" | "empty";
   }> = [
     {
       key: "all",
       label: "Unique review games",
       value: bucketSourceGames.length,
-      decisionDelta: allDecisionDelta,
-      runExposure: allRunExposure || displayedRuns,
       variant: "all",
     },
     {
       key: "tandem",
       label: "Tandem Mandatory",
       value: auditMatrix.tandem,
-      decisionDelta: bucketDecisionDelta("tandem"),
-      runExposure: bucketRunExposure("tandem"),
+      definition: matrixBucketDefinition("tandem"),
       variant: "tandem",
     },
     {
       key: "push",
       label: "Push The Starter",
       value: auditMatrix.push,
-      decisionDelta: bucketDecisionDelta("push"),
-      runExposure: bucketRunExposure("push"),
+      definition: matrixBucketDefinition("push"),
       variant: auditMatrix.push > 0 ? "standard" : "empty",
     },
     {
       key: "workload",
       label: "Workload Management",
       value: auditMatrix.workload,
-      decisionDelta: bucketDecisionDelta("workload"),
-      runExposure: bucketRunExposure("workload"),
+      definition: matrixBucketDefinition("workload"),
       variant: auditMatrix.workload > 0 ? "standard" : "empty",
     },
     {
       key: "standard",
       label: "Standard Usage",
       value: auditMatrix.standard,
-      decisionDelta: bucketDecisionDelta("standard"),
-      runExposure: bucketRunExposure("standard"),
+      definition: matrixBucketDefinition("standard"),
       variant: auditMatrix.standard > 0 ? "standard" : "empty",
     },
   ];
 
-  const evidenceState = bucketSourceGames.length > 0 ? "Evidence ready" : preventableRunsLoading ? "Loading" : "Evidence unavailable";
   const selectedReviewHeading =
     allocationFilter === "all"
       ? "All Reviews"
@@ -2530,20 +2518,21 @@ function CommandCenter({
       <header className="cmdx-command-header">
         <div className="cmdx-command-title">
           <h1>{team.name}</h1>
+          <p>Season Insights</p>
         </div>
 
         <div className="cmdx-head-strip" aria-label="Current review summary">
           <div>
-            <span>Pitchers</span>
+            <span>Pitchers Reviewed</span>
             <strong>{coveredPitcherCount}</strong>
           </div>
           <div>
-            <span>Decision Delta</span>
-            <strong>{fmtSigned(headerDecisionDelta, 2)}</strong>
+            <span>Average Decision Delta</span>
+            <strong>{fmtSigned(averageDecisionDelta, 2)}</strong>
           </div>
           <div>
-            <span>Damage Rate</span>
-            <strong>{damageRateText}</strong>
+            <span>Total Run Exposure</span>
+            <strong>{fmtRuns(totalRunExposure)}</strong>
           </div>
           <label className="cmdx-season-select">
             <span>Season</span>
@@ -2562,8 +2551,7 @@ function CommandCenter({
         <div className="cmdx-section-title">
           <SquaresFour size={22} aria-hidden="true" />
           <div>
-            <h2>Staff-Allocation Overview</h2>
-            <p>Regular-season audit inventory by primary decision type.</p>
+            <h2>Staff Deployment Review</h2>
           </div>
         </div>
 
@@ -2585,13 +2573,7 @@ function CommandCenter({
               {bucket.key === "all" ? <Files size={92} aria-hidden="true" /> : null}
               <span>{bucket.label}</span>
               <strong>{bucket.value}</strong>
-              <em>
-                {bucket.decisionDelta != null
-                  ? `Peak ${fmtSigned(bucket.decisionDelta, 2)} decision delta`
-                  : bucket.runExposure != null
-                    ? `Run exposure ${fmtRuns(bucket.runExposure)}`
-                    : "Decision delta unavailable"}
-              </em>
+              {bucket.definition ? <em className="cmdx-stat-tooltip">{bucket.definition}</em> : null}
             </button>
           ))}
         </div>
@@ -2609,10 +2591,6 @@ function CommandCenter({
             <div>
               <ListDashes size={22} aria-hidden="true" />
               <h2>{selectedReviewHeading}</h2>
-              <span className={bucketSourceGames.length > 0 ? "cmdx-source-ready" : "cmdx-source-pending"}>
-                <i aria-hidden="true" />
-                {evidenceState}
-              </span>
             </div>
             <button type="button" className="cmdx-sort-button" onClick={onRefresh}>
               <SortDescending size={16} aria-hidden="true" />
@@ -3857,10 +3835,6 @@ export default function App() {
 
       {loadState === "ready" && workflow === "allocation" && (
         <PitcherAllocation profiles={profiles} bullpenOptions={bullpenOptions} />
-      )}
-
-      {loadState === "ready" && workflow === "roster" && (
-        <RosterConstruction team={selectedTeam} profiles={profiles} auditSummary={auditSummary} candidates={tripleA} />
       )}
 
       {loadState === "ready" && workflow === "briefings" && (
