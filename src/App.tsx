@@ -3664,18 +3664,26 @@ export default function App() {
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
   const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50 });
-  const preventableRunsGameId = workflow === "audit" ? selectedGameId : null;
   const {
-    payload: preventableRuns,
-    error: preventableRunsError,
-    loading: preventableRunsLoading,
-    reload: reloadPreventableRuns,
+    payload: dashboardPreventableRuns,
+    error: dashboardPreventableRunsError,
+    loading: dashboardPreventableRunsLoading,
+    reload: reloadDashboardPreventableRuns,
   } = usePreventableRunsOpportunities({
     season,
     team: selectedTeam.abbr,
-    gameId: preventableRunsGameId,
     limit: 5000,
-    scope: preventableRunsGameId ? "top" : "game_matrix",
+    scope: "game_matrix",
+  });
+  const {
+    payload: auditPreventableRuns,
+    reload: reloadAuditPreventableRuns,
+  } = usePreventableRunsOpportunities({
+    season,
+    team: selectedTeam.abbr,
+    gameId: selectedGameId,
+    limit: 5000,
+    scope: "top",
   });
   const apiBase = getConfiguredApiBase();
 
@@ -3773,7 +3781,8 @@ export default function App() {
   function refreshAll() {
     void reload();
     void reloadTripleA();
-    void reloadPreventableRuns();
+    void reloadDashboardPreventableRuns();
+    void reloadAuditPreventableRuns();
     void loadRecapSettings();
   }
 
@@ -3818,9 +3827,9 @@ export default function App() {
           team={selectedTeam}
           season={season}
           payload={payload}
-          preventableRuns={preventableRuns}
-          preventableRunsError={preventableRunsError}
-          preventableRunsLoading={preventableRunsLoading}
+          preventableRuns={dashboardPreventableRuns}
+          preventableRunsError={dashboardPreventableRunsError}
+          preventableRunsLoading={dashboardPreventableRunsLoading}
           profiles={profiles}
           auditSummary={auditSummary}
           games={games}
@@ -3842,7 +3851,7 @@ export default function App() {
           onGameChange={setSelectedGameId}
           replay={replay}
           recap={recap}
-          preventableRows={preventableRuns?.rows ?? []}
+          preventableRows={auditPreventableRuns?.rows ?? []}
         />
       )}
 
