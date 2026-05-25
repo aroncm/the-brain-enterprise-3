@@ -15409,7 +15409,7 @@ body {
 /* Season Insights row-detail presentation. Keep this scoped block last. */
 .cmdx-head-strip {
   height: 86px !important;
-  grid-template-columns: repeat(3, 118px) 86px !important;
+  grid-template-columns: repeat(3, 158px) 98px !important;
   align-items: stretch !important;
 }
 
@@ -15427,7 +15427,7 @@ body {
 
 .cmdx-head-strip span,
 .cmdx-head-strip label > span:not(.cmdx-season-control) {
-  max-width: 92px !important;
+  max-width: none !important;
   color: #64748b !important;
   font-size: 8.8px !important;
   line-height: 1.14 !important;
@@ -15435,6 +15435,7 @@ body {
   letter-spacing: 0.1em !important;
   text-align: left !important;
   text-transform: uppercase !important;
+  white-space: nowrap !important;
 }
 
 .cmdx-head-strip strong,
@@ -15455,6 +15456,26 @@ body {
   color: var(--cmdx-red) !important;
 }
 
+.cmdx-head-strip .cmdx-season-control {
+  width: auto !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.cmdx-head-strip .cmdx-season-control select {
+  color: var(--cmdx-blue) !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-head-strip .cmdx-season-control svg {
+  display: none !important;
+}
+
 .cmdx-stat-card {
   min-height: 120px !important;
   height: 120px !important;
@@ -15465,11 +15486,12 @@ body {
 
 .cmdx-stat-card span {
   min-height: 30px !important;
-  max-width: 145px !important;
+  max-width: none !important;
   color: inherit !important;
   font-size: 11px !important;
   line-height: 1.14 !important;
   text-align: left !important;
+  white-space: nowrap !important;
 }
 
 .cmdx-stat-card strong {
@@ -15479,8 +15501,8 @@ body {
 }
 
 .cmdx-queue-row {
-  min-height: 166px !important;
-  grid-template-rows: 50px minmax(116px, auto) !important;
+  min-height: 188px !important;
+  grid-template-rows: 50px minmax(138px, auto) !important;
   overflow: hidden !important;
 }
 
@@ -15512,14 +15534,14 @@ body {
 
 .cmdx-row-body {
   display: grid !important;
-  grid-template-columns: minmax(220px, 1.2fr) repeat(4, minmax(145px, 1fr)) !important;
-  min-height: 116px !important;
+  grid-template-columns: minmax(210px, 1.25fr) minmax(170px, 1fr) minmax(132px, 0.8fr) minmax(132px, 0.8fr) minmax(190px, 1.05fr) minmax(210px, 1.15fr) !important;
+  min-height: 138px !important;
   border-top: 1px solid var(--cmdx-line-soft) !important;
 }
 
 .cmdx-row-panel {
   min-width: 0 !important;
-  min-height: 116px !important;
+  min-height: 138px !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
@@ -15553,6 +15575,9 @@ body {
 }
 
 .cmdx-row-panel > em {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
   overflow-wrap: anywhere !important;
   color: #64748b !important;
   font-size: 11.5px !important;
@@ -15568,6 +15593,33 @@ body {
 
 .cmdx-row-panel--blue > strong {
   color: var(--cmdx-blue) !important;
+}
+
+.cmdx-score-line {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 2px !important;
+}
+
+.cmdx-score-line b {
+  color: #475569 !important;
+  font-weight: 950 !important;
+}
+
+.cmdx-score-line b.is-selected-team {
+  color: var(--cmdx-red) !important;
+}
+
+.cmdx-run-highlight {
+  color: var(--cmdx-red) !important;
+  font-weight: 950 !important;
+}
+
+.cmdx-outcome-detail {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
 }
 
 .cmdx-signal-panel {
@@ -15597,12 +15649,19 @@ body {
 
 .cmdx-signal-state em {
   min-width: 0 !important;
+  display: block !important;
   overflow: hidden !important;
   color: #475569 !important;
   font-size: 11.5px !important;
   line-height: 1.15 !important;
   font-style: normal !important;
   font-weight: 820 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-signal-state em .cmdx-score-line {
+  overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
 }

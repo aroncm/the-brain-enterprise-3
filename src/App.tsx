@@ -1,4 +1,4 @@
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ArrowDownWideNarrow as SortDescending,
@@ -1756,6 +1756,22 @@ function gameTeamsForId(gameId: string | null | undefined, games: EnterpriseGame
   };
 }
 
+function opponentDisplayLabel(
+  selectedTeam: string,
+  gameTeams: { awayTeam: string | null; homeTeam: string | null },
+  fallbackOpponent: unknown,
+): string {
+  const selected = cleanTeamToken(selectedTeam);
+  const away = cleanTeamToken(gameTeams.awayTeam);
+  const home = cleanTeamToken(gameTeams.homeTeam);
+  if (selected && away && home) {
+    if (selected === away) return `@ ${home}`;
+    if (selected === home) return `vs ${away}`;
+  }
+  const opponent = cleanTeamToken(fallbackOpponent);
+  return opponent ? `vs ${opponent}` : "Opponent";
+}
+
 function calibratedMatchKeys(row: PreventableRunsOpportunityRow): string[] {
   const extra = record(row);
   const date = cleanDateToken(row.gameDate ?? extra.gameDate ?? extra.game_date ?? extra.gameDateEt ?? extra.game_date_et ?? extra.date);
@@ -2088,9 +2104,11 @@ type CommandReviewRowModel = {
   key: string;
   gameId: string | null;
   matchup: string;
+  opponentLabel: string;
   date: string;
   pitcherMeta: string;
   pitcherName: string;
+  selectedTeam: string;
   reviewPoint: string;
   status: string;
   bucket: MatrixCell;
@@ -2113,11 +2131,15 @@ type CommandReviewRowModel = {
   awayTeam: string | null;
   currentHomeScore: number | null;
   currentAwayScore: number | null;
+  finalHomeScore: number | null;
+  finalAwayScore: number | null;
   recommendedRelieverName: string | null;
   actualChangeInning: string | null;
   actualChangePitchCount: number | null;
   actualReplacementPitcher: string | null;
   runsAfterModelWindow: number | null;
+  degradationScore: number | null;
+  rationaleText: string;
 };
 
 function auditRunExposureValue(window: PitchingAuditWindow): number | null {
@@ -2133,7 +2155,7 @@ function auditDecisionDeltaValue(window: PitchingAuditWindow): number | null {
   return num(window.decision_delta);
 }
 
-function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: EnterpriseGameSummary[]): CommandReviewRowModel {
+function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: EnterpriseGameSummary[], selectedTeam: Team): CommandReviewRowModel {
   const { row, windowCount, pitcherCount } = opportunity;
   const teams = auditTeams(row);
   const priority = Math.min(100, Math.round(auditPriorityValue(row)));
@@ -2157,14 +2179,26 @@ function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: E
   const gameId = auditResolvedGameId(row, games);
   const gameTeams = gameTeamsForId(gameId, games);
   const rawRow = record(row);
+  const degradation =
+    calibratedRow?.degradationScore ??
+    calibratedRow?.productionDegradation ??
+    calibratedRow?.normalizedDegradation ??
+    num(record(row.starter).degradation_score ?? record(row.starter).enhanced_degradation_score ?? row.degradation_score ?? row.normalized_degradation);
+  const rationale =
+    mergedReasons[0] ??
+    (calibratedRow?.projectedDamageProbability != null
+      ? `${fmtPct(calibratedRow.projectedDamageProbability)} scoring damage risk at the peak decision window`
+      : decisionSummary ?? "Model rationale unavailable");
 
   return {
     key: auditGameKey(row),
     gameId,
     matchup: teams.matchup,
+    opponentLabel: opponentDisplayLabel(selectedTeam.abbr, gameTeams, teams.opponent),
     date: formatDateText(auditGameDate(row)),
     pitcherMeta: `${windowCount} review window${windowCount === 1 ? "" : "s"} · ${pitcherCount} pitcher${pitcherCount === 1 ? "" : "s"}`,
     pitcherName: displayPersonName(auditPitcherName(row)) || "Pitcher",
+    selectedTeam: selectedTeam.abbr,
     reviewPoint: auditReviewPointLabel(row),
     status: auditStatus(row),
     bucket: opportunity.cell,
@@ -2194,15 +2228,19 @@ function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: E
     awayTeam: gameTeams.awayTeam,
     currentHomeScore: calibratedRow?.currentHomeScore ?? num(rawRow.currentHomeScore ?? rawRow.current_home_score),
     currentAwayScore: calibratedRow?.currentAwayScore ?? num(rawRow.currentAwayScore ?? rawRow.current_away_score),
+    finalHomeScore: calibratedRow?.finalHomeScore ?? num(rawRow.finalHomeScore ?? rawRow.final_home_score),
+    finalAwayScore: calibratedRow?.finalAwayScore ?? num(rawRow.finalAwayScore ?? rawRow.final_away_score),
     recommendedRelieverName: displayPersonName(calibratedRow?.recommendedRelieverName) || null,
     actualChangeInning: calibratedRow?.actualChangeInning ?? (typeof rawRow.actualChangeInning === "string" ? rawRow.actualChangeInning : null),
     actualChangePitchCount: calibratedRow?.actualChangePitchCount ?? num(rawRow.actualChangePitchCount ?? rawRow.actual_change_pitch_count),
     actualReplacementPitcher: displayPersonName(calibratedRow?.actualReplacementPitcher ?? (typeof rawRow.actualReplacementPitcher === "string" ? rawRow.actualReplacementPitcher : null)) || null,
     runsAfterModelWindow: calibratedRow?.runsAfterModelWindow ?? num(rawRow.runsAfterModelWindow ?? rawRow.runs_after_model_window),
+    degradationScore: degradation,
+    rationaleText: rationale,
   };
 }
 
-function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: EnterpriseGameSummary[]): CommandReviewRowModel {
+function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: EnterpriseGameSummary[], selectedTeam: Team): CommandReviewRowModel {
   const { row, windowCount } = opportunity;
   const priority = Math.round((row.calibratedPreventableSignal ?? row.projectedDamageProbability ?? 0) * 100);
   const reviewLevel = priority >= 95 ? "Immediate staff review" : priority >= 85 ? "High-priority review" : "Staff review";
@@ -2211,14 +2249,17 @@ function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: Ent
   const decisionDelta = opportunity.decisionDelta ?? calibratedDecisionEdgeValue(row);
   const impact = commandImpactTextFromValues(decisionDelta, runExposure, runExposureLabel);
   const gameTeams = gameTeamsForId(row.gameId, games);
+  const reasons = reviewReasonLabels(row);
 
   return {
     key: calibratedGameKey(row),
     gameId: row.gameId ?? null,
     matchup: `${row.team || "Team"} vs ${row.opponent || "Opponent"}`,
+    opponentLabel: opponentDisplayLabel(selectedTeam.abbr, gameTeams, row.opponent),
     date: formatDateText(row.gameDate),
     pitcherMeta: windowCount > 1 ? `Peak decision window · ${windowCount} windows evaluated` : "Peak decision window",
     pitcherName: displayPersonName(row.pitcherName) || "Pitcher",
+    selectedTeam: selectedTeam.abbr,
     reviewPoint: reviewPointLabel(row),
     status: statusLabel(row.status),
     bucket: opportunity.cell,
@@ -2231,7 +2272,7 @@ function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: Ent
     damageRisk: row.projectedDamageProbability,
     leverage: row.leverageIndex,
     priorityText: `Priority ${priority}/100 · Calibrated game exposure`,
-    reasons: reviewReasonLabels(row),
+    reasons,
     pitchCount: row.pitchCount,
     inning: row.inning,
     half: row.half,
@@ -2241,11 +2282,15 @@ function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: Ent
     awayTeam: gameTeams.awayTeam,
     currentHomeScore: row.currentHomeScore ?? null,
     currentAwayScore: row.currentAwayScore ?? null,
+    finalHomeScore: row.finalHomeScore ?? null,
+    finalAwayScore: row.finalAwayScore ?? null,
     recommendedRelieverName: displayPersonName(row.recommendedRelieverName) || null,
     actualChangeInning: row.actualChangeInning ?? null,
     actualChangePitchCount: row.actualChangePitchCount ?? null,
     actualReplacementPitcher: displayPersonName(row.actualReplacementPitcher) || null,
     runsAfterModelWindow: row.runsAfterModelWindow ?? null,
+    degradationScore: row.degradationScore ?? row.productionDegradation ?? row.normalizedDegradation,
+    rationaleText: reasons[0] ?? "Model rationale unavailable",
   };
 }
 
@@ -2307,13 +2352,6 @@ function commandRowInsight(row: CommandReviewRowModel): string {
   return "Open Game Replay for pitch-by-pitch context";
 }
 
-function commandScoreLabel(row: CommandReviewRowModel): string {
-  if (row.currentAwayScore == null || row.currentHomeScore == null) return "Score unavailable";
-  const away = row.awayTeam ?? "Away";
-  const home = row.homeTeam ?? "Home";
-  return `${away} ${row.currentAwayScore} - ${home} ${row.currentHomeScore}`;
-}
-
 function commandPitchLabel(row: CommandReviewRowModel): string {
   const pitch = row.pitchCount == null ? "Pitch unavailable" : `Pitch ${row.pitchCount}`;
   return `${pitch} · ${compactInningLabel(row.half, row.inning)}`;
@@ -2329,6 +2367,52 @@ function commandRemovalLabel(row: CommandReviewRowModel): string {
 function commandRunsAfterLabel(row: CommandReviewRowModel): string {
   if (row.runsAfterModelWindow == null) return "Runs unavailable";
   return `${row.runsAfterModelWindow} ${row.runsAfterModelWindow === 1 ? "run" : "runs"} before removal`;
+}
+
+function personNameKey(name: string | null | undefined): string {
+  return displayPersonName(name).toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function commandReliefDetail(row: CommandReviewRowModel): string {
+  if (row.decisionDelta == null) return "Model edge unavailable for this relief option.";
+  const value = fmtSigned(Math.abs(row.decisionDelta), 2);
+  if (row.decisionDelta >= 0) {
+    return `Model estimated this option was ${value} runs better than keeping the starter in for the next window.`;
+  }
+  return `Model estimated this option was ${value} runs worse than keeping the starter in for the next window.`;
+}
+
+function CommandScoreLine({ row, final = false }: { row: CommandReviewRowModel; final?: boolean }) {
+  const awayScore = final ? row.finalAwayScore : row.currentAwayScore;
+  const homeScore = final ? row.finalHomeScore : row.currentHomeScore;
+  if (awayScore == null || homeScore == null) {
+    return <span>{final ? "Final score unavailable" : "Score unavailable"}</span>;
+  }
+  const away = row.awayTeam ?? "Away";
+  const home = row.homeTeam ?? "Home";
+  const selected = teamKey(row.selectedTeam);
+  const awaySelected = selected && teamKey(away) === selected;
+  const homeSelected = selected && teamKey(home) === selected;
+  return (
+    <span className="cmdx-score-line">
+      {final ? <span>Final </span> : null}
+      <b className={awaySelected ? "is-selected-team" : ""}>{away} {awayScore}</b>
+      <span> - </span>
+      <b className={homeSelected ? "is-selected-team" : ""}>{home} {homeScore}</b>
+    </span>
+  );
+}
+
+function CommandRunsAfter({ row }: { row: CommandReviewRowModel }) {
+  if (row.runsAfterModelWindow == null) return <span>Runs unavailable</span>;
+  return (
+    <span>
+      <b className="cmdx-run-highlight">
+        {row.runsAfterModelWindow} {row.runsAfterModelWindow === 1 ? "run" : "runs"}
+      </b>{" "}
+      before removal
+    </span>
+  );
 }
 
 function CommandBasesDiamond({ baseState }: { baseState: string | null | undefined }) {
@@ -2359,8 +2443,8 @@ function CommandRowPanel({
   tone,
 }: {
   label: string;
-  value: string;
-  detail?: string | null;
+  value: ReactNode;
+  detail?: ReactNode;
   tone?: "red" | "blue";
 }) {
   return (
@@ -2381,16 +2465,14 @@ function CommandReviewRowCard({
 }) {
   const hasGame = Boolean(row.gameId);
   const reliefName = row.recommendedRelieverName ?? "Reliever unavailable";
-  const reliefDetail =
-    row.decisionDelta == null
-      ? "Decision delta unavailable"
-      : `${fmtSigned(row.decisionDelta, 2)} vs leaving starter in`;
-  const outcomeDetail = [
-    row.actualReplacementPitcher ? `Actual change to ${row.actualReplacementPitcher}` : null,
-    commandRunsAfterLabel(row),
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const modelRelieverKey = personNameKey(row.recommendedRelieverName);
+  const actualRelieverKey = personNameKey(row.actualReplacementPitcher);
+  const actualChangeText =
+    row.actualReplacementPitcher && modelRelieverKey && actualRelieverKey && modelRelieverKey === actualRelieverKey
+      ? `Actual change matched model option: ${row.actualReplacementPitcher}`
+      : row.actualReplacementPitcher
+        ? `Actual change to ${row.actualReplacementPitcher}`
+        : "Actual replacement unavailable";
   const outcomeValue = commandRemovalLabel(row);
 
   return (
@@ -2403,7 +2485,7 @@ function CommandReviewRowCard({
       <div className="cmdx-row-top">
         <div className="cmdx-row-meta">
           <strong className="cmdx-row-pitcher-name">{row.pitcherName}</strong>
-          <strong className="cmdx-matchup-pill">{row.matchup}</strong>
+          <strong className="cmdx-matchup-pill">{row.opponentLabel}</strong>
           <span className="cmdx-row-date">
             <CalendarBlank size={14} aria-hidden="true" />
             {row.date}
@@ -2421,13 +2503,25 @@ function CommandReviewRowCard({
           <div className="cmdx-signal-state">
             <CommandBasesDiamond baseState={row.baseState} />
             <CommandOutsDots outs={row.outs} />
-            <em>{commandScoreLabel(row)}</em>
+            <em><CommandScoreLine row={row} /></em>
           </div>
         </div>
-        <CommandRowPanel label="Decision Delta" value={fmtSigned(row.decisionDelta, 2)} detail={bucketTransitionLabel(row.bucketLabel)} tone="red" />
+        <CommandRowPanel label="Signal Rationale" value={fmtNumber(row.degradationScore, 2)} detail={row.rationaleText} tone="blue" />
+        <CommandRowPanel label="Decision Delta" value={fmtSigned(row.decisionDelta, 2)} tone="red" />
         <CommandRowPanel label="Run Exposure" value={fmtRuns(row.runExposure)} detail="Peak model signal" tone="red" />
-        <CommandRowPanel label="Relief Option" value={reliefName} detail={reliefDetail} tone="blue" />
-        <CommandRowPanel label="Game Outcome" value={outcomeValue} detail={outcomeDetail} tone="blue" />
+        <CommandRowPanel label="Optimal Relief Option" value={reliefName} detail={commandReliefDetail(row)} tone="blue" />
+        <CommandRowPanel
+          label="Actual Game Outcome"
+          value={outcomeValue}
+          detail={
+            <span className="cmdx-outcome-detail">
+              <span>{actualChangeText}</span>
+              <CommandRunsAfter row={row} />
+              <CommandScoreLine row={row} final />
+            </span>
+          }
+          tone="blue"
+        />
       </div>
     </button>
   );
@@ -2594,13 +2688,13 @@ function CommandCenter({
   const queueSummaryWindowCount = visibleWindowCount || calibratedSummary?.missedHookDamageCount || damageWindowCount;
   const reviewRows =
     useCalibratedQueue
-      ? visibleCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games))
-      : visibleSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games));
+      ? visibleCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games, team))
+      : visibleSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games, team));
   reviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
   const allReviewRows =
     useCalibratedQueue
-      ? allCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games))
-      : allSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games));
+      ? allCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games, team))
+      : allSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games, team));
   allReviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
   const averageDecisionDelta = avg(allReviewRows.map((row) => row.decisionDelta));
   const totalRunExposure = sumIfAny(allReviewRows.map((row) => row.runExposure));
@@ -2662,27 +2756,15 @@ function CommandCenter({
 
         <div className="cmdx-head-strip" aria-label="Current review summary">
           <div>
-            <span>
-              Pitchers
-              <br />
-              Reviewed
-            </span>
+            <span>Pitchers Reviewed</span>
             <strong>{coveredPitcherCount}</strong>
           </div>
           <div>
-            <span>
-              Average Decision
-              <br />
-              Delta
-            </span>
+            <span>Average Decision Delta</span>
             <strong>{fmtSigned(averageDecisionDelta, 2)}</strong>
           </div>
           <div>
-            <span>
-              Total Run
-              <br />
-              Exposure
-            </span>
+            <span>Total Run Exposure</span>
             <strong>{fmtRuns(totalRunExposure)}</strong>
           </div>
           <label className="cmdx-season-select">
