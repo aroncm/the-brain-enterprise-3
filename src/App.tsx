@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   ArrowDownWideNarrow as SortDescending,
@@ -8,6 +8,7 @@ import {
   Grid2X2 as SquaresFour,
   LineChart as ChartLineUp,
   List as ListDashes,
+  Network as Strategy,
   RefreshCw as ArrowsClockwise,
   Search as MagnifyingGlass,
   TrendingDown as TrendDown,
@@ -49,7 +50,7 @@ import type {
 } from "./types";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
-type Workflow = "command" | "audit" | "allocation" | "briefings";
+type Workflow = "command" | "audit" | "allocation" | "roster" | "briefings";
 type Team = { abbr: string; name: string; club: string; division: string };
 type MatrixCell = "standard" | "tandem" | "push" | "workload";
 
@@ -123,17 +124,19 @@ const MLB_TEAMS: Team[] = [
   { abbr: "WSH", name: "Washington Nationals", club: "Nationals", division: "NL East" },
 ];
 
-const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
-  { id: "command", label: "Season Insights" },
-  { id: "audit", label: "Game Replays" },
-  { id: "allocation", label: "Staff Review" },
-  { id: "briefings", label: "Briefings" },
+const WORKFLOWS: Array<{ id: Workflow; label: string; question: string }> = [
+  { id: "command", label: "In-Season Audit", question: "Where did we have opportunities to prevent runs?" },
+  { id: "audit", label: "Game Audit", question: "What happened pitch by pitch?" },
+  { id: "allocation", label: "Pitcher Allocation", question: "How should we deploy the staff?" },
+  { id: "roster", label: "Roster Construction", question: "What staff gaps should we solve?" },
+  { id: "briefings", label: "Briefings", question: "Who receives postgame intelligence?" },
 ];
 
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
   command: ChartLineUp,
   audit: MagnifyingGlass,
   allocation: UsersThree,
+  roster: Strategy,
   briefings: PresentationChart,
 };
 
@@ -212,14 +215,6 @@ function ordinal(value: number | null | undefined): string {
 function halfInningLabel(half: string | null | undefined, inning: number | null | undefined): string {
   const normalizedHalf = String(half || "").toLowerCase() === "top" ? "top" : String(half || "").toLowerCase() === "bottom" ? "bottom" : "half";
   return `${normalizedHalf} of the ${ordinal(inning)}`;
-}
-
-function compactInningLabel(half: string | null | undefined, inning: number | null | undefined): string {
-  if (inning == null || !Number.isFinite(inning)) return "Inning unavailable";
-  const normalizedHalf = String(half || "").toLowerCase();
-  if (normalizedHalf.startsWith("top") || normalizedHalf === "t" || normalizedHalf === "away") return `Top ${inning}`;
-  if (normalizedHalf.startsWith("bot") || normalizedHalf === "b" || normalizedHalf === "home") return `Bottom ${inning}`;
-  return `Inning ${inning}`;
 }
 
 function baseStateLabel(baseState: string | null | undefined): string {
@@ -1050,6 +1045,7 @@ function Header({
         </span>
         <span className="cmdx-nav-copy">
           <strong>{item.label}</strong>
+          <span>{item.question}</span>
         </span>
       </button>
     );
@@ -1062,8 +1058,10 @@ function Header({
       </div>
 
       <nav className="cmdx-sidebar-nav" aria-label="Primary workflows">
-        <span className="cmdx-sidebar-section">Pitching Intelligence</span>
-        {WORKFLOWS.map(renderWorkflowButton)}
+        <span className="cmdx-sidebar-section">Core Tools</span>
+        {WORKFLOWS.slice(0, 3).map(renderWorkflowButton)}
+        <span className="cmdx-sidebar-section cmdx-sidebar-section--planning">Planning</span>
+        {WORKFLOWS.slice(3).map(renderWorkflowButton)}
       </nav>
 
       <div className="cmdx-sidebar-footer">
@@ -1316,22 +1314,6 @@ function matrixBucketShortLabel(cell: MatrixCell): string {
   return "Standard";
 }
 
-function matrixBucketDefinition(cell: MatrixCell): string {
-  if (cell === "tandem") return "Starter is fading and relief path is optimal";
-  if (cell === "push") return "Starter is stronger than available alternatives";
-  if (cell === "workload") return "Starter and alternatives are both sub-optimal";
-  return "Starter rates well and bullpen alternative is also usable";
-}
-
-function displayPersonName(name: string | null | undefined): string {
-  const clean = String(name || "").trim();
-  if (!clean) return "";
-  if (!clean.includes(",")) return clean.replace(/\s+/g, " ");
-  const [last, ...rest] = clean.split(",").map((part) => part.trim()).filter(Boolean);
-  const first = rest.join(" ");
-  return [first, last].filter(Boolean).join(" ") || clean;
-}
-
 function pitcherInitials(name: string): string {
   const clean = name.trim();
   if (!clean) return "P";
@@ -1349,19 +1331,19 @@ function pitcherInitials(name: string): string {
 }
 
 function allocationCellForOpportunity(row: PreventableRunsOpportunityRow): MatrixCell {
-  const starterDegradation = row.normalizedDegradation;
+  const explicitCell = explicitAllocationCellForOpportunity(row);
+  if (explicitCell) return explicitCell;
+
+  const starterValue = row.starterValueNextWindow;
   const bullpenValue = row.bestRelieverValueNextWindow;
-  if (starterDegradation != null && bullpenValue != null) {
-    const starterAboveAverage = starterDegradation < 0.45;
-    const bullpenAboveAverage = bullpenValue >= 0.65;
+  if (starterValue != null && bullpenValue != null) {
+    const starterAboveAverage = starterValue >= 0;
+    const bullpenAboveAverage = bullpenValue >= 0;
     if (starterAboveAverage && bullpenAboveAverage) return "standard";
     if (!starterAboveAverage && bullpenAboveAverage) return "tandem";
     if (starterAboveAverage && !bullpenAboveAverage) return "push";
     return "workload";
   }
-
-  const explicitCell = explicitAllocationCellForOpportunity(row);
-  if (explicitCell) return explicitCell;
 
   return "standard";
 }
@@ -1747,31 +1729,6 @@ function calibratedGameId(row: PreventableRunsOpportunityRow): string | null {
   );
 }
 
-function gameTeamsForId(gameId: string | null | undefined, games: EnterpriseGameSummary[]): { awayTeam: string | null; homeTeam: string | null } {
-  const id = cleanIdToken(gameId);
-  const game = id ? games.find((candidate) => String(candidate.game_id) === id) : null;
-  return {
-    awayTeam: game?.away_team ? String(game.away_team) : null,
-    homeTeam: game?.home_team ? String(game.home_team) : null,
-  };
-}
-
-function opponentDisplayLabel(
-  selectedTeam: string,
-  gameTeams: { awayTeam: string | null; homeTeam: string | null },
-  fallbackOpponent: unknown,
-): string {
-  const selected = cleanTeamToken(selectedTeam);
-  const away = cleanTeamToken(gameTeams.awayTeam);
-  const home = cleanTeamToken(gameTeams.homeTeam);
-  if (selected && away && home) {
-    if (selected === away) return `@ ${home}`;
-    if (selected === home) return `vs ${away}`;
-  }
-  const opponent = cleanTeamToken(fallbackOpponent);
-  return opponent ? `vs ${opponent}` : "Opponent";
-}
-
 function calibratedMatchKeys(row: PreventableRunsOpportunityRow): string[] {
   const extra = record(row);
   const date = cleanDateToken(row.gameDate ?? extra.gameDate ?? extra.game_date ?? extra.gameDateEt ?? extra.game_date_et ?? extra.date);
@@ -2104,11 +2061,9 @@ type CommandReviewRowModel = {
   key: string;
   gameId: string | null;
   matchup: string;
-  opponentLabel: string;
   date: string;
   pitcherMeta: string;
   pitcherName: string;
-  selectedTeam: string;
   reviewPoint: string;
   status: string;
   bucket: MatrixCell;
@@ -2122,24 +2077,6 @@ type CommandReviewRowModel = {
   leverage: number | null;
   priorityText: string;
   reasons: string[];
-  pitchCount: number | null;
-  inning: number | null;
-  half: string | null;
-  outs: number | null;
-  baseState: string | null;
-  homeTeam: string | null;
-  awayTeam: string | null;
-  currentHomeScore: number | null;
-  currentAwayScore: number | null;
-  finalHomeScore: number | null;
-  finalAwayScore: number | null;
-  recommendedRelieverName: string | null;
-  actualChangeInning: string | null;
-  actualChangePitchCount: number | null;
-  actualReplacementPitcher: string | null;
-  runsAfterModelWindow: number | null;
-  degradationScore: number | null;
-  rationaleText: string;
 };
 
 function auditRunExposureValue(window: PitchingAuditWindow): number | null {
@@ -2155,7 +2092,7 @@ function auditDecisionDeltaValue(window: PitchingAuditWindow): number | null {
   return num(window.decision_delta);
 }
 
-function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: EnterpriseGameSummary[], selectedTeam: Team): CommandReviewRowModel {
+function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: EnterpriseGameSummary[]): CommandReviewRowModel {
   const { row, windowCount, pitcherCount } = opportunity;
   const teams = auditTeams(row);
   const priority = Math.min(100, Math.round(auditPriorityValue(row)));
@@ -2176,29 +2113,14 @@ function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: E
   const mergedReasons = [...(calibratedRow ? reviewReasonLabels(calibratedRow) : []), ...auditWindowReasonLabels(row)]
     .filter((reason, index, list) => Boolean(reason) && list.indexOf(reason) === index)
     .slice(0, 3);
-  const gameId = auditResolvedGameId(row, games);
-  const gameTeams = gameTeamsForId(gameId, games);
-  const rawRow = record(row);
-  const degradation =
-    calibratedRow?.degradationScore ??
-    calibratedRow?.productionDegradation ??
-    calibratedRow?.normalizedDegradation ??
-    num(record(row.starter).degradation_score ?? record(row.starter).enhanced_degradation_score ?? row.degradation_score ?? row.normalized_degradation);
-  const rationale =
-    mergedReasons[0] ??
-    (calibratedRow?.projectedDamageProbability != null
-      ? `${fmtPct(calibratedRow.projectedDamageProbability)} scoring damage risk at the peak decision window`
-      : decisionSummary ?? "Model rationale unavailable");
 
   return {
     key: auditGameKey(row),
-    gameId,
+    gameId: auditResolvedGameId(row, games),
     matchup: teams.matchup,
-    opponentLabel: opponentDisplayLabel(selectedTeam.abbr, gameTeams, teams.opponent),
     date: formatDateText(auditGameDate(row)),
     pitcherMeta: `${windowCount} review window${windowCount === 1 ? "" : "s"} · ${pitcherCount} pitcher${pitcherCount === 1 ? "" : "s"}`,
-    pitcherName: displayPersonName(auditPitcherName(row)) || "Pitcher",
-    selectedTeam: selectedTeam.abbr,
+    pitcherName: auditPitcherName(row),
     reviewPoint: auditReviewPointLabel(row),
     status: auditStatus(row),
     bucket: opportunity.cell,
@@ -2219,28 +2141,10 @@ function seasonAuditCommandRow(opportunity: SeasonAuditGameOpportunity, games: E
         ? `Decision delta ${fmtSigned(calibratedDecisionEdge, 2)} · Priority ${displayPriority}/100`
         : `Priority ${displayPriority}/100 · ${calibratedRow ? "Calibrated game exposure" : "Season Audit"}`,
     reasons: mergedReasons.length > 0 ? mergedReasons : auditWindowReasonLabels(row),
-    pitchCount: calibratedRow?.pitchCount ?? auditPitchCount(row),
-    inning: calibratedRow?.inning ?? num(row.inning),
-    half: calibratedRow?.half ?? (typeof row.half === "string" ? row.half : null),
-    outs: calibratedRow?.outs ?? num(row.outs),
-    baseState: calibratedRow?.baseState ?? (typeof rawRow.base_state === "string" ? rawRow.base_state : null),
-    homeTeam: gameTeams.homeTeam,
-    awayTeam: gameTeams.awayTeam,
-    currentHomeScore: calibratedRow?.currentHomeScore ?? num(rawRow.currentHomeScore ?? rawRow.current_home_score),
-    currentAwayScore: calibratedRow?.currentAwayScore ?? num(rawRow.currentAwayScore ?? rawRow.current_away_score),
-    finalHomeScore: calibratedRow?.finalHomeScore ?? num(rawRow.finalHomeScore ?? rawRow.final_home_score),
-    finalAwayScore: calibratedRow?.finalAwayScore ?? num(rawRow.finalAwayScore ?? rawRow.final_away_score),
-    recommendedRelieverName: displayPersonName(calibratedRow?.recommendedRelieverName) || null,
-    actualChangeInning: calibratedRow?.actualChangeInning ?? (typeof rawRow.actualChangeInning === "string" ? rawRow.actualChangeInning : null),
-    actualChangePitchCount: calibratedRow?.actualChangePitchCount ?? num(rawRow.actualChangePitchCount ?? rawRow.actual_change_pitch_count),
-    actualReplacementPitcher: displayPersonName(calibratedRow?.actualReplacementPitcher ?? (typeof rawRow.actualReplacementPitcher === "string" ? rawRow.actualReplacementPitcher : null)) || null,
-    runsAfterModelWindow: calibratedRow?.runsAfterModelWindow ?? num(rawRow.runsAfterModelWindow ?? rawRow.runs_after_model_window),
-    degradationScore: degradation,
-    rationaleText: rationale,
   };
 }
 
-function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: EnterpriseGameSummary[], selectedTeam: Team): CommandReviewRowModel {
+function calibratedCommandRow(opportunity: CalibratedGameOpportunity): CommandReviewRowModel {
   const { row, windowCount } = opportunity;
   const priority = Math.round((row.calibratedPreventableSignal ?? row.projectedDamageProbability ?? 0) * 100);
   const reviewLevel = priority >= 95 ? "Immediate staff review" : priority >= 85 ? "High-priority review" : "Staff review";
@@ -2248,18 +2152,14 @@ function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: Ent
   const runExposureLabel = opportunity.runExposureLabel ?? "run exposure";
   const decisionDelta = opportunity.decisionDelta ?? calibratedDecisionEdgeValue(row);
   const impact = commandImpactTextFromValues(decisionDelta, runExposure, runExposureLabel);
-  const gameTeams = gameTeamsForId(row.gameId, games);
-  const reasons = reviewReasonLabels(row);
 
   return {
     key: calibratedGameKey(row),
     gameId: row.gameId ?? null,
     matchup: `${row.team || "Team"} vs ${row.opponent || "Opponent"}`,
-    opponentLabel: opponentDisplayLabel(selectedTeam.abbr, gameTeams, row.opponent),
     date: formatDateText(row.gameDate),
     pitcherMeta: windowCount > 1 ? `Peak decision window · ${windowCount} windows evaluated` : "Peak decision window",
-    pitcherName: displayPersonName(row.pitcherName) || "Pitcher",
-    selectedTeam: selectedTeam.abbr,
+    pitcherName: row.pitcherName,
     reviewPoint: reviewPointLabel(row),
     status: statusLabel(row.status),
     bucket: opportunity.cell,
@@ -2272,25 +2172,7 @@ function calibratedCommandRow(opportunity: CalibratedGameOpportunity, games: Ent
     damageRisk: row.projectedDamageProbability,
     leverage: row.leverageIndex,
     priorityText: `Priority ${priority}/100 · Calibrated game exposure`,
-    reasons,
-    pitchCount: row.pitchCount,
-    inning: row.inning,
-    half: row.half,
-    outs: row.outs,
-    baseState: row.baseState,
-    homeTeam: gameTeams.homeTeam,
-    awayTeam: gameTeams.awayTeam,
-    currentHomeScore: row.currentHomeScore ?? null,
-    currentAwayScore: row.currentAwayScore ?? null,
-    finalHomeScore: row.finalHomeScore ?? null,
-    finalAwayScore: row.finalAwayScore ?? null,
-    recommendedRelieverName: displayPersonName(row.recommendedRelieverName) || null,
-    actualChangeInning: row.actualChangeInning ?? null,
-    actualChangePitchCount: row.actualChangePitchCount ?? null,
-    actualReplacementPitcher: displayPersonName(row.actualReplacementPitcher) || null,
-    runsAfterModelWindow: row.runsAfterModelWindow ?? null,
-    degradationScore: row.degradationScore ?? row.productionDegradation ?? row.normalizedDegradation,
-    rationaleText: reasons[0] ?? "Model rationale unavailable",
+    reasons: reviewReasonLabels(row),
   };
 }
 
@@ -2345,117 +2227,6 @@ function bucketTransitionLabel(bucketLabel: string): string {
   return bucketLabel;
 }
 
-function commandRowInsight(row: CommandReviewRowModel): string {
-  if (row.reasons.length > 0) return row.reasons[0];
-  if (row.decisionText) return row.decisionText;
-  if (row.damageRisk != null) return `${fmtPct(row.damageRisk)} scoring damage risk at the peak decision window`;
-  return "Open Game Replay for pitch-by-pitch context";
-}
-
-function commandPitchLabel(row: CommandReviewRowModel): string {
-  const pitch = row.pitchCount == null ? "Pitch unavailable" : `Pitch ${row.pitchCount}`;
-  return `${pitch} · ${compactInningLabel(row.half, row.inning)}`;
-}
-
-function commandRemovalLabel(row: CommandReviewRowModel): string {
-  const inning = row.actualChangeInning;
-  const pitch = row.actualChangePitchCount == null ? null : `pitch ${row.actualChangePitchCount}`;
-  if (!inning && !pitch) return "Removal unavailable";
-  return [inning, pitch].filter(Boolean).join(" · ");
-}
-
-function commandRunsAfterLabel(row: CommandReviewRowModel): string {
-  if (row.runsAfterModelWindow == null) return "Runs unavailable";
-  return `${row.runsAfterModelWindow} ${row.runsAfterModelWindow === 1 ? "run" : "runs"} before removal`;
-}
-
-function personNameKey(name: string | null | undefined): string {
-  return displayPersonName(name).toLowerCase().replace(/[^a-z]/g, "");
-}
-
-function commandReliefDetail(row: CommandReviewRowModel): string {
-  if (row.decisionDelta == null) return "Model edge unavailable for this relief option.";
-  const value = fmtSigned(Math.abs(row.decisionDelta), 2);
-  if (row.decisionDelta >= 0) {
-    return `Model estimated this option was ${value} runs better than keeping the starter in for the next window.`;
-  }
-  return `Model estimated this option was ${value} runs worse than keeping the starter in for the next window.`;
-}
-
-function CommandScoreLine({ row, final = false }: { row: CommandReviewRowModel; final?: boolean }) {
-  const awayScore = final ? row.finalAwayScore : row.currentAwayScore;
-  const homeScore = final ? row.finalHomeScore : row.currentHomeScore;
-  if (awayScore == null || homeScore == null) {
-    return <span>{final ? "Final score unavailable" : "Score unavailable"}</span>;
-  }
-  const away = row.awayTeam ?? "Away";
-  const home = row.homeTeam ?? "Home";
-  const selected = teamKey(row.selectedTeam);
-  const awaySelected = selected && teamKey(away) === selected;
-  const homeSelected = selected && teamKey(home) === selected;
-  return (
-    <span className="cmdx-score-line">
-      {final ? <span>Final </span> : null}
-      <b className={awaySelected ? "is-selected-team" : ""}>{away} {awayScore}</b>
-      <span> - </span>
-      <b className={homeSelected ? "is-selected-team" : ""}>{home} {homeScore}</b>
-    </span>
-  );
-}
-
-function CommandRunsAfter({ row }: { row: CommandReviewRowModel }) {
-  if (row.runsAfterModelWindow == null) return <span>Runs unavailable</span>;
-  return (
-    <span>
-      <b className="cmdx-run-highlight">
-        {row.runsAfterModelWindow} {row.runsAfterModelWindow === 1 ? "run" : "runs"}
-      </b>{" "}
-      before removal
-    </span>
-  );
-}
-
-function CommandBasesDiamond({ baseState }: { baseState: string | null | undefined }) {
-  const bases = baseStateFlags(baseState);
-  return (
-    <span className="cmdx-bases-mini" aria-label={baseStateLabel(baseState)}>
-      <i className={bases.second ? "filled second" : "second"} />
-      <i className={bases.third ? "filled third" : "third"} />
-      <i className={bases.first ? "filled first" : "first"} />
-    </span>
-  );
-}
-
-function CommandOutsDots({ outs }: { outs: number | null | undefined }) {
-  return (
-    <span className="cmdx-outs-mini" aria-label={outsLabel(outs)}>
-      {[0, 1, 2].map((index) => (
-        <i key={index} className={(outs ?? 0) > index ? "filled" : ""} />
-      ))}
-    </span>
-  );
-}
-
-function CommandRowPanel({
-  label,
-  value,
-  detail,
-  tone,
-}: {
-  label: string;
-  value: ReactNode;
-  detail?: ReactNode;
-  tone?: "red" | "blue";
-}) {
-  return (
-    <div className={`cmdx-row-panel ${tone ? `cmdx-row-panel--${tone}` : ""}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {detail ? <em>{detail}</em> : null}
-    </div>
-  );
-}
-
 function CommandReviewRowCard({
   row,
   onOpenGameAudit,
@@ -2463,17 +2234,8 @@ function CommandReviewRowCard({
   row: CommandReviewRowModel;
   onOpenGameAudit: (gameId: string) => void;
 }) {
+  const impact = impactParts(row.impactText);
   const hasGame = Boolean(row.gameId);
-  const reliefName = row.recommendedRelieverName ?? "Reliever unavailable";
-  const modelRelieverKey = personNameKey(row.recommendedRelieverName);
-  const actualRelieverKey = personNameKey(row.actualReplacementPitcher);
-  const actualChangeText =
-    row.actualReplacementPitcher && modelRelieverKey && actualRelieverKey && modelRelieverKey === actualRelieverKey
-      ? `Actual change matched model option: ${row.actualReplacementPitcher}`
-      : row.actualReplacementPitcher
-        ? `Actual change to ${row.actualReplacementPitcher}`
-        : "Actual replacement unavailable";
-  const outcomeValue = commandRemovalLabel(row);
 
   return (
     <button
@@ -2484,45 +2246,46 @@ function CommandReviewRowCard({
     >
       <div className="cmdx-row-top">
         <div className="cmdx-row-meta">
-          <strong className="cmdx-row-pitcher-name">{row.pitcherName}</strong>
-          <strong className="cmdx-matchup-pill">{row.opponentLabel}</strong>
+          <strong className="cmdx-matchup-pill">{row.matchup}</strong>
           <span className="cmdx-row-date">
             <CalendarBlank size={14} aria-hidden="true" />
             {row.date}
           </span>
         </div>
-        <span className={`cmdx-category-pill cmdx-category-pill--${row.bucket}`}>{row.bucketLabel}</span>
-      </div>
-      <div className="cmdx-row-body">
-        <div className="cmdx-row-panel cmdx-signal-panel">
-          <span>Signal Context</span>
-          <div className="cmdx-signal-main">
-            <b className={`cmdx-status cmdx-status--${signalClass(row.status)}`}>{row.status}</b>
-            <strong>{commandPitchLabel(row)}</strong>
-          </div>
-          <div className="cmdx-signal-state">
-            <CommandBasesDiamond baseState={row.baseState} />
-            <CommandOutsDots outs={row.outs} />
-            <em><CommandScoreLine row={row} /></em>
+        <div className="cmdx-impact-badge">
+          <span>{impactLabelText(impact.label)}</span>
+          <div className="cmdx-impact-value-stack">
+            <strong>{impact.value}</strong>
+            {row.secondaryImpactText ? <em>{row.secondaryImpactText}</em> : null}
           </div>
         </div>
-        <CommandRowPanel label="Signal Rationale" value={fmtNumber(row.degradationScore, 2)} detail={row.rationaleText} tone="blue" />
-        <CommandRowPanel label="Decision Delta" value={fmtSigned(row.decisionDelta, 2)} tone="red" />
-        <CommandRowPanel label="Run Exposure" value={fmtRuns(row.runExposure)} detail="Peak model signal" tone="red" />
-        <CommandRowPanel label="Optimal Relief Option" value={reliefName} detail={commandReliefDetail(row)} tone="blue" />
-        <CommandRowPanel
-          label="Actual Game Outcome"
-          value={outcomeValue}
-          detail={
-            <span className="cmdx-outcome-detail">
-              <span>{actualChangeText}</span>
-              <CommandRunsAfter row={row} />
-              <CommandScoreLine row={row} final />
-            </span>
-          }
-          tone="blue"
-        />
       </div>
+      <div className="cmdx-row-body">
+        <div className="cmdx-pitcher-cell">
+          <span className="cmdx-avatar">{pitcherInitials(row.pitcherName)}</span>
+          <div>
+            <strong>{row.pitcherName}</strong>
+            <em>{row.reviewPoint}</em>
+          </div>
+        </div>
+        <div className="cmdx-rec-cell">
+          <span>Recommendation</span>
+          <strong>
+            <b className={`cmdx-status cmdx-status--${signalClass(row.status)}`}>{row.status}</b>
+            <ArrowRight size={18} aria-hidden="true" />
+            {bucketTransitionLabel(row.bucketLabel)}
+          </strong>
+          <em>{row.decisionText}</em>
+        </div>
+        <div className="cmdx-reason-cell">
+          {row.reasons.length === 0 ? (
+            <span className="cmdx-driver-chip">Open pitch audit</span>
+          ) : (
+            row.reasons.slice(0, 4).map((reason) => <CommandDriverChip key={reason} reason={reason} />)
+          )}
+        </div>
+      </div>
+      <span className="cmdx-row-pitcher-meta">{row.pitcherMeta}</span>
     </button>
   );
 }
@@ -2688,59 +2451,75 @@ function CommandCenter({
   const queueSummaryWindowCount = visibleWindowCount || calibratedSummary?.missedHookDamageCount || damageWindowCount;
   const reviewRows =
     useCalibratedQueue
-      ? visibleCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games, team))
-      : visibleSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games, team));
+      ? visibleCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity))
+      : visibleSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games));
   reviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
   const allReviewRows =
     useCalibratedQueue
-      ? allCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games, team))
-      : allSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games, team));
+      ? allCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity))
+      : allSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games));
   allReviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
-  const averageDecisionDelta = avg(allReviewRows.map((row) => row.decisionDelta));
-  const totalRunExposure = sumIfAny(allReviewRows.map((row) => row.runExposure));
+  const selectedDecisionDelta = maxIfAny(reviewRows.map((row) => row.decisionDelta));
+  const allDecisionDelta = maxIfAny(allReviewRows.map((row) => row.decisionDelta));
+  const selectedRunExposure = maxIfAny(reviewRows.map((row) => row.runExposure)) ?? 0;
+  const allRunExposure = maxIfAny(allReviewRows.map((row) => row.runExposure)) ?? 0;
+  const headerDecisionDelta = selectedDecisionDelta ?? allDecisionDelta ?? (selectedRunExposure || allRunExposure || displayedRuns);
+  const damageRateText = fmtPct(calibratedDamageRate);
+  const bucketRunExposure = (bucket: MatrixCell) =>
+    maxIfAny(allReviewRows.filter((row) => row.bucket === bucket).map((row) => row.runExposure)) ?? 0;
+  const bucketDecisionDelta = (bucket: MatrixCell) =>
+    maxIfAny(allReviewRows.filter((row) => row.bucket === bucket).map((row) => row.decisionDelta));
   const overviewBuckets: Array<{
     key: MatrixCell | "all";
     label: string;
     value: number;
-    definition?: string;
+    decisionDelta?: number;
+    runExposure?: number;
     variant: "all" | "tandem" | "standard" | "empty";
   }> = [
     {
       key: "all",
-      label: "Total Games Reviewed",
+      label: "Unique review games",
       value: bucketSourceGames.length,
+      decisionDelta: allDecisionDelta,
+      runExposure: allRunExposure || displayedRuns,
       variant: "all",
     },
     {
       key: "tandem",
       label: "Tandem Mandatory",
       value: auditMatrix.tandem,
-      definition: matrixBucketDefinition("tandem"),
+      decisionDelta: bucketDecisionDelta("tandem"),
+      runExposure: bucketRunExposure("tandem"),
       variant: "tandem",
     },
     {
       key: "push",
       label: "Push The Starter",
       value: auditMatrix.push,
-      definition: matrixBucketDefinition("push"),
+      decisionDelta: bucketDecisionDelta("push"),
+      runExposure: bucketRunExposure("push"),
       variant: auditMatrix.push > 0 ? "standard" : "empty",
     },
     {
       key: "workload",
       label: "Workload Management",
       value: auditMatrix.workload,
-      definition: matrixBucketDefinition("workload"),
+      decisionDelta: bucketDecisionDelta("workload"),
+      runExposure: bucketRunExposure("workload"),
       variant: auditMatrix.workload > 0 ? "standard" : "empty",
     },
     {
       key: "standard",
       label: "Standard Usage",
       value: auditMatrix.standard,
-      definition: matrixBucketDefinition("standard"),
+      decisionDelta: bucketDecisionDelta("standard"),
+      runExposure: bucketRunExposure("standard"),
       variant: auditMatrix.standard > 0 ? "standard" : "empty",
     },
   ];
 
+  const evidenceState = bucketSourceGames.length > 0 ? "Evidence ready" : preventableRunsLoading ? "Loading" : "Evidence unavailable";
   const selectedReviewHeading =
     allocationFilter === "all"
       ? "All Reviews"
@@ -2751,21 +2530,20 @@ function CommandCenter({
       <header className="cmdx-command-header">
         <div className="cmdx-command-title">
           <h1>{team.name}</h1>
-          <p>Season Insights</p>
         </div>
 
         <div className="cmdx-head-strip" aria-label="Current review summary">
           <div>
-            <span>Pitchers Reviewed</span>
+            <span>Pitchers</span>
             <strong>{coveredPitcherCount}</strong>
           </div>
           <div>
-            <span>Average Decision Delta</span>
-            <strong>{fmtSigned(averageDecisionDelta, 2)}</strong>
+            <span>Decision Delta</span>
+            <strong>{fmtSigned(headerDecisionDelta, 2)}</strong>
           </div>
           <div>
-            <span>Total Run Exposure</span>
-            <strong>{fmtRuns(totalRunExposure)}</strong>
+            <span>Damage Rate</span>
+            <strong>{damageRateText}</strong>
           </div>
           <label className="cmdx-season-select">
             <span>Season</span>
@@ -2784,7 +2562,8 @@ function CommandCenter({
         <div className="cmdx-section-title">
           <SquaresFour size={22} aria-hidden="true" />
           <div>
-            <h2>Staff Deployment Review</h2>
+            <h2>Staff-Allocation Overview</h2>
+            <p>Regular-season audit inventory by primary decision type.</p>
           </div>
         </div>
 
@@ -2806,7 +2585,13 @@ function CommandCenter({
               {bucket.key === "all" ? <Files size={92} aria-hidden="true" /> : null}
               <span>{bucket.label}</span>
               <strong>{bucket.value}</strong>
-              {bucket.definition ? <em className="cmdx-stat-tooltip">{bucket.definition}</em> : null}
+              <em>
+                {bucket.decisionDelta != null
+                  ? `Peak ${fmtSigned(bucket.decisionDelta, 2)} decision delta`
+                  : bucket.runExposure != null
+                    ? `Run exposure ${fmtRuns(bucket.runExposure)}`
+                    : "Decision delta unavailable"}
+              </em>
             </button>
           ))}
         </div>
@@ -2824,6 +2609,10 @@ function CommandCenter({
             <div>
               <ListDashes size={22} aria-hidden="true" />
               <h2>{selectedReviewHeading}</h2>
+              <span className={bucketSourceGames.length > 0 ? "cmdx-source-ready" : "cmdx-source-pending"}>
+                <i aria-hidden="true" />
+                {evidenceState}
+              </span>
             </div>
             <button type="button" className="cmdx-sort-button" onClick={onRefresh}>
               <SortDescending size={16} aria-hidden="true" />
@@ -3876,25 +3665,16 @@ export default function App() {
   const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
   const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50 });
   const {
-    payload: dashboardPreventableRuns,
-    error: dashboardPreventableRunsError,
-    loading: dashboardPreventableRunsLoading,
-    reload: reloadDashboardPreventableRuns,
-  } = usePreventableRunsOpportunities({
-    season,
-    team: selectedTeam.abbr,
-    limit: 5000,
-    scope: "game_matrix",
-  });
-  const {
-    payload: auditPreventableRuns,
-    reload: reloadAuditPreventableRuns,
+    payload: preventableRuns,
+    error: preventableRunsError,
+    loading: preventableRunsLoading,
+    reload: reloadPreventableRuns,
   } = usePreventableRunsOpportunities({
     season,
     team: selectedTeam.abbr,
     gameId: selectedGameId,
     limit: 5000,
-    scope: "top",
+    scope: selectedGameId ? "top" : "game_matrix",
   });
   const apiBase = getConfiguredApiBase();
 
@@ -3992,8 +3772,7 @@ export default function App() {
   function refreshAll() {
     void reload();
     void reloadTripleA();
-    void reloadDashboardPreventableRuns();
-    void reloadAuditPreventableRuns();
+    void reloadPreventableRuns();
     void loadRecapSettings();
   }
 
@@ -4038,9 +3817,9 @@ export default function App() {
           team={selectedTeam}
           season={season}
           payload={payload}
-          preventableRuns={dashboardPreventableRuns}
-          preventableRunsError={dashboardPreventableRunsError}
-          preventableRunsLoading={dashboardPreventableRunsLoading}
+          preventableRuns={preventableRuns}
+          preventableRunsError={preventableRunsError}
+          preventableRunsLoading={preventableRunsLoading}
           profiles={profiles}
           auditSummary={auditSummary}
           games={games}
@@ -4062,12 +3841,16 @@ export default function App() {
           onGameChange={setSelectedGameId}
           replay={replay}
           recap={recap}
-          preventableRows={auditPreventableRuns?.rows ?? []}
+          preventableRows={preventableRuns?.rows ?? []}
         />
       )}
 
       {loadState === "ready" && workflow === "allocation" && (
         <PitcherAllocation profiles={profiles} bullpenOptions={bullpenOptions} />
+      )}
+
+      {loadState === "ready" && workflow === "roster" && (
+        <RosterConstruction team={selectedTeam} profiles={profiles} auditSummary={auditSummary} candidates={tripleA} />
       )}
 
       {loadState === "ready" && workflow === "briefings" && (
