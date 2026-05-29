@@ -15088,3 +15088,659 @@ body {
   text-overflow: clip !important;
   white-space: normal !important;
 }
+
+/* Season Insights final presentation pass. Keep last. */
+.cmdx-sidebar-section {
+  color: rgba(255, 255, 255, 0.62) !important;
+}
+
+.cmdx-nav-item {
+  min-height: 46px !important;
+}
+
+.cmdx-nav-copy span {
+  display: none !important;
+}
+
+.cmdx-command-header {
+  grid-template-columns: minmax(260px, 1fr) auto !important;
+  align-items: start !important;
+}
+
+.cmdx-command-title h1 {
+  margin: 0 !important;
+}
+
+.cmdx-command-title p {
+  display: block !important;
+  margin: 8px 0 0 !important;
+  color: var(--cmdx-muted) !important;
+  font-size: 17px !important;
+  line-height: 1.1 !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-head-strip {
+  width: auto !important;
+  height: 74px !important;
+  grid-template-columns: repeat(3, 148px) 82px !important;
+}
+
+.cmdx-head-strip > div {
+  width: 148px !important;
+  min-width: 148px !important;
+  padding: 0 12px !important;
+}
+
+.cmdx-head-strip span,
+.cmdx-head-strip label > span:not(.cmdx-season-control) {
+  font-size: 8.4px !important;
+  letter-spacing: 0.09em !important;
+  white-space: normal !important;
+  text-align: center !important;
+}
+
+.cmdx-head-strip strong {
+  font-size: 21px !important;
+}
+
+.cmdx-head-strip > div:nth-child(2) strong,
+.cmdx-head-strip > div:nth-child(3) strong {
+  color: var(--cmdx-red) !important;
+}
+
+.cmdx-section-title {
+  margin-bottom: 16px !important;
+}
+
+.cmdx-section-title p {
+  display: none !important;
+}
+
+.cmdx-stat-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  align-items: stretch !important;
+}
+
+.cmdx-stat-card {
+  position: relative !important;
+  min-height: 112px !important;
+  height: 112px !important;
+  justify-content: space-between !important;
+  overflow: visible !important;
+}
+
+.cmdx-stat-card span {
+  max-width: 100% !important;
+}
+
+.cmdx-stat-card strong {
+  margin-top: auto !important;
+}
+
+.cmdx-stat-card em:not(.cmdx-stat-tooltip) {
+  display: none !important;
+}
+
+.cmdx-stat-card.active,
+.cmdx-stat-card--all {
+  border-color: var(--cmdx-blue) !important;
+  background: var(--cmdx-blue) !important;
+  color: #fff !important;
+}
+
+.cmdx-stat-card.active span,
+.cmdx-stat-card.active strong,
+.cmdx-stat-card--all span,
+.cmdx-stat-card--all strong {
+  color: #fff !important;
+}
+
+.cmdx-stat-card.active::before,
+.cmdx-stat-card--all::before {
+  background: rgba(255, 255, 255, 0.28) !important;
+}
+
+.cmdx-stat-card.active > svg,
+.cmdx-stat-card--all > svg {
+  color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.cmdx-stat-tooltip {
+  position: absolute !important;
+  left: 14px !important;
+  right: 14px !important;
+  bottom: -54px !important;
+  z-index: 20 !important;
+  display: block !important;
+  padding: 10px 12px !important;
+  border-radius: 8px !important;
+  background: #0f172a !important;
+  color: #fff !important;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.22) !important;
+  font-size: 11px !important;
+  line-height: 1.25 !important;
+  font-style: normal !important;
+  font-weight: 750 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(-4px) !important;
+  transition: opacity 0.16s ease, transform 0.16s ease !important;
+}
+
+.cmdx-stat-card:hover .cmdx-stat-tooltip,
+.cmdx-stat-card:focus-visible .cmdx-stat-tooltip {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
+.cmdx-queue-title > div {
+  gap: 10px !important;
+}
+
+.cmdx-queue-row {
+  min-height: 132px !important;
+  grid-template-rows: 48px minmax(84px, auto) !important;
+  border-radius: 12px !important;
+}
+
+.cmdx-row-top {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  padding: 0 22px 0 28px !important;
+}
+
+.cmdx-category-pill {
+  min-height: 30px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 12px !important;
+  border-radius: 7px !important;
+  background: var(--cmdx-red-soft) !important;
+  color: var(--cmdx-red) !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-category-pill--standard {
+  background: #e8f7ee !important;
+  color: #237451 !important;
+}
+
+.cmdx-category-pill--push,
+.cmdx-category-pill--workload {
+  background: #eef4ff !important;
+  color: var(--cmdx-blue) !important;
+}
+
+.cmdx-row-body {
+  grid-template-columns: 280px 230px minmax(0, 1fr) !important;
+  min-height: 84px !important;
+}
+
+.cmdx-pitcher-cell {
+  gap: 14px !important;
+  padding: 18px 22px !important;
+}
+
+.cmdx-avatar {
+  width: 48px !important;
+  height: 48px !important;
+  font-size: 16px !important;
+}
+
+.cmdx-pitcher-cell strong {
+  font-size: 19px !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-pitcher-cell em {
+  max-width: 190px !important;
+  margin-top: 7px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+}
+
+.cmdx-row-metrics {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  border-right: 1px solid var(--cmdx-line-soft) !important;
+  border-left: 1px solid var(--cmdx-line-soft) !important;
+}
+
+.cmdx-row-metrics > div {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 7px !important;
+  padding: 0 16px !important;
+}
+
+.cmdx-row-metrics > div + div {
+  border-left: 1px solid var(--cmdx-line-soft) !important;
+}
+
+.cmdx-row-metrics span,
+.cmdx-row-insight > span {
+  color: #94a3b8 !important;
+  font-size: 10px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+.cmdx-row-metrics strong {
+  color: var(--cmdx-red) !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-row-insight {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 16px 22px !important;
+}
+
+.cmdx-row-insight strong {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  color: var(--cmdx-blue) !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+}
+
+.cmdx-row-insight em {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  color: #475569 !important;
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+  font-style: normal !important;
+  font-weight: 760 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+@media (max-width: 1180px) {
+  .cmdx-command-header,
+  .cmdx-head-strip,
+  .cmdx-stat-grid,
+  .cmdx-row-body {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cmdx-head-strip {
+    height: auto !important;
+  }
+
+  .cmdx-head-strip > div {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 66px !important;
+  }
+
+  .cmdx-row-metrics {
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--cmdx-line-soft) !important;
+  }
+
+  .cmdx-row-insight em {
+    white-space: normal !important;
+  }
+}
+
+/* Season Insights row-detail presentation. Keep this scoped block last. */
+.cmdx-head-strip {
+  height: 86px !important;
+  grid-template-columns: repeat(3, 158px) 98px !important;
+  align-items: stretch !important;
+}
+
+.cmdx-head-strip > div,
+.cmdx-season-select {
+  min-height: 76px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  padding: 12px 13px 11px !important;
+}
+
+.cmdx-head-strip span,
+.cmdx-head-strip label > span:not(.cmdx-season-control) {
+  max-width: none !important;
+  color: #64748b !important;
+  font-size: 8.8px !important;
+  line-height: 1.14 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.1em !important;
+  text-align: left !important;
+  text-transform: uppercase !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-head-strip strong,
+.cmdx-season-control {
+  margin-top: auto !important;
+  align-self: flex-start !important;
+}
+
+.cmdx-head-strip strong {
+  color: var(--cmdx-blue) !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-head-strip > div:nth-child(2) strong,
+.cmdx-head-strip > div:nth-child(3) strong {
+  color: var(--cmdx-red) !important;
+}
+
+.cmdx-head-strip .cmdx-season-control {
+  width: auto !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.cmdx-head-strip .cmdx-season-control select {
+  color: var(--cmdx-blue) !important;
+  font-size: 24px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-head-strip .cmdx-season-control svg {
+  display: none !important;
+}
+
+.cmdx-stat-card {
+  min-height: 120px !important;
+  height: 120px !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  padding: 17px 18px 16px !important;
+}
+
+.cmdx-stat-card span {
+  min-height: 30px !important;
+  max-width: none !important;
+  color: inherit !important;
+  font-size: 11px !important;
+  line-height: 1.14 !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-stat-card strong {
+  margin-top: auto !important;
+  align-self: flex-start !important;
+  line-height: 0.9 !important;
+}
+
+.cmdx-queue-row {
+  min-height: 188px !important;
+  grid-template-rows: 50px minmax(138px, auto) !important;
+  overflow: hidden !important;
+}
+
+.cmdx-row-top {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 18px !important;
+}
+
+.cmdx-row-meta {
+  min-width: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+}
+
+.cmdx-row-pitcher-name {
+  min-width: 0 !important;
+  max-width: 230px !important;
+  overflow: hidden !important;
+  color: var(--cmdx-blue) !important;
+  font-size: 15px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-row-body {
+  display: grid !important;
+  grid-template-columns: minmax(210px, 1.25fr) minmax(170px, 1fr) minmax(132px, 0.8fr) minmax(132px, 0.8fr) minmax(190px, 1.05fr) minmax(210px, 1.15fr) !important;
+  min-height: 138px !important;
+  border-top: 1px solid var(--cmdx-line-soft) !important;
+}
+
+.cmdx-row-panel {
+  min-width: 0 !important;
+  min-height: 138px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  gap: 9px !important;
+  padding: 16px 17px !important;
+  border-left: 1px solid var(--cmdx-line-soft) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  text-align: left !important;
+}
+
+.cmdx-row-panel:first-child {
+  border-left: 0 !important;
+}
+
+.cmdx-row-panel > span {
+  color: #94a3b8 !important;
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+.cmdx-row-panel > strong {
+  overflow-wrap: anywhere !important;
+  color: var(--cmdx-blue) !important;
+  font-size: 16px !important;
+  line-height: 1.08 !important;
+  font-weight: 950 !important;
+  letter-spacing: 0 !important;
+}
+
+.cmdx-row-panel > em {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  overflow-wrap: anywhere !important;
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  line-height: 1.18 !important;
+  font-style: normal !important;
+  font-weight: 760 !important;
+}
+
+.cmdx-row-panel--red > strong {
+  color: var(--cmdx-red) !important;
+  font-size: 23px !important;
+}
+
+.cmdx-row-panel--blue > strong {
+  color: var(--cmdx-blue) !important;
+}
+
+.cmdx-score-line {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  gap: 2px !important;
+}
+
+.cmdx-score-line b {
+  color: #475569 !important;
+  font-weight: 950 !important;
+}
+
+.cmdx-score-line b.is-selected-team {
+  color: var(--cmdx-red) !important;
+}
+
+.cmdx-run-highlight {
+  color: var(--cmdx-red) !important;
+  font-weight: 950 !important;
+}
+
+.cmdx-outcome-detail {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+
+.cmdx-signal-panel {
+  background: #f8fafc !important;
+}
+
+.cmdx-signal-main {
+  display: flex !important;
+  align-items: center !important;
+  gap: 9px !important;
+}
+
+.cmdx-signal-main strong {
+  min-width: 0 !important;
+  color: var(--cmdx-blue) !important;
+  font-size: 14px !important;
+  line-height: 1.1 !important;
+  font-weight: 950 !important;
+}
+
+.cmdx-signal-state {
+  display: grid !important;
+  grid-template-columns: 44px 54px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.cmdx-signal-state em {
+  min-width: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  color: #475569 !important;
+  font-size: 11.5px !important;
+  line-height: 1.15 !important;
+  font-style: normal !important;
+  font-weight: 820 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-signal-state em .cmdx-score-line {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.cmdx-bases-mini {
+  position: relative !important;
+  display: block !important;
+  width: 38px !important;
+  height: 31px !important;
+}
+
+.cmdx-bases-mini i {
+  position: absolute !important;
+  width: 13px !important;
+  height: 13px !important;
+  border: 2px solid #94a3b8 !important;
+  background: #fff !important;
+  transform: rotate(45deg) !important;
+}
+
+.cmdx-bases-mini i.filled {
+  border-color: var(--cmdx-red) !important;
+  background: var(--cmdx-red) !important;
+}
+
+.cmdx-bases-mini .second {
+  top: 0 !important;
+  left: 13px !important;
+}
+
+.cmdx-bases-mini .third {
+  top: 13px !important;
+  left: 0 !important;
+}
+
+.cmdx-bases-mini .first {
+  top: 13px !important;
+  left: 26px !important;
+}
+
+.cmdx-outs-mini {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.cmdx-outs-mini i {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid #94a3b8 !important;
+  border-radius: 999px !important;
+  background: #fff !important;
+}
+
+.cmdx-outs-mini i.filled {
+  border-color: var(--cmdx-blue) !important;
+  background: var(--cmdx-blue) !important;
+}
+
+@media (max-width: 1180px) {
+  .cmdx-head-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    height: auto !important;
+  }
+
+  .cmdx-row-body {
+    grid-template-columns: 1fr !important;
+  }
+
+  .cmdx-row-panel {
+    border-left: 0 !important;
+    border-top: 1px solid var(--cmdx-line-soft) !important;
+  }
+
+  .cmdx-row-panel:first-child {
+    border-top: 0 !important;
+  }
+
+  .cmdx-signal-state em {
+    white-space: normal !important;
+  }
+}
