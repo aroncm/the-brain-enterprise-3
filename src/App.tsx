@@ -130,6 +130,27 @@ const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
   { id: "briefings", label: "Briefings" },
 ];
 
+function appSearchParams(): URLSearchParams {
+  if (typeof window === "undefined") return new URLSearchParams();
+  return new URLSearchParams(window.location.search);
+}
+
+function initialWorkflowFromSearch(): Workflow {
+  const workflowParam = appSearchParams().get("workflow");
+  return WORKFLOWS.some((item) => item.id === workflowParam) ? (workflowParam as Workflow) : "command";
+}
+
+function initialTeamFromSearch(): string {
+  const teamParam = appSearchParams().get("team")?.toUpperCase();
+  return teamParam && MLB_TEAMS.some((team) => team.abbr === teamParam) ? teamParam : "ATL";
+}
+
+function initialGameIdFromSearch(): string | null {
+  const params = appSearchParams();
+  const gameId = params.get("gameId") ?? params.get("game_id");
+  return gameId?.trim() || null;
+}
+
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
   command: ChartLineUp,
   audit: MagnifyingGlass,
@@ -3860,10 +3881,10 @@ function BriefingSettings({
 }
 
 export default function App() {
-  const [selectedTeamAbbr, setSelectedTeamAbbr] = useState("ATL");
-  const [workflow, setWorkflow] = useState<Workflow>("command");
+  const [selectedTeamAbbr, setSelectedTeamAbbr] = useState(initialTeamFromSearch);
+  const [workflow, setWorkflow] = useState<Workflow>(initialWorkflowFromSearch);
   const [season, setSeason] = useState("2026");
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(initialGameIdFromSearch);
   const [games, setGames] = useState<EnterpriseGameSummary[]>([]);
   const [profilesPayload, setProfilesPayload] = useState<PitcherProfilesPayload | null>(null);
   const [auditSummary, setAuditSummary] = useState<PitchingAuditSummaryPayload | null>(null);
