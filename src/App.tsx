@@ -47,6 +47,7 @@ import type {
   RunSavingBoardPayload,
   TripleAConversionCandidate,
 } from "./types";
+import { teamAccents } from "./teamAccents";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
 type Workflow = "command" | "audit" | "allocation" | "briefings";
@@ -3010,11 +3011,18 @@ function GameAudit({
     if (selectedIndex >= entries.length - 1) setAutoplay(false);
   }, [entries.length, selectedIndex]);
 
+  const accents = teamAccents(team.abbr);
+  const themeStyle = {
+    "--team-primary": accents.primary,
+    "--team-label": accents.label,
+    "--team-dot": accents.dot,
+    "--team-row-bg": accents.rowBg,
+  } as CSSProperties;
   return (
-    <section className="workflow">
+    <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
       <div className="page-lead compact">
         <div>
-          <p className="eyebrow">Game Audit</p>
+          <p className="eyebrow"><span className="eyebrow-dot" aria-hidden="true" />Game Audit</p>
           <h2>Observed decision, model window, and pitch-level evidence.</h2>
           <p>Use this page when a club asks, “Show me exactly where we should have acted and what happened after.”</p>
         </div>

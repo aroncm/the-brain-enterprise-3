@@ -15744,3 +15744,534 @@ body {
     white-space: normal !important;
   }
 }
+
+/* ============================================================
+   Mobian theme — scoped to the Game Replays (audit) workflow.
+   Mirrors the redesigned email recap: true-black canvas,
+   Helvetica Neue, emerald brand accent, amber/red status,
+   team-color identity on hero + situation card. Other workflows
+   resolve from :root and keep the existing warm/serif theme.
+   ============================================================ */
+
+.theme-mobian {
+  --paper: #000000;
+  --paper-2: #0a0a0a;
+  --card: #1a1a1a;
+  --navy: #f0f0f0;
+  --navy-2: #ffffff;
+  --muted: #a0a0a0;
+  --line: #1e1e1e;
+  --line-strong: rgba(255, 255, 255, 0.1);
+  --gold: #2ec4a0;
+  --gold-soft: rgba(46, 196, 160, 0.12);
+  --red: #e05b4b;
+  --red-soft: rgba(224, 91, 75, 0.14);
+  --green: #2ec4a0;
+  --green-soft: rgba(46, 196, 160, 0.14);
+  --blue-soft: rgba(64, 136, 238, 0.16);
+  --shadow: none;
+
+  background: #000000;
+  color: #f0f0f0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  border-radius: 12px;
+  padding: 8px;
+}
+
+.theme-mobian * {
+  box-shadow: none !important;
+}
+
+.theme-mobian h1,
+.theme-mobian h2,
+.theme-mobian h3,
+.theme-mobian h4 {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.theme-mobian p,
+.theme-mobian label,
+.theme-mobian span,
+.theme-mobian div,
+.theme-mobian button,
+.theme-mobian select,
+.theme-mobian input,
+.theme-mobian em,
+.theme-mobian strong {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ---------- Page lead ---------- */
+.theme-mobian .page-lead {
+  background: transparent;
+  border: none;
+}
+
+.theme-mobian .page-lead h2 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #ffffff;
+}
+
+.theme-mobian .page-lead p:not(.eyebrow) {
+  color: #a0a0a0;
+}
+
+.theme-mobian .eyebrow {
+  color: var(--team-label, #2ec4a0);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-mobian .eyebrow-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--team-dot, #2ec4a0);
+}
+
+/* ---------- Game selector ---------- */
+.theme-mobian .game-select {
+  color: #a0a0a0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-mobian select {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #ffffff;
+  border-radius: 8px;
+}
+
+/* ---------- Buttons ---------- */
+.theme-mobian .pitch-controls button,
+.theme-mobian button.primary {
+  background: #f0f0f0;
+  color: #000000;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  text-transform: none;
+}
+
+.theme-mobian .pitch-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.theme-mobian .pitch-controls button.active {
+  background: #2ec4a0;
+  color: #000000;
+  border-color: #2ec4a0;
+}
+
+.theme-mobian .text-button {
+  background: transparent;
+  color: #a0a0a0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  text-transform: none;
+}
+
+.theme-mobian .pitch-controls input[type="range"] {
+  accent-color: #2ec4a0;
+}
+
+/* ---------- Cards / panels ---------- */
+.theme-mobian .replay-panel,
+.theme-mobian .evidence-panel,
+.theme-mobian .rss-panel,
+.theme-mobian .counterfactual-panel {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .situation-card,
+.theme-mobian .model-synthesis-card {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .situation-card {
+  border-top: 3px solid var(--team-primary, #2ec4a0);
+}
+
+.theme-mobian .situation-card h3,
+.theme-mobian .model-synthesis-card h3 {
+  color: #ffffff;
+}
+
+/* ---------- Signal banner ---------- */
+.theme-mobian .signal-banner {
+  border-radius: 8px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.theme-mobian .signal-pull_now,
+.theme-mobian .signal-distress {
+  background: #e05b4b;
+  color: #000000;
+}
+
+.theme-mobian .signal-prep,
+.theme-mobian .signal-watch {
+  background: #f0d050;
+  color: #000000;
+}
+
+.theme-mobian .signal-ok {
+  background: #2ec4a0;
+  color: #000000;
+}
+
+.theme-mobian .signal-stay {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #f0f0f0;
+}
+
+.theme-mobian .signal-banner strong {
+  color: inherit;
+}
+
+/* ---------- Event callout ---------- */
+.theme-mobian .event-callout {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-left-width: 3px;
+  border-radius: 8px;
+}
+
+.theme-mobian .event-callout--gold {
+  border-left-color: #f0d050;
+}
+
+.theme-mobian .event-callout--bad {
+  border-left-color: #e05b4b;
+}
+
+/* ---------- Bases & outs ---------- */
+.theme-mobian .outs span {
+  background: transparent;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.theme-mobian .outs .filled {
+  background: #e05b4b;
+  border-color: #e05b4b;
+}
+
+.theme-mobian .bases i {
+  background: #1a1a1a;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.theme-mobian .bases .filled {
+  background: #e05b4b;
+  border-color: #e05b4b;
+}
+
+/* ---------- Strike zone & pitch plot ---------- */
+.theme-mobian .strike-zone-card {
+  background:
+    linear-gradient(90deg, transparent 49.8%, rgba(255, 255, 255, 0.06) 50%, transparent 50.2%),
+    linear-gradient(0deg, transparent 49.8%, rgba(255, 255, 255, 0.06) 50%, transparent 50.2%),
+    #0a0a0a;
+  border-color: #1e1e1e;
+}
+
+.theme-mobian .pitch-dot {
+  background: rgba(240, 240, 240, 0.6);
+  color: #0a0a0a;
+}
+
+.theme-mobian .pitch-dot.selected {
+  background: #f0d050;
+  border-color: rgba(240, 208, 80, 0.3);
+  color: #000000;
+}
+
+/* ---------- Signal timeline ---------- */
+.theme-mobian .timeline-segment {
+  background: #333333;
+  border-radius: 999px;
+  height: 8px;
+}
+
+.theme-mobian .timeline-segment.selected {
+  box-shadow: 0 0 0 2px #ffffff !important;
+}
+
+.theme-mobian .timeline-watch,
+.theme-mobian .timeline-prep {
+  background: #f0d050;
+}
+
+.theme-mobian .timeline-pull_now,
+.theme-mobian .timeline-distress {
+  background: #e05b4b;
+}
+
+/* ---------- Appearance switcher ---------- */
+.theme-mobian .appearance-switcher button {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #a0a0a0;
+  border-radius: 8px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  text-transform: none;
+}
+
+.theme-mobian .appearance-switcher button.active {
+  background: #f0f0f0;
+  color: #000000;
+  border-color: #f0f0f0;
+}
+
+.theme-mobian .appearance-switcher span {
+  color: inherit;
+}
+
+/* ---------- Degradation ring ---------- */
+.theme-mobian .degradation-ring {
+  background: #0a0a0a;
+}
+
+.theme-mobian .degradation-ring strong {
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.theme-mobian .degradation-ring span {
+  color: #a0a0a0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ---------- KPI ---------- */
+.theme-mobian .kpi {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .kpi span {
+  color: #a0a0a0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-mobian .kpi strong {
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.theme-mobian .kpi p {
+  color: #a0a0a0;
+}
+
+.theme-mobian .kpi--gold {
+  border-color: rgba(240, 208, 80, 0.4);
+}
+
+.theme-mobian .kpi--gold strong {
+  color: #f0d050;
+}
+
+.theme-mobian .kpi--bad {
+  border-color: rgba(224, 91, 75, 0.4);
+}
+
+.theme-mobian .kpi--bad strong {
+  color: #e05b4b;
+}
+
+/* ---------- Source tag ---------- */
+.theme-mobian .source-tag {
+  background: transparent;
+  border: 1px solid #1e1e1e;
+  color: #a0a0a0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  border-radius: 999px;
+}
+
+/* ---------- Evidence panel ---------- */
+.theme-mobian .evidence-panel {
+  background: #0a0a0a;
+}
+
+.theme-mobian .evidence-grid section {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .evidence-grid h4 {
+  color: #a0a0a0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.theme-mobian .evidence-gauge,
+.theme-mobian .sparkline-card {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .evidence-gauge span {
+  color: #a0a0a0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-mobian .evidence-gauge strong {
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.theme-mobian .evidence-gauge em {
+  color: #a0a0a0;
+}
+
+.theme-mobian .gauge-track {
+  height: 3px !important;
+  background: #333333;
+  border-radius: 999px;
+}
+
+.theme-mobian .gauge-track i {
+  height: 3px !important;
+  border-radius: 999px;
+  background: #a0a0a0;
+}
+
+.theme-mobian .evidence-gauge--good .gauge-track i {
+  background: #2ec4a0;
+}
+
+.theme-mobian .evidence-gauge--warn .gauge-track i,
+.theme-mobian .evidence-gauge--gold .gauge-track i {
+  background: #f0d050;
+}
+
+.theme-mobian .evidence-gauge--bad .gauge-track i {
+  background: #e05b4b;
+}
+
+/* ---------- Mini-curve / trend sparkline ---------- */
+.theme-mobian .mini-curve {
+  background: transparent;
+}
+
+.theme-mobian .mini-curve path,
+.theme-mobian .mini-curve polyline {
+  stroke: #f0f0f0;
+}
+
+/* ---------- RSS panel ---------- */
+.theme-mobian .rss-panel {
+  background: #0a0a0a;
+}
+
+.theme-mobian .rss-row {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .rss-component {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  color: #f0f0f0;
+}
+
+.theme-mobian .rss-component em {
+  color: #a0a0a0;
+}
+
+.theme-mobian .rss-component b {
+  color: #ffffff;
+}
+
+/* ---------- Counterfactual ---------- */
+.theme-mobian .counterfactual-panel {
+  background: #0a0a0a;
+}
+
+.theme-mobian .counterfactual-grid div {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .counterfactual-grid strong {
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.theme-mobian .counterfactual-grid p {
+  color: #a0a0a0;
+}
+
+/* ---------- Component strip ---------- */
+.theme-mobian .component-strip {
+  background: transparent;
+}
+
+.theme-mobian .component-strip span {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  color: #f0f0f0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-mobian .component-strip em {
+  color: #a0a0a0;
+}
+
+/* ---------- EmptyState ---------- */
+.theme-mobian .empty-state,
+.theme-mobian section.empty {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  color: #a0a0a0;
+}
+
+.theme-mobian .empty-state h3 {
+  color: #ffffff;
+}
+
+/* ---------- Replay layout container ---------- */
+.theme-mobian .replay-layout {
+  background: transparent;
+}
+
