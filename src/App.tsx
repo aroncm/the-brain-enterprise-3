@@ -4155,26 +4155,31 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     async function loadClubContext() {
-      try {
-        const [gamePayload, profilePayload, auditPayload] = await Promise.all([
-          fetchEnterpriseGames({ league: "mlb", team: selectedTeam.abbr, limit: 300 }),
-          fetchPitcherProfiles({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 750 }),
-          fetchPitchingAuditSummary({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 1000 }),
-        ]);
-        if (cancelled) return;
+      const [gameResult, profileResult, auditResult] = await Promise.allSettled([
+        fetchEnterpriseGames({ league: "mlb", team: selectedTeam.abbr, limit: 300 }),
+        fetchPitcherProfiles({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 750 }),
+        fetchPitchingAuditSummary({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 1000 }),
+      ]);
+      if (cancelled) return;
+      if (gameResult.status === "fulfilled") {
+        const gamePayload = gameResult.value;
         setGames(gamePayload.games);
-        setProfilesPayload(profilePayload);
-        setAuditSummary(auditPayload);
         setSelectedGameId((current) => {
           if (current && gamePayload.games.some((game) => game.game_id === current)) return current;
           return gamePayload.games[0]?.game_id ?? null;
         });
-      } catch {
-        if (!cancelled) {
-          setGames([]);
-          setProfilesPayload(null);
-          setAuditSummary(null);
-        }
+      } else {
+        setGames([]);
+      }
+      if (profileResult.status === "fulfilled") {
+        setProfilesPayload(profileResult.value);
+      } else {
+        setProfilesPayload(null);
+      }
+      if (auditResult.status === "fulfilled") {
+        setAuditSummary(auditResult.value);
+      } else {
+        setAuditSummary(null);
       }
     }
     void loadClubContext();

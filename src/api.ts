@@ -29,34 +29,60 @@ export class ApiConfigurationError extends Error {
   }
 }
 
+const TRANSIENT_STATUS_CODES = new Set([500, 502, 503, 504]);
+const RETRY_DELAYS_MS = [600, 1500];
+
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_BASE) {
     throw new ApiConfigurationError();
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
+  const method = (init.method ?? "GET").toUpperCase();
+  const isIdempotent = method === "GET" || method === "HEAD";
+  let attempt = 0;
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    let detail = `${response.status} ${response.statusText}`;
+  while (true) {
+    let response: Response;
     try {
-      const payload = await response.json();
-      if (typeof payload?.detail === "string") {
-        detail = payload.detail;
+      response = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+          Accept: "application/json",
+          ...(init.body ? { "Content-Type": "application/json" } : {}),
+          ...(init.headers ?? {}),
+        },
+      });
+    } catch (caught) {
+      lastError = caught instanceof Error ? caught : new Error(String(caught));
+      if (isIdempotent && attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        attempt += 1;
+        continue;
       }
-    } catch {
-      // Keep the HTTP status as the useful fallback.
+      throw lastError;
     }
-    throw new Error(detail);
-  }
 
-  return response.json() as Promise<T>;
+    if (!response.ok) {
+      if (isIdempotent && TRANSIENT_STATUS_CODES.has(response.status) && attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+        attempt += 1;
+        continue;
+      }
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const payload = await response.json();
+        if (typeof payload?.detail === "string") {
+          detail = payload.detail;
+        }
+      } catch {
+        // Keep the HTTP status as the useful fallback.
+      }
+      throw new Error(detail);
+    }
+
+    return response.json() as Promise<T>;
+  }
 }
 
 export type RunSavingBoardQuery = {
