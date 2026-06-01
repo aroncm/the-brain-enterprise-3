@@ -979,9 +979,11 @@ function GaugeMetric({
   role?: "DRIVER" | "HELD UP" | "WATCH" | null;
 }) {
   const width = percent == null ? 0 : Math.round(clamp(percent) * 100);
-  const roleClass = role ? `gauge-role-pill gauge-role-pill--${role.toLowerCase().replace(" ", "-")}` : null;
+  const roleSlug = role ? role.toLowerCase().replace(" ", "-") : null;
+  const roleClass = roleSlug ? `gauge-role-pill gauge-role-pill--${roleSlug}` : null;
+  const cardClass = `evidence-gauge evidence-gauge--${tone}${roleSlug ? ` evidence-gauge--role-${roleSlug}` : ""}`;
   return (
-    <div className={`evidence-gauge evidence-gauge--${tone}`}>
+    <div className={cardClass}>
       {roleClass ? <span className={roleClass}>{role}</span> : null}
       <div className="evidence-gauge-head">
         <span>{label}</span>
@@ -993,6 +995,16 @@ function GaugeMetric({
         </div>
       ) : null}
       {detail ? <em>{detail}</em> : null}
+    </div>
+  );
+}
+
+function StuffConditionCard({ body }: { body: string }) {
+  if (!body) return null;
+  return (
+    <div className="stuff-condition-card">
+      <span className="stuff-condition-card__label">Pitcher-Only Condition</span>
+      <p>{body}</p>
     </div>
   );
 }
@@ -3054,7 +3066,6 @@ function GameAudit({
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
   const eventLabel = selected && replay ? entryEventLabel(selected, previous, displayStatus, previousStatus, replay) : null;
   const pitcherOnlyCondition = replayConditionSummary(pullEntry ?? selected);
-  const gameContextUrgency = replayUrgencySummary(pullEntry ?? selected);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
   const modelDecisionSummary = replayRecommendationSummary(pullEntry ?? selected);
   const degradationPressure = selectedState?.normalized_degradation_score ?? scaledPercent(selectedState?.enhanced_degradation_score ?? selectedState?.degradation_score, 3);
@@ -3177,6 +3188,12 @@ function GameAudit({
           <article className="panel replay-panel">
             <div className={`signal-banner signal-${signalClass(displayStatus)}`}>
               <strong>{selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}</strong>
+              {signalDwellSummary ? (
+                <div className="signal-banner__dwell">
+                  <span className="signal-banner__dwell-label">Signal Dwell</span>
+                  <span className="signal-banner__dwell-value">{signalDwellSummary}</span>
+                </div>
+              ) : null}
             </div>
             {eventLabel && eventLabel.title ? (
               <div className={`event-callout event-callout--${eventLabel.tone}`}>
@@ -3281,13 +3298,6 @@ function GameAudit({
 
               <div className="strike-zone-column">
                 <PitchPlot entries={entries} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
-                {batterHandedness(selected.snapshot) ? (
-                  <img
-                    className={`batter-image batter-image--${batterHandedness(selected.snapshot)!.toLowerCase()}`}
-                    src="/batter-rhh.svg"
-                    alt={`${batterHandedness(selected.snapshot) === "L" ? "Left" : "Right"}-handed batter`}
-                  />
-                ) : null}
               </div>
 
               <aside className="model-synthesis-card">
@@ -3408,6 +3418,7 @@ function GameAudit({
                 />
                 <GaugeMetric label="Swinging-strike rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`Opponent-adjusted change ${fmtSigned(selectedState?.opponent_adjusted_whiff_drop, 2)}`} percent={selectedState?.whiff_rate_15 ?? undefined} tone="gold" role={factorRole(selectedState?.whiff_rate_15, "gold")} />
                 <GaugeMetric label="Pitch mix drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail="How far recent pitch selection has moved from expected mix." percent={scaledPercent(selectedState?.pitch_mix_drift_10, 1)} tone="warn" role={factorRole(scaledPercent(selectedState?.pitch_mix_drift_10, 1), "warn")} />
+                <StuffConditionCard body={pitcherOnlyCondition} />
               </section>
               <section>
                 <h4>Command and Contact</h4>
@@ -3491,8 +3502,8 @@ function GameAudit({
           <article className="panel counterfactual-panel">
             <p className="eyebrow">Actual Outcome Summary</p>
             <div className="counterfactual-grid">
-              <div>
-                <strong>Pull Now summary</strong>
+              <div className="outcome-card outcome-card--span">
+                <strong className="outcome-card__title">Pull Now Summary</strong>
                 <p>{actionPointCopy(keyPitcher)}</p>
                 <ul className="mini-metric-list">
                   <li>Stuff <b>{pullMetrics.stuff}</b></li>
@@ -3500,33 +3511,21 @@ function GameAudit({
                   <li>Degradation <b>{pullMetrics.degradation}</b></li>
                 </ul>
               </div>
-              <div>
-                <strong>Decision delta</strong>
+              <div className="outcome-card">
+                <strong className="outcome-card__title">Why It Fired</strong>
+                <p>{modelDecisionSummary}</p>
+              </div>
+              <div className="outcome-card">
+                <strong className="outcome-card__title">Actual Result</strong>
+                <p>{exitAndDamageCopy(keyPitcher)}</p>
+              </div>
+              <div className="outcome-card outcome-card--span">
+                <strong className="outcome-card__title">Relief Edge</strong>
                 <p>
                   {pullBestCandidate
                     ? `${pullBestCandidate.player_name} was the best recorded relief alternative at the model action point.${pullDecisionDelta == null ? "" : ` The model estimated a ${fmtSigned(pullDecisionDelta, 2)} run delta versus staying with the starter.`}`
                     : "No relief alternative was attached to the model action point, so the bullpen counterfactual is unavailable for this game."}
                 </p>
-              </div>
-              <div>
-                <strong>Actual result</strong>
-                <p>{exitAndDamageCopy(keyPitcher)}</p>
-              </div>
-              <div>
-                <strong>Pitcher-only condition</strong>
-                <p>{pitcherOnlyCondition}</p>
-              </div>
-              <div>
-                <strong>Game-context urgency</strong>
-                <p>{gameContextUrgency}</p>
-              </div>
-              <div>
-                <strong>Signal dwell</strong>
-                <p>{signalDwellSummary}</p>
-              </div>
-              <div>
-                <strong>Why it fired</strong>
-                <p>{modelDecisionSummary}</p>
               </div>
             </div>
           </article>

@@ -16937,38 +16937,27 @@ body.audit-immersive .app-main {
   display: none;
 }
 
-.theme-mobian .strike-zone-column .batter-image {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  opacity: 0.9;
-  width: 110px;
-  height: auto;
-}
-
-.theme-mobian .strike-zone-column .batter-image--r { left: 6px; }
-.theme-mobian .strike-zone-column .batter-image--l { right: 6px; transform: translateY(-50%) scaleX(-1); }
-
-.theme-mobian .evidence-gauge { position: relative; }
-
 .theme-mobian .gauge-role-pill {
-  position: absolute;
-  top: 10px;
-  right: 10px;
+  display: inline-block;
+  width: fit-content;
+  margin-bottom: 8px;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
   color: #000000;
 }
 
-.theme-mobian .gauge-role-pill--driver { background: #e05b4b; }
+.theme-mobian .gauge-role-pill--driver { background: #e05b4b; color: #ffffff; }
 .theme-mobian .gauge-role-pill--held-up { background: #2ec4a0; }
 .theme-mobian .gauge-role-pill--watch { background: #f0d050; }
+
+.theme-mobian .evidence-gauge--role-driver { border-left: 3px solid #e05b4b; }
+.theme-mobian .evidence-gauge--role-held-up { border-left: 3px solid #2ec4a0; }
+.theme-mobian .evidence-gauge--role-watch { border-left: 3px solid #f0d050; }
 
 .theme-mobian .counterfactual-grid .mini-metric-list li {
   background: transparent !important;
@@ -17187,6 +17176,88 @@ body.audit-immersive .app-main {
   color: #555555;
   font-size: 16px;
 }
+
+/* ---------- Iteration 6: outcome restructure + signal-dwell chip + stuff condition ---------- */
+
+.theme-mobian .signal-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.theme-mobian .signal-banner__dwell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+}
+
+.theme-mobian .signal-banner__dwell-label {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.theme-mobian .signal-banner__dwell-value {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.theme-mobian .stuff-condition-card {
+  background: #141414;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.theme-mobian .stuff-condition-card__label {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #2ec4a0;
+}
+
+.theme-mobian .stuff-condition-card p {
+  margin: 0;
+  color: #c0c0c0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.theme-mobian .counterfactual-grid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.theme-mobian .counterfactual-grid .outcome-card--span {
+  grid-column: 1 / -1;
+}
+
+.theme-mobian .outcome-card__title {
+  display: block;
+  margin: 0 0 10px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #2ec4a0;
+}
+
 
 
 
