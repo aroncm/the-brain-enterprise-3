@@ -257,6 +257,13 @@ function compactInningLabel(half: string | null | undefined, inning: number | nu
   return `${inning}`;
 }
 
+function batterDisplayName(snapshot: PitchingReplayEntry["snapshot"]): string {
+  const raw = String(snapshot.batter_name ?? "").trim();
+  const id = String(snapshot.batter_id ?? "").trim();
+  if (!raw || /^\d+$/.test(raw) || raw === id) return "—";
+  return displayPersonName(raw);
+}
+
 function baseStateLabel(baseState: string | null | undefined): string {
   const value = String(baseState || "").trim();
   const labels: Record<string, string> = {
@@ -3056,8 +3063,6 @@ function GameAudit({
   const actionIndex = selected && isRelieverReplayEntry(selected) ? relieverActionIndex : pullIndex;
   const pullEntry = pullIndex >= 0 ? entries[pullIndex] ?? null : null;
   const pullMetrics = pullWindowMetrics(pullEntry);
-  const pullBestCandidate = pullEntry?.top_candidates?.find((candidate) => candidate.available) ?? pullEntry?.top_candidates?.[0] ?? null;
-  const pullDecisionDelta = pullEntry?.recommendation.decision_delta ?? selected?.recommendation.decision_delta ?? null;
   const hasWatchSignal = statusRank(displayStatus) >= statusRank("WATCH");
   const bestCandidate = selected?.top_candidates?.find((candidate) => candidate.available) ?? selected?.top_candidates?.[0] ?? null;
   const selectedState = selected ? replayState(selected) : null;
@@ -3065,7 +3070,7 @@ function GameAudit({
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
   const eventLabel = selected && replay ? entryEventLabel(selected, previous, displayStatus, previousStatus, replay) : null;
-  const pitcherOnlyCondition = replayConditionSummary(pullEntry ?? selected);
+  const pitcherOnlyCondition = replayConditionSummary(selected);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
   const modelDecisionSummary = replayRecommendationSummary(pullEntry ?? selected);
   const degradationPressure = selectedState?.normalized_degradation_score ?? scaledPercent(selectedState?.enhanced_degradation_score ?? selectedState?.degradation_score, 3);
@@ -3236,7 +3241,7 @@ function GameAudit({
                 <section className="pws-section pws-at-bat-section">
                   <p className="pws-eyebrow">At Bat</p>
                   <div className="pws-batter">
-                    <span className="pws-batter__name">{displayPersonName(selected.snapshot.batter_name) || "—"}</span>
+                    <span className="pws-batter__name">{batterDisplayName(selected.snapshot)}</span>
                     {batterHandedness(selected.snapshot) ? (
                       <span className="pws-batter__hand">{batterHandedness(selected.snapshot)}H</span>
                     ) : null}
@@ -3502,7 +3507,7 @@ function GameAudit({
           <article className="panel counterfactual-panel">
             <p className="eyebrow">Actual Outcome Summary</p>
             <div className="counterfactual-grid">
-              <div className="outcome-card outcome-card--span">
+              <div className="outcome-card">
                 <strong className="outcome-card__title">Pull Now Summary</strong>
                 <p>{actionPointCopy(keyPitcher)}</p>
                 <ul className="mini-metric-list">
@@ -3518,14 +3523,6 @@ function GameAudit({
               <div className="outcome-card">
                 <strong className="outcome-card__title">Actual Result</strong>
                 <p>{exitAndDamageCopy(keyPitcher)}</p>
-              </div>
-              <div className="outcome-card outcome-card--span">
-                <strong className="outcome-card__title">Relief Edge</strong>
-                <p>
-                  {pullBestCandidate
-                    ? `${pullBestCandidate.player_name} was the best recorded relief alternative at the model action point.${pullDecisionDelta == null ? "" : ` The model estimated a ${fmtSigned(pullDecisionDelta, 2)} run delta versus staying with the starter.`}`
-                    : "No relief alternative was attached to the model action point, so the bullpen counterfactual is unavailable for this game."}
-                </p>
               </div>
             </div>
           </article>

@@ -16952,8 +16952,8 @@ body.audit-immersive .app-main {
 }
 
 .theme-mobian .gauge-role-pill--driver { background: #e05b4b; color: #ffffff; }
-.theme-mobian .gauge-role-pill--held-up { background: #2ec4a0; }
-.theme-mobian .gauge-role-pill--watch { background: #f0d050; }
+.theme-mobian .gauge-role-pill--held-up { background: #2ec4a0; color: #ffffff; }
+.theme-mobian .gauge-role-pill--watch { background: #f0d050; color: #ffffff; }
 
 .theme-mobian .evidence-gauge--role-driver { border-left: 3px solid #e05b4b; }
 .theme-mobian .evidence-gauge--role-held-up { border-left: 3px solid #2ec4a0; }
@@ -17193,8 +17193,8 @@ body.audit-immersive .app-main {
   gap: 2px;
   padding: 6px 14px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.18);
-  color: inherit;
+  background: rgba(0, 0, 0, 0.32);
+  color: #ffffff;
 }
 
 .theme-mobian .signal-banner__dwell-label {
@@ -17203,7 +17203,8 @@ body.audit-immersive .app-main {
   font-weight: 700;
   letter-spacing: 1.6px;
   text-transform: uppercase;
-  opacity: 0.85;
+  color: #ffffff;
+  opacity: 0.9;
 }
 
 .theme-mobian .signal-banner__dwell-value {
@@ -17211,6 +17212,7 @@ body.audit-immersive .app-main {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.2px;
+  color: #ffffff;
 }
 
 .theme-mobian .stuff-condition-card {
@@ -17240,11 +17242,7 @@ body.audit-immersive .app-main {
 }
 
 .theme-mobian .counterfactual-grid {
-  grid-template-columns: 1fr 1fr;
-}
-
-.theme-mobian .counterfactual-grid .outcome-card--span {
-  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .theme-mobian .outcome-card__title {
