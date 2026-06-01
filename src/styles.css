@@ -16275,3 +16275,455 @@ body {
   background: transparent;
 }
 
+/* ============================================================
+   Iteration 2 — full Game Replays redesign on top of theme-mobian
+   ============================================================ */
+
+body.audit-immersive .app-header,
+body.audit-immersive .workflow-nav,
+body.audit-immersive .season-row {
+  display: none !important;
+}
+
+body.audit-immersive .app-shell {
+  padding-top: 0;
+}
+
+body.audit-immersive .app-main {
+  padding: 0;
+}
+
+.theme-mobian .audit-header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  border-bottom: 1px solid #1e1e1e;
+  background: #000000;
+  border-radius: 8px 8px 0 0;
+}
+
+.theme-mobian .audit-header__brand svg {
+  margin: 0 auto;
+}
+
+.theme-mobian .audit-header__team {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.theme-mobian .audit-header__logo {
+  display: inline-grid;
+  place-items: center;
+}
+
+.theme-mobian .audit-header__logo .team-logo {
+  width: 56px;
+  height: 56px;
+  background: transparent;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.theme-mobian .audit-header__name {
+  margin: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+}
+
+.theme-mobian .audit-header__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+}
+
+.theme-mobian .audit-header__filters {
+  display: inline-flex;
+  gap: 14px;
+  justify-content: center;
+  margin-top: 6px;
+  align-self: center;
+}
+
+.theme-mobian .audit-filter {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #a0a0a0;
+}
+
+.theme-mobian .audit-filter > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #7a7a7a;
+}
+
+.theme-mobian .audit-filter select {
+  min-height: 40px;
+  min-width: 220px;
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 14px;
+}
+
+.theme-mobian .audit-filter select option {
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+.theme-mobian .exit-immersive {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0a0a0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: auto;
+}
+
+.theme-mobian .exit-immersive:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.theme-mobian .cpw-banner {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  padding: 18px 22px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.theme-mobian .cpw-eyebrow {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+}
+
+.theme-mobian .cpw-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 16px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+}
+
+.theme-mobian .cpw-score__team {
+  color: #ffffff;
+}
+
+.theme-mobian .cpw-score__team--opp {
+  color: #a0a0a0;
+}
+
+.theme-mobian .cpw-score__dash {
+  color: #7a7a7a;
+  font-weight: 400;
+}
+
+.theme-mobian .cpw-outcome {
+  margin-top: 12px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+}
+
+.theme-mobian .cpw-hitclass {
+  margin-top: 8px;
+  display: inline-block;
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #f0d050;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.theme-mobian .situation-card {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.theme-mobian .situation-eyebrow {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #7a7a7a;
+}
+
+.theme-mobian .situation-pitcher {
+  margin: 0 0 14px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+}
+
+.theme-mobian .situation-hero {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.theme-mobian .situation-hero__stat {
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.theme-mobian .situation-hero__stat > span {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #7a7a7a;
+}
+
+.theme-mobian .situation-hero__stat > strong {
+  display: block;
+  margin-top: 6px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.8px;
+  line-height: 1;
+}
+
+.theme-mobian .strike-zone-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.theme-mobian .strike-zone-card {
+  background:
+    linear-gradient(90deg, transparent 49.8%, rgba(255, 255, 255, 0.06) 50%, transparent 50.2%),
+    linear-gradient(0deg, transparent 49.8%, rgba(255, 255, 255, 0.06) 50%, transparent 50.2%),
+    #0a0a0a;
+  border: 1.5px solid #ffffff;
+}
+
+.theme-mobian .batter-silhouette {
+  flex-shrink: 0;
+}
+
+.theme-mobian .signal-summary-eyebrow {
+  text-align: center;
+  color: #a0a0a0;
+}
+
+.theme-mobian .degradation-ring--lg {
+  width: 168px;
+  height: 168px;
+}
+
+.theme-mobian .degradation-ring--lg strong {
+  font-size: 36px;
+  letter-spacing: -1.5px;
+}
+
+.theme-mobian .decision-delta--locked {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-left: 3px solid #f0d050;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #a0a0a0;
+}
+
+.theme-mobian .decision-delta--locked strong {
+  color: #f0d050;
+}
+
+.theme-mobian .decision-delta--active {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-left: 3px solid #2ec4a0;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.theme-mobian .decision-delta--active strong {
+  color: #2ec4a0;
+}
+
+.theme-mobian .pitch-controls button {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #f0f0f0;
+}
+
+.theme-mobian .pitch-controls button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.theme-mobian .pitch-controls button.active {
+  background: #2ec4a0;
+  color: #000000;
+  border-color: #2ec4a0;
+}
+
+.theme-mobian .appearance-switcher button {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #a0a0a0;
+}
+
+.theme-mobian .appearance-switcher button.active {
+  background: transparent;
+  border: 1px solid var(--team-primary, #2ec4a0);
+  color: #ffffff;
+}
+
+.theme-mobian .model-signal-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+  text-transform: none;
+}
+
+.theme-mobian .model-signal-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2ec4a0;
+}
+
+.theme-mobian .model-signal-info {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid #333333;
+  color: #a0a0a0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: help;
+}
+
+.theme-mobian .rss-row {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+
+.theme-mobian .rss-row__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.theme-mobian .rss-finished-pill {
+  display: inline-block;
+  background: #2ec4a0;
+  color: #000000;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.theme-mobian .counterfactual-grid > div {
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.theme-mobian .counterfactual-grid > div > strong {
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+}
+
+.theme-mobian .counterfactual-grid > div > p {
+  color: #a0a0a0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.theme-mobian .counterfactual-grid .mini-metric-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.theme-mobian .counterfactual-grid .mini-metric-list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #a0a0a0;
+}
+
+.theme-mobian .counterfactual-grid .mini-metric-list b {
+  color: #ffffff;
+  font-weight: 800;
+}
+

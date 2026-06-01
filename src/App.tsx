@@ -387,6 +387,59 @@ function scoreForEntry(entry: PitchingReplayEntry, replay: PitchingReplayRespons
   return `${replay.game.away_team} ${entry.snapshot.away_score ?? "—"} - ${entry.snapshot.home_score ?? "—"} ${replay.game.home_team}`;
 }
 
+const PITCH_CALL_LABELS: Record<string, string> = {
+  "ball": "Ball",
+  "ball in dirt": "Ball",
+  "called strike": "Called Strike",
+  "swinging strike": "Whiff",
+  "swinging strike (blocked)": "Whiff",
+  "swinging pitchout": "Whiff",
+  "missed bunt": "Whiff",
+  "foul": "Foul",
+  "foul tip": "Foul Tip",
+  "foul bunt": "Foul",
+  "foul pitchout": "Foul",
+  "hit by pitch": "Hit by Pitch",
+  "single": "Single",
+  "double": "Double",
+  "triple": "Triple",
+  "home_run": "Home Run",
+  "home run": "Home Run",
+  "field_out": "Out",
+  "field out": "Out",
+  "force_out": "Force Out",
+  "force out": "Force Out",
+  "grounded_into_double_play": "Double Play",
+  "grounded into double play": "Double Play",
+  "double_play": "Double Play",
+  "sac_fly": "Sacrifice Fly",
+  "sac fly": "Sacrifice Fly",
+  "sac_bunt": "Sacrifice Bunt",
+  "sac bunt": "Sacrifice Bunt",
+  "strikeout": "Strikeout",
+  "walk": "Walk",
+  "intent_walk": "Intentional Walk",
+  "intent walk": "Intentional Walk",
+};
+
+function pitchOutcomeLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
+  const raw = (snapshot.pitch_call || "").trim();
+  if (!raw) return "";
+  const lookup = PITCH_CALL_LABELS[raw.toLowerCase()];
+  if (lookup) return lookup;
+  return raw.split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+}
+
+function hitClassificationLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
+  return (snapshot.hit_classification || "").trim();
+}
+
+function batterHandedness(snapshot: PitchingReplayEntry["snapshot"]): "L" | "R" | null {
+  const raw = (snapshot.batter_handedness || "").trim().toUpperCase();
+  if (raw === "L" || raw === "R") return raw;
+  return null;
+}
+
 function gameSituationLabel(entry: PitchingReplayEntry): string {
   return `${halfInningLabel(entry.snapshot.half, entry.snapshot.inning)} · ${outsLabel(entry.snapshot.outs)} · ${baseStateLabel(entry.snapshot.base_state)}`;
 }
@@ -860,6 +913,28 @@ function buildBriefingPlainText(response: PitchingRecapEmailResponse, team: Team
 function TeamLogo({ abbr }: { abbr: string }) {
   const src = teamLogoUrl(abbr);
   return <span className="team-logo">{src ? <img src={src} alt={`${abbr} logo`} /> : abbr}</span>;
+}
+
+function BatterSilhouette({ handedness }: { handedness: "L" | "R" }) {
+  const mirror = handedness === "L" ? { transform: "scaleX(-1)" } : undefined;
+  return (
+    <svg
+      className={`batter-silhouette batter-silhouette--${handedness.toLowerCase()}`}
+      viewBox="0 0 60 140"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label={`${handedness === "L" ? "Left" : "Right"}-handed batter`}
+      style={mirror}
+      width="60"
+      height="140"
+    >
+      <g fill="#1e1e1e" stroke="rgba(255,255,255,0.18)" strokeWidth="0.6">
+        <circle cx="28" cy="14" r="8" />
+        <path d="M22 22 Q15 28 14 42 L13 70 Q12 76 16 80 L22 110 L20 132 L26 132 L28 112 L30 92 L34 112 L36 132 L42 132 L40 110 L46 80 Q50 76 49 70 L48 42 Q47 28 40 22 Z" />
+        <path d="M44 26 L56 18 L58 22 L46 32 Z" />
+      </g>
+    </svg>
+  );
 }
 
 function EmptyState({ title, detail }: { title: string; detail: string }) {
@@ -2872,6 +2947,9 @@ function GameAudit({
   replay,
   recap,
   preventableRows,
+  season,
+  onSeasonChange,
+  onExitAudit,
 }: {
   team: Team;
   games: EnterpriseGameSummary[];
@@ -2880,6 +2958,9 @@ function GameAudit({
   replay: PitchingReplayResponse | null;
   recap: PitchingGameRecap | null;
   preventableRows: PreventableRunsOpportunityRow[];
+  season: string;
+  onSeasonChange: (season: string) => void;
+  onExitAudit: () => void;
 }) {
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
@@ -2986,6 +3067,13 @@ function GameAudit({
   const reliefOptions = selected?.top_candidates?.slice(0, 3) ?? [];
 
   useEffect(() => {
+    document.body.classList.add("audit-immersive");
+    return () => {
+      document.body.classList.remove("audit-immersive");
+    };
+  }, []);
+
+  useEffect(() => {
     setPitchIndex(0);
     setAutoplay(false);
   }, [selectedGameId]);
@@ -3020,23 +3108,47 @@ function GameAudit({
   } as CSSProperties;
   return (
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
-      <div className="page-lead compact">
-        <div>
-          <p className="eyebrow"><span className="eyebrow-dot" aria-hidden="true" />Game Audit</p>
-          <h2>Observed decision, model window, and pitch-level evidence.</h2>
-          <p>Use this page when a club asks, “Show me exactly where we should have acted and what happened after.”</p>
+      <header className="audit-header">
+        <button type="button" className="exit-immersive" onClick={onExitAudit} aria-label="Return to all workflows">← All workflows</button>
+        <div className="audit-header__brand" aria-label="Baseball brAIn">
+          <svg viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn" width="320" height="65" style={{ display: "block", margin: "0 auto" }}>
+            <text x="20" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="36" fontWeight="300" letterSpacing="6" fill="#FFFFFF">BASEBALL</text>
+            <text x="322" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="84" fontWeight="700" letterSpacing="-1" fill="#FFFFFF" fillOpacity="0.7">
+              <tspan fillOpacity="0.7">br</tspan>
+              <tspan fill={accents.label} fillOpacity="1">AI</tspan>
+              <tspan fillOpacity="0.7">n</tspan>
+            </text>
+            <polygon points="277,17 312,52 277,87 242,52" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinejoin="miter" />
+            <line x1="269" y1="52" x2="285" y2="52" stroke={accents.label} strokeWidth="1.8" strokeLinecap="round" />
+            <line x1="277" y1="44" x2="277" y2="60" stroke={accents.label} strokeWidth="1.8" strokeLinecap="round" />
+            <text textAnchor="middle" x="282" y="110" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="15" fontWeight="400" letterSpacing="3.5" fill={accents.label}>ADVANCED BASEBALL INTELLIGENCE</text>
+          </svg>
         </div>
-        <label className="game-select">
-          Game
-          <select value={selectedGameId ?? ""} onChange={(event) => onGameChange(event.target.value)}>
-            {games.map((game) => (
-              <option key={game.game_id} value={game.game_id}>
-                {gameLabel(game)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+        <div className="audit-header__team">
+          <span className="audit-header__logo"><TeamLogo abbr={team.abbr} /></span>
+          <h1 className="audit-header__name" style={{ color: accents.label }}>{team.name}</h1>
+        </div>
+        <p className="audit-header__eyebrow">Game Replay</p>
+        <div className="audit-header__filters">
+          <label className="audit-filter">
+            <span>Season</span>
+            <select value={season} onChange={(event) => onSeasonChange(event.target.value)}>
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+            </select>
+          </label>
+          <label className="audit-filter">
+            <span>Game</span>
+            <select value={selectedGameId ?? ""} onChange={(event) => onGameChange(event.target.value)}>
+              {games.map((game) => (
+                <option key={game.game_id} value={game.game_id}>
+                  {gameLabel(game)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </header>
 
       {!selectedGameId || !replay || !selected ? (
         <EmptyState title="No replay loaded" detail="Select a completed game with finalized pitch-level replay detail." />
@@ -3053,29 +3165,71 @@ function GameAudit({
               </div>
             ) : null}
 
+            <div className="cpw-banner">
+              <p className="cpw-eyebrow">Current Pitch Window</p>
+              <div className="cpw-score">
+                {(() => {
+                  const ownIsAway = replay.game.away_team === team.abbr;
+                  const awayTone = ownIsAway ? "own" : "opp";
+                  const homeTone = ownIsAway ? "opp" : "own";
+                  return (
+                    <>
+                      <span className={`cpw-score__team cpw-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>
+                        {replay.game.away_team} {selected.snapshot.away_score ?? "—"}
+                      </span>
+                      <span className="cpw-score__dash">·</span>
+                      <span className={`cpw-score__team cpw-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>
+                        {replay.game.home_team} {selected.snapshot.home_score ?? "—"}
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
+              {pitchOutcomeLabel(selected.snapshot) ? (
+                <div className="cpw-outcome">{pitchOutcomeLabel(selected.snapshot)}</div>
+              ) : null}
+              {hitClassificationLabel(selected.snapshot) ? (
+                <div className="cpw-hitclass">{hitClassificationLabel(selected.snapshot)}</div>
+              ) : null}
+            </div>
+
             <div className="replay-layout">
-              <aside className="situation-card">
-                <TeamLogo abbr={team.abbr} />
-                <h3>{selected.snapshot.pitcher_name}</h3>
-                <BasesAndOuts baseState={selected.snapshot.base_state} outs={selected.snapshot.outs} />
-                <div className="situation-list">
-                  <span>Situation <strong>{halfInningLabel(selected.snapshot.half, selected.snapshot.inning)}</strong></span>
-                  <span>Bases <strong>{baseStateLabel(selected.snapshot.base_state)}</strong></span>
-                  <span>Outs <strong>{outsLabel(selected.snapshot.outs)}</strong></span>
-                  <span>Pitch count <strong>{pitchCount(selected)}</strong></span>
-                  <span>{selectedIsReliever ? "Batters faced" : "Times through order"} <strong>{selectedIsReliever ? selectedState?.batters_faced_in_game ?? "—" : selectedState?.times_through_order}</strong></span>
-                  <span>Score <strong>{scoreForEntry(selected, replay)}</strong></span>
+              <aside className="situation-card" style={{ borderTop: `3px solid ${accents.primary}` }}>
+                <p className="situation-eyebrow">Pitcher</p>
+                <h3 className="situation-pitcher">{selected.snapshot.pitcher_name}</h3>
+                <div className="situation-hero">
+                  <div className="situation-hero__stat">
+                    <span>Inning</span>
+                    <strong>{halfInningLabel(selected.snapshot.half, selected.snapshot.inning)}</strong>
+                  </div>
+                  <div className="situation-hero__stat">
+                    <span>Pitch Count</span>
+                    <strong>{pitchCount(selected)}</strong>
+                  </div>
+                  <div className="situation-hero__stat">
+                    <span>{selectedIsReliever ? "Batters Faced" : "Times Through Order"}</span>
+                    <strong>{selectedIsReliever ? selectedState?.batters_faced_in_game ?? "—" : selectedState?.times_through_order ?? "—"}</strong>
+                  </div>
                 </div>
+                <BasesAndOuts baseState={selected.snapshot.base_state} outs={selected.snapshot.outs} />
               </aside>
 
-              <PitchPlot entries={entries} selectedIndex={selectedIndex} />
+              <div className="strike-zone-wrapper">
+                {batterHandedness(selected.snapshot) === "R" ? (
+                  <BatterSilhouette handedness="R" />
+                ) : null}
+                <PitchPlot entries={entries} selectedIndex={selectedIndex} />
+                {batterHandedness(selected.snapshot) === "L" ? (
+                  <BatterSilhouette handedness="L" />
+                ) : null}
+              </div>
 
               <aside className="model-synthesis-card">
-                <p className="eyebrow">Decision Read</p>
+                <p className="eyebrow signal-summary-eyebrow">Signal Summary</p>
                 <div className="decision-score-row">
-                  <div className="degradation-ring" style={{ "--ring": `${Math.round(clamp(degradationPressure) * 100)}%` } as CSSProperties}>
+                  <div className="degradation-ring degradation-ring--lg" style={{ "--ring": `${Math.round(clamp(degradationPressure) * 100)}%` } as CSSProperties}>
                     <strong>{fmtNumber(selectedState?.enhanced_degradation_score ?? selectedState?.degradation_score, 2)}</strong>
-                    <span>degradation</span>
+                    <span>Stuff Pressure</span>
                   </div>
                   <div>
                     <span>Preventable Runs</span>
@@ -3089,7 +3243,7 @@ function GameAudit({
                   <GaugeMetric label="Decay pressure" value={fmtPct(decayPressure)} percent={decayPressure} tone="gold" />
                   <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} percent={scaledPercent(selected.snapshot.leverage_index, 3)} tone="gold" />
                 </div>
-                <div className="decision-delta">
+                <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
                   <strong>{hasWatchSignal ? "Relief decision delta" : "Relief context unlocks at WATCH"}</strong>
                   {selectedIsReliever ? (
                     <p>
@@ -3103,10 +3257,6 @@ function GameAudit({
                   ) : (
                     <p>Before WATCH, the replay stays focused on pitcher evidence. Bullpen alternatives are shown once the first action signal appears.</p>
                   )}
-                </div>
-                <div className="source-row">
-                  <SourceTag label="Official pitch facts" source="official" />
-                  <SourceTag label="Model degradation" source="model" />
                 </div>
               </aside>
             </div>
@@ -3149,9 +3299,15 @@ function GameAudit({
 
           <article className="panel evidence-panel">
             <div className="panel-title">
-              <p className="eyebrow">Supporting Model Detail</p>
-              <h3>Why the signal moved.</h3>
-              <p>The headline read above is built from these tracked inputs. Missing values are shown as unavailable rather than estimated.</p>
+              <p className="eyebrow model-signal-eyebrow">
+                <span className="model-signal-dot" aria-hidden="true" />
+                Model Signal Factors
+                <span
+                  className="model-signal-info"
+                  title="Tracked inputs feeding the headline signal. Missing values are shown as unavailable rather than estimated."
+                  aria-label="Description"
+                >i</span>
+              </p>
             </div>
             <div className="evidence-grid">
               <section>
@@ -3209,31 +3365,23 @@ function GameAudit({
                 </section>
               ) : null}
             </div>
-            {topComponents.length > 0 ? (
-              <div className="component-strip">
-                <span>Top model contributors</span>
-                {topComponents.map(([key, value]) => (
-                  <em key={key}>{categoryContributorLabel(key)} {fmtSigned(value, 2)}</em>
-                ))}
-              </div>
-            ) : null}
           </article>
 
           {teamRelievers.length > 0 ? (
             <article className="panel rss-panel">
-              <div className="panel-title horizontal">
-                <div>
-                  <p className="eyebrow">Reliever Stress Signal</p>
-                  <h3>Bullpen outcomes from the same game.</h3>
-                  <p>Relievers are now available as their own pitch-by-pitch RSS replay stream when the finalized artifact includes bullpen entries.</p>
-                </div>
-                <SourceTag label="Finalized recap RSS" source="model" />
+              <div className="panel-title">
+                <p className="eyebrow">Reliever Stress Signal</p>
               </div>
               <div className="rss-table">
-                {teamRelievers.map((pitcher) => (
+                {teamRelievers.map((pitcher, index) => (
                   <div key={pitcher.pitcher_id || pitcher.pitcher_name} className="rss-row">
                     <div>
-                      <strong>{pitcher.pitcher_name}</strong>
+                      <div className="rss-row__name">
+                        <strong>{pitcher.pitcher_name}</strong>
+                        {index === teamRelievers.length - 1 ? (
+                          <span className="rss-finished-pill">Finished Game</span>
+                        ) : null}
+                      </div>
                       <span>{fmtNumber(pitcher.innings_pitched, 1)} IP · {pitcher.pitch_count ?? "—"} pitches · {pitcher.runs_allowed_total ?? "—"} R</span>
                     </div>
                     <div>
@@ -3259,8 +3407,7 @@ function GameAudit({
           ) : null}
 
           <article className="panel counterfactual-panel">
-            <p className="eyebrow">Decision Outcome</p>
-            <h3>What happened after the model action point.</h3>
+            <p className="eyebrow">Actual Outcome Summary</p>
             <div className="counterfactual-grid">
               <div>
                 <strong>Pull Now summary</strong>
@@ -4092,6 +4239,9 @@ export default function App() {
           replay={replay}
           recap={recap}
           preventableRows={auditPreventableRuns?.rows ?? []}
+          season={season}
+          onSeasonChange={setSeason}
+          onExitAudit={() => setWorkflow("command")}
         />
       )}
 
