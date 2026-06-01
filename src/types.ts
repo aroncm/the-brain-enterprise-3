@@ -385,6 +385,9 @@ export type PitchingReplayEntry = {
     pitch_call?: string | null;
     hit_classification?: string | null;
     batter_handedness?: string | null;
+    batter_name?: string | null;
+    balls?: number | null;
+    strikes?: number | null;
     role?: string | null;
     team_appearance_order?: number | null;
     current_opponent_runs?: number | null;

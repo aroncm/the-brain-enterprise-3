@@ -1,6 +1,8 @@
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   ArrowDownWideNarrow as SortDescending,
   BarChart3 as PresentationChart,
   Calendar as CalendarBlank,
@@ -234,6 +236,17 @@ function ordinal(value: number | null | undefined): string {
 function halfInningLabel(half: string | null | undefined, inning: number | null | undefined): string {
   const normalizedHalf = String(half || "").toLowerCase() === "top" ? "top" : String(half || "").toLowerCase() === "bottom" ? "bottom" : "half";
   return `${normalizedHalf} of the ${ordinal(inning)}`;
+}
+
+function displayPersonName(name: string | null | undefined): string {
+  const clean = String(name || "").trim();
+  if (!clean) return "";
+  if (!clean.includes(",")) return clean.replace(/\s+/g, " ");
+  const parts = clean.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 2) return clean;
+  const [last, ...rest] = parts;
+  const first = rest.join(" ");
+  return [first, last].filter(Boolean).join(" ") || clean;
 }
 
 function compactInningLabel(half: string | null | undefined, inning: number | null | undefined): string {
@@ -914,35 +927,6 @@ function TeamLogo({ abbr }: { abbr: string }) {
   return <span className="team-logo">{src ? <img src={src} alt={`${abbr} logo`} /> : abbr}</span>;
 }
 
-function BatterSilhouette({ handedness }: { handedness: "L" | "R" }) {
-  const mirror = handedness === "L" ? { transform: "scaleX(-1)" } : undefined;
-  return (
-    <svg
-      className={`batter-silhouette batter-silhouette--${handedness.toLowerCase()}`}
-      viewBox="0 0 120 240"
-      xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label={`${handedness === "L" ? "Left" : "Right"}-handed batter`}
-      style={mirror}
-      width="90"
-      height="180"
-    >
-      <g fill="#2a2a2a" stroke="rgba(255,255,255,0.12)" strokeWidth="0.8" strokeLinejoin="round">
-        <path d="M 70 8 L 102 4 L 105 9 L 73 18 Z" />
-        <ellipse cx="58" cy="34" rx="12" ry="13" />
-        <path d="M 46 32 Q 44 28 50 26 L 64 26 Q 72 28 70 32 Z" />
-        <path d="M 62 46 Q 76 44 80 36 L 76 28 L 70 22 L 76 18 Q 84 20 86 26 L 90 22 Q 92 28 88 34 L 80 48 Q 74 56 64 56 Z" />
-        <path d="M 38 50 Q 32 56 32 70 L 30 100 Q 30 112 38 118 L 60 124 Q 78 122 82 110 L 82 86 Q 80 70 70 56 L 60 50 Z" />
-        <path d="M 72 42 Q 84 36 92 28 L 96 24 L 92 18 L 84 22 Q 74 28 66 38 Z" />
-        <path d="M 36 116 Q 30 130 36 154 L 40 196 Q 42 210 48 216 L 56 220 L 56 226 L 38 226 L 32 220 L 28 200 L 28 156 Q 26 134 30 116 Z" />
-        <path d="M 62 122 Q 70 132 72 156 L 76 200 Q 78 214 86 220 L 96 222 L 96 228 L 76 228 L 68 222 L 60 200 L 58 158 Q 58 134 60 122 Z" />
-        <ellipse cx="42" cy="228" rx="14" ry="4" />
-        <ellipse cx="84" cy="230" rx="14" ry="4" />
-      </g>
-    </svg>
-  );
-}
-
 function EmptyState({ title, detail }: { title: string; detail: string }) {
   return (
     <div className="empty-state">
@@ -1064,44 +1048,67 @@ function MiniCurve({ values }: { values: number[] }) {
   );
 }
 
-function BasesAndOuts({ baseState, outs }: { baseState: string | null | undefined; outs: number | null | undefined }) {
-  const bases = baseStateFlags(baseState);
+function OutsDots({ outs }: { outs: number | null | undefined }) {
   return (
-    <div className="bases-outs">
-      <div className="outs">
-        {[0, 1, 2].map((index) => (
-          <span key={index} className={(outs ?? 0) > index ? "filled" : ""} />
-        ))}
-      </div>
-      <div className="bases">
-        <i className={bases.second ? "filled second" : "second"} />
-        <i className={bases.third ? "filled third" : "third"} />
-        <i className={bases.first ? "filled first" : "first"} />
-      </div>
+    <div className="outs">
+      {[0, 1, 2].map((index) => (
+        <span key={index} className={(outs ?? 0) > index ? "filled" : ""} />
+      ))}
     </div>
   );
 }
 
-function PitchPlot({ entries, selectedIndex }: { entries: PitchingReplayEntry[]; selectedIndex: number }) {
-  const plotted = entries.slice(0, selectedIndex + 1).slice(-80);
+function BasesDiamond({ baseState }: { baseState: string | null | undefined }) {
+  const bases = baseStateFlags(baseState);
+  return (
+    <div className="bases">
+      <i className={bases.second ? "filled second" : "second"} />
+      <i className={bases.third ? "filled third" : "third"} />
+      <i className={bases.first ? "filled first" : "first"} />
+    </div>
+  );
+}
+
+function formatCount(snapshot: PitchingReplayEntry["snapshot"]): string {
+  const b = typeof snapshot.balls === "number" ? snapshot.balls : null;
+  const s = typeof snapshot.strikes === "number" ? snapshot.strikes : null;
+  return b != null && s != null ? `${b}-${s}` : "—";
+}
+
+function PitchPlot({
+  entries,
+  selectedIndex,
+  onSelect,
+}: {
+  entries: PitchingReplayEntry[];
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  const start = Math.max(0, selectedIndex + 1 - 80);
+  const plotted = entries.slice(start, selectedIndex + 1);
   return (
     <div className="strike-zone-card">
       <div className="plate-zone">
         <div className="zone-box" />
-        {plotted.map((entry, index) => {
+        {plotted.map((entry, localIdx) => {
+          const entriesIdx = start + localIdx;
           const px = typeof entry.snapshot.px === "number" ? entry.snapshot.px : 0;
           const pz = typeof entry.snapshot.pz === "number" ? entry.snapshot.pz : 2.5;
           const left = Math.max(7, Math.min(93, 50 + px * 18));
           const top = Math.max(7, Math.min(93, 84 - pz * 19));
-          const selected = index === plotted.length - 1;
+          const selected = entriesIdx === selectedIndex;
           return (
-            <span
-              key={`${entry.snapshot.pitch_id}-${index}`}
+            <button
+              key={`${entry.snapshot.pitch_id}-${entriesIdx}`}
+              type="button"
               className={selected ? "pitch-dot selected" : "pitch-dot"}
               style={{ left: `${left}%`, top: `${top}%` }}
+              onClick={() => onSelect(entriesIdx)}
+              title={`Pitch ${pitchCount(entry)}`}
+              aria-label={`Jump to pitch ${pitchCount(entry)}`}
             >
               {selected ? pitchCount(entry) : ""}
-            </span>
+            </button>
           );
         })}
       </div>
@@ -1441,15 +1448,6 @@ function matrixBucketDefinition(cell: MatrixCell): string {
   if (cell === "push") return "Starter is stronger than available alternatives";
   if (cell === "workload") return "Starter and alternatives are both sub-optimal";
   return "Starter rates well and bullpen alternative is also usable";
-}
-
-function displayPersonName(name: string | null | undefined): string {
-  const clean = String(name || "").trim();
-  if (!clean) return "";
-  if (!clean.includes(",")) return clean.replace(/\s+/g, " ");
-  const [last, ...rest] = clean.split(",").map((part) => part.trim()).filter(Boolean);
-  const first = rest.join(" ");
-  return [first, last].filter(Boolean).join(" ") || clean;
 }
 
 function pitcherInitials(name: string): string {
@@ -3187,75 +3185,108 @@ function GameAudit({
               </div>
             ) : null}
 
-            <div className="cpw-banner cpw-banner--3col">
-              <p className="cpw-eyebrow">Current Pitch Window</p>
-              <div className="cpw-grid">
-                <div className="cpw-grid__pitch">
-                  {pitchOutcomeLabel(selected.snapshot) || hitClassificationLabel(selected.snapshot) ? (
-                    <div className="cpw-pitch__chips">
+            <div className="replay-layout">
+              <aside className="pitch-window-summary" style={{ borderTop: `3px solid ${accents.primary}` }}>
+                <p className="pws-heading">Pitch Window Summary</p>
+
+                <section className="pws-section pws-pitcher-section">
+                  <p className="pws-eyebrow">Starting Pitcher</p>
+                  <h3 className="pws-pitcher">{displayPersonName(selected.snapshot.pitcher_name)}</h3>
+                  <div className="pws-stats">
+                    <div className="pws-stat">
+                      <span>Inning</span>
+                      <strong>
+                        {selected.snapshot.inning ?? "—"}
+                        {(() => {
+                          const half = (selected.snapshot.half || "").toLowerCase();
+                          if (half.startsWith("t")) return <ArrowUp size={14} aria-label="Top" />;
+                          if (half.startsWith("b")) return <ArrowDown size={14} aria-label="Bottom" />;
+                          return null;
+                        })()}
+                      </strong>
+                    </div>
+                    <div className="pws-stat">
+                      <span>Pitches</span>
+                      <strong>{pitchCount(selected)}</strong>
+                    </div>
+                    <div className="pws-stat">
+                      <span>{selectedIsReliever ? "Batters" : "TTO"}</span>
+                      <strong>{selectedIsReliever ? selectedState?.batters_faced_in_game ?? "—" : selectedState?.times_through_order ?? "—"}</strong>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="pws-section pws-at-bat-section">
+                  <p className="pws-eyebrow">At Bat</p>
+                  <div className="pws-batter">
+                    <span className="pws-batter__name">{displayPersonName(selected.snapshot.batter_name) || "—"}</span>
+                    {batterHandedness(selected.snapshot) ? (
+                      <span className="pws-batter__hand">{batterHandedness(selected.snapshot)}H</span>
+                    ) : null}
+                  </div>
+                </section>
+
+                <div className="pws-cob">
+                  <div className="pws-cob__cell">
+                    <span>Count</span>
+                    <strong className="pws-cob__count">{formatCount(selected.snapshot)}</strong>
+                  </div>
+                  <div className="pws-cob__cell">
+                    <span>Outs</span>
+                    <OutsDots outs={selected.snapshot.outs} />
+                  </div>
+                  <div className="pws-cob__cell">
+                    <span>Bases</span>
+                    <BasesDiamond baseState={selected.snapshot.base_state} />
+                  </div>
+                </div>
+
+                <section className="pws-section pws-cpw">
+                  <p className="pws-eyebrow">Current Pitch Window</p>
+                  {(pitchOutcomeLabel(selected.snapshot) || hitClassificationLabel(selected.snapshot)) ? (
+                    <div className="pws-cpw__chips">
                       {pitchOutcomeLabel(selected.snapshot) ? (
-                        <span className="cpw-pitch__outcome">{pitchOutcomeLabel(selected.snapshot)}</span>
+                        <span className="pws-cpw__outcome">{pitchOutcomeLabel(selected.snapshot)}</span>
                       ) : null}
                       {hitClassificationLabel(selected.snapshot) ? (
-                        <span className="cpw-pitch__hitclass">{hitClassificationLabel(selected.snapshot)}</span>
+                        <span className="pws-cpw__hitclass">{hitClassificationLabel(selected.snapshot)}</span>
                       ) : null}
                     </div>
                   ) : null}
-                </div>
-                <div className="cpw-grid__score">
+                  {(() => {
+                    const raw = String(selected.recommendation?.gm_summary ?? selected.recommendation?.decision_summary ?? "").trim();
+                    if (!raw) return null;
+                    const firstSentence = raw.split(/\.\s+/)[0].replace(/\.$/, "").trim();
+                    return firstSentence ? <p className="pws-cpw__rationale">{`${firstSentence}.`}</p> : null;
+                  })()}
+                </section>
+
+                <div className="pws-score">
                   {(() => {
                     const ownIsAway = replay.game.away_team === team.abbr;
                     const awayTone = ownIsAway ? "own" : "opp";
                     const homeTone = ownIsAway ? "opp" : "own";
                     return (
                       <>
-                        <span className={`cpw-score__team cpw-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>
-                          {replay.game.away_team} {selected.snapshot.away_score ?? "—"}
-                        </span>
-                        <span className="cpw-score__dash">·</span>
-                        <span className={`cpw-score__team cpw-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>
-                          {replay.game.home_team} {selected.snapshot.home_score ?? "—"}
-                        </span>
+                        <span className={`pws-score__team pws-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>{replay.game.away_team}</span>
+                        <strong className="pws-score__num">{selected.snapshot.away_score ?? 0}</strong>
+                        <span className="pws-score__dash">—</span>
+                        <strong className="pws-score__num">{selected.snapshot.home_score ?? 0}</strong>
+                        <span className={`pws-score__team pws-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>{replay.game.home_team}</span>
                       </>
                     );
                   })()}
                 </div>
-                <div className="cpw-grid__narrative">
-                  {(() => {
-                    const raw = String(selected.recommendation?.gm_summary ?? selected.recommendation?.decision_summary ?? "").trim();
-                    if (!raw) return null;
-                    const firstSentence = raw.split(/\.\s+/)[0].replace(/\.$/, "").trim();
-                    return firstSentence ? `${firstSentence}.` : null;
-                  })()}
-                </div>
-              </div>
-            </div>
-
-            <div className="replay-layout">
-              <aside className="situation-card" style={{ borderTop: `3px solid ${accents.primary}` }}>
-                <p className="situation-eyebrow">Pitcher</p>
-                <h3 className="situation-pitcher">{displayPersonName(selected.snapshot.pitcher_name)}</h3>
-                <div className="situation-hero">
-                  <div className="situation-hero__stat">
-                    <span>Inning</span>
-                    <strong>{compactInningLabel(selected.snapshot.half, selected.snapshot.inning)}</strong>
-                  </div>
-                  <div className="situation-hero__stat">
-                    <span>Pitches</span>
-                    <strong>{pitchCount(selected)}</strong>
-                  </div>
-                  <div className="situation-hero__stat">
-                    <span>{selectedIsReliever ? "Batters" : "TTO"}</span>
-                    <strong>{selectedIsReliever ? selectedState?.batters_faced_in_game ?? "—" : selectedState?.times_through_order ?? "—"}</strong>
-                  </div>
-                </div>
-                <BasesAndOuts baseState={selected.snapshot.base_state} outs={selected.snapshot.outs} />
               </aside>
 
               <div className="strike-zone-column">
-                <PitchPlot entries={entries} selectedIndex={selectedIndex} />
+                <PitchPlot entries={entries} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
                 {batterHandedness(selected.snapshot) ? (
-                  <BatterSilhouette handedness={batterHandedness(selected.snapshot)!} />
+                  <img
+                    className={`batter-image batter-image--${batterHandedness(selected.snapshot)!.toLowerCase()}`}
+                    src="/batter-rhh.svg"
+                    alt={`${batterHandedness(selected.snapshot) === "L" ? "Left" : "Right"}-handed batter`}
+                  />
                 ) : null}
               </div>
 

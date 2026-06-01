@@ -1031,12 +1031,19 @@ select {
   place-items: center;
   width: 10px;
   height: 10px;
+  border: 0;
+  padding: 0;
   border-radius: 999px;
   background: rgba(198, 162, 67, 0.45);
   color: #fff;
   font-size: 9px;
+  font-family: inherit;
   transform: translate(-50%, -50%);
+  cursor: pointer;
 }
+
+.pitch-dot:hover { box-shadow: 0 0 0 2px rgba(46, 196, 160, 0.55); }
+.pitch-dot:focus-visible { outline: 2px solid rgba(46, 196, 160, 0.85); outline-offset: 2px; }
 
 .pitch-dot.selected {
   width: 32px;
@@ -16930,16 +16937,18 @@ body.audit-immersive .app-main {
   display: none;
 }
 
-.theme-mobian .strike-zone-column .batter-silhouette {
+.theme-mobian .strike-zone-column .batter-image {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.9;
+  width: 110px;
+  height: auto;
 }
 
-.theme-mobian .strike-zone-column .batter-silhouette--r { left: 8px; }
-.theme-mobian .strike-zone-column .batter-silhouette--l { right: 8px; transform: translateY(-50%) scaleX(-1); }
+.theme-mobian .strike-zone-column .batter-image--r { left: 6px; }
+.theme-mobian .strike-zone-column .batter-image--l { right: 6px; transform: translateY(-50%) scaleX(-1); }
 
 .theme-mobian .evidence-gauge { position: relative; }
 
@@ -16975,4 +16984,209 @@ body.audit-immersive .app-main {
 .theme-mobian .situation-hero__stat { padding: 10px 6px; }
 .theme-mobian .situation-hero__stat > span { letter-spacing: 1px; }
 .theme-mobian .situation-hero__stat > strong { font-size: 20px; letter-spacing: -0.5px; }
+
+/* ---------- Pitch Window Summary card (iter 5) ---------- */
+.theme-mobian .pitch-window-summary {
+  background: #141414;
+  border-radius: 8px;
+  padding: 18px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #f0f0f0;
+}
+
+.theme-mobian .pws-heading {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #2ec4a0;
+  margin: 0;
+}
+
+.theme-mobian .pws-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-mobian .pws-eyebrow {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+  margin: 0;
+}
+
+.theme-mobian .pws-pitcher {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f5f5f5;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.theme-mobian .pws-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.theme-mobian .pws-stat {
+  background: #1e1e1e;
+  border-radius: 6px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.theme-mobian .pws-stat > span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.theme-mobian .pws-stat > strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #f5f5f5;
+}
+
+.theme-mobian .pws-batter {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.theme-mobian .pws-batter__name {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #f5f5f5;
+  letter-spacing: -0.3px;
+}
+
+.theme-mobian .pws-batter__hand {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(46, 196, 160, 0.15);
+  color: #2ec4a0;
+}
+
+.theme-mobian .pws-cob {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-mobian .pws-cob__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-mobian .pws-cob__cell > span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.theme-mobian .pws-cob__count {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #f5f5f5;
+}
+
+.theme-mobian .pws-cpw__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.theme-mobian .pws-cpw__outcome {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: rgba(240, 208, 80, 0.18);
+  color: #f0d050;
+}
+
+.theme-mobian .pws-cpw__hitclass {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: rgba(46, 196, 160, 0.15);
+  color: #2ec4a0;
+}
+
+.theme-mobian .pws-cpw__rationale {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #b0b0b0;
+}
+
+.theme-mobian .pws-score {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-mobian .pws-score__team {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.theme-mobian .pws-score__team--own { color: #f5f5f5; }
+
+.theme-mobian .pws-score__num {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #f5f5f5;
+}
+
+.theme-mobian .pws-score__dash {
+  color: #555555;
+  font-size: 16px;
+}
+
+
 
