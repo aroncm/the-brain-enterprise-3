@@ -16027,9 +16027,12 @@ body {
   box-shadow: 0 0 0 2px #ffffff !important;
 }
 
-.theme-mobian .timeline-watch,
+.theme-mobian .timeline-watch {
+  background: #fce066;
+}
+
 .theme-mobian .timeline-prep {
-  background: #f0d050;
+  background: #f5a03b;
 }
 
 .theme-mobian .timeline-pull_now,
@@ -16560,6 +16563,10 @@ body.audit-immersive .app-main {
   border: 1.5px solid #ffffff;
 }
 
+.theme-mobian .zone-box {
+  border-color: #ffffff;
+}
+
 .theme-mobian .batter-silhouette {
   flex-shrink: 0;
 }
@@ -16864,7 +16871,7 @@ body.audit-immersive .app-main {
 
 .theme-mobian .signal-stay { background: #1a1a1a; border: 1px solid #1e1e1e; color: #f0f0f0; }
 .theme-mobian .signal-watch { background: #fce066; color: #000000; }
-.theme-mobian .signal-prep { background: #f0d050; color: #000000; }
+.theme-mobian .signal-prep { background: #f5a03b; color: #000000; }
 .theme-mobian .signal-pull_now,
 .theme-mobian .signal-distress { background: #e05b4b; color: #000000; }
 .theme-mobian .signal-ok { background: #2ec4a0; color: #000000; }
