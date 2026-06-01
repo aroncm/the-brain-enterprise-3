@@ -16727,3 +16727,247 @@ body.audit-immersive .app-main {
   font-weight: 800;
 }
 
+/* ============================================================
+   Iteration 3 — header restructure, CPW 3-col, signal summary
+   layout, degradation perimeter meter, role pills, watch/prep
+   color escalation, pull-now-summary border legibility.
+   ============================================================ */
+
+.theme-mobian .audit-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "brand filters" "team page";
+  gap: 12px 24px;
+  padding: 20px 28px 18px;
+  text-align: left;
+  align-items: center;
+  border-bottom: 1px solid #1e1e1e;
+  background: #000000;
+  border-radius: 8px 8px 0 0;
+}
+
+.theme-mobian .audit-header__brand { grid-area: brand; text-align: left; }
+.theme-mobian .audit-header__brand svg { display: block; margin: 0; }
+
+.theme-mobian .audit-header__filters {
+  grid-area: filters;
+  display: inline-flex;
+  gap: 12px;
+  justify-self: end;
+  margin-top: 0;
+  align-self: center;
+}
+
+.theme-mobian .audit-header__team {
+  grid-area: team;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.theme-mobian .audit-header__name {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+}
+
+.theme-mobian .audit-header__page {
+  grid-area: page;
+  margin: 0;
+  justify-self: end;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #ffffff;
+  text-transform: uppercase;
+}
+
+.theme-mobian .audit-header__logo .team-logo { width: 60px; height: 60px; }
+
+.theme-mobian .cpw-banner--3col { text-align: left; }
+.theme-mobian .cpw-banner--3col .cpw-eyebrow { text-align: left; margin-bottom: 14px; }
+
+.theme-mobian .cpw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.theme-mobian .cpw-grid__pitch { text-align: left; }
+
+.theme-mobian .cpw-pitch__title {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+  margin-bottom: 4px;
+}
+
+.theme-mobian .cpw-pitch__detail { color: #a0a0a0; font-size: 12px; line-height: 1.45; }
+
+.theme-mobian .cpw-pitch__chips { margin-top: 8px; display: inline-flex; gap: 8px; flex-wrap: wrap; }
+
+.theme-mobian .cpw-pitch__outcome {
+  display: inline-block;
+  background: transparent;
+  border: 1px solid #1e1e1e;
+  color: #f0f0f0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.theme-mobian .cpw-pitch__hitclass {
+  display: inline-block;
+  background: #1a1a1a;
+  border: 1px solid #1e1e1e;
+  color: #f0d050;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.theme-mobian .cpw-grid__score {
+  text-align: center;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 14px;
+  justify-content: center;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  justify-self: center;
+}
+
+.theme-mobian .cpw-grid__narrative { text-align: left; color: #a0a0a0; font-size: 13px; line-height: 1.55; }
+
+.theme-mobian .signal-stay { background: #1a1a1a; border: 1px solid #1e1e1e; color: #f0f0f0; }
+.theme-mobian .signal-watch { background: #fce066; color: #000000; }
+.theme-mobian .signal-prep { background: #f0d050; color: #000000; }
+.theme-mobian .signal-pull_now,
+.theme-mobian .signal-distress { background: #e05b4b; color: #000000; }
+.theme-mobian .signal-ok { background: #2ec4a0; color: #000000; }
+
+.theme-mobian .decision-score-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 0;
+}
+
+.theme-mobian .decision-score-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.theme-mobian .decision-score-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+}
+
+.theme-mobian .decision-score-value {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.theme-mobian .decision-score-note { color: #a0a0a0; font-style: normal; font-size: 11px; text-align: center; line-height: 1.4; }
+
+.theme-mobian .degradation-ring {
+  --ring: 0%;
+  --ring-color: #7a7a7a;
+  width: 140px;
+  height: 140px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #0a0a0a 60%, transparent 61%),
+    conic-gradient(var(--ring-color) var(--ring), rgba(255, 255, 255, 0.08) 0);
+}
+
+.theme-mobian .degradation-ring--lg { width: 152px; height: 152px; }
+
+.theme-mobian .degradation-ring strong {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -1.5px;
+  line-height: 1;
+}
+
+.theme-mobian .degradation-ring span { display: none; }
+
+.theme-mobian .strike-zone-column { position: relative; display: grid; place-items: center; min-width: 0; }
+
+.theme-mobian .strike-zone-column .batter-silhouette {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.theme-mobian .strike-zone-column .batter-silhouette--r { left: 8px; }
+.theme-mobian .strike-zone-column .batter-silhouette--l { right: 8px; transform: translateY(-50%) scaleX(-1); }
+
+.theme-mobian .evidence-gauge { position: relative; }
+
+.theme-mobian .gauge-role-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #000000;
+}
+
+.theme-mobian .gauge-role-pill--driver { background: #e05b4b; }
+.theme-mobian .gauge-role-pill--held-up { background: #2ec4a0; }
+.theme-mobian .gauge-role-pill--watch { background: #f0d050; }
+
+.theme-mobian .counterfactual-grid .mini-metric-list li {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.theme-mobian .counterfactual-grid > div:nth-of-type(1) { border-left: 3px solid #f0d050; }
+.theme-mobian .counterfactual-grid > div:nth-of-type(2) { border-left: 3px solid #2ec4a0; }
+.theme-mobian .counterfactual-grid > div:nth-of-type(3) { border-left: 3px solid #e05b4b; }
+
+.theme-mobian .situation-hero { gap: 6px; }
+.theme-mobian .situation-hero__stat { padding: 10px 6px; }
+.theme-mobian .situation-hero__stat > span { letter-spacing: 1px; }
+.theme-mobian .situation-hero__stat > strong { font-size: 20px; letter-spacing: -0.5px; }
+
