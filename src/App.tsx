@@ -392,7 +392,7 @@ const PITCH_CALL_LABELS: Record<string, string> = {
   "ball in dirt": "Ball",
   "called strike": "Called Strike",
   "swinging strike": "Whiff",
-  "swinging strike (blocked)": "Whiff",
+  "swinging strike blocked": "Whiff",
   "swinging pitchout": "Whiff",
   "missed bunt": "Whiff",
   "foul": "Foul",
@@ -400,34 +400,33 @@ const PITCH_CALL_LABELS: Record<string, string> = {
   "foul bunt": "Foul",
   "foul pitchout": "Foul",
   "hit by pitch": "Hit by Pitch",
+  "hit into play": "Hit Into Play",
+  "hit into play no out": "Hit Into Play",
+  "hit into play score": "Hit Into Play",
+  "hit into play out(s)": "Hit Into Play",
   "single": "Single",
   "double": "Double",
   "triple": "Triple",
-  "home_run": "Home Run",
   "home run": "Home Run",
-  "field_out": "Out",
   "field out": "Out",
-  "force_out": "Force Out",
   "force out": "Force Out",
-  "grounded_into_double_play": "Double Play",
   "grounded into double play": "Double Play",
-  "double_play": "Double Play",
-  "sac_fly": "Sacrifice Fly",
+  "double play": "Double Play",
   "sac fly": "Sacrifice Fly",
-  "sac_bunt": "Sacrifice Bunt",
   "sac bunt": "Sacrifice Bunt",
   "strikeout": "Strikeout",
   "walk": "Walk",
-  "intent_walk": "Intentional Walk",
   "intent walk": "Intentional Walk",
+  "intentional walk": "Intentional Walk",
 };
 
 function pitchOutcomeLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
   const raw = (snapshot.pitch_call || "").trim();
   if (!raw) return "";
-  const lookup = PITCH_CALL_LABELS[raw.toLowerCase()];
+  const normalized = raw.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ").trim();
+  const lookup = PITCH_CALL_LABELS[normalized];
   if (lookup) return lookup;
-  return raw.split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+  return normalized.split(" ").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
 }
 
 function hitClassificationLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
@@ -920,18 +919,25 @@ function BatterSilhouette({ handedness }: { handedness: "L" | "R" }) {
   return (
     <svg
       className={`batter-silhouette batter-silhouette--${handedness.toLowerCase()}`}
-      viewBox="0 0 60 140"
+      viewBox="0 0 120 240"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label={`${handedness === "L" ? "Left" : "Right"}-handed batter`}
       style={mirror}
-      width="60"
-      height="140"
+      width="90"
+      height="180"
     >
-      <g fill="#1e1e1e" stroke="rgba(255,255,255,0.18)" strokeWidth="0.6">
-        <circle cx="28" cy="14" r="8" />
-        <path d="M22 22 Q15 28 14 42 L13 70 Q12 76 16 80 L22 110 L20 132 L26 132 L28 112 L30 92 L34 112 L36 132 L42 132 L40 110 L46 80 Q50 76 49 70 L48 42 Q47 28 40 22 Z" />
-        <path d="M44 26 L56 18 L58 22 L46 32 Z" />
+      <g fill="#2a2a2a" stroke="rgba(255,255,255,0.12)" strokeWidth="0.8" strokeLinejoin="round">
+        <path d="M 70 8 L 102 4 L 105 9 L 73 18 Z" />
+        <ellipse cx="58" cy="34" rx="12" ry="13" />
+        <path d="M 46 32 Q 44 28 50 26 L 64 26 Q 72 28 70 32 Z" />
+        <path d="M 62 46 Q 76 44 80 36 L 76 28 L 70 22 L 76 18 Q 84 20 86 26 L 90 22 Q 92 28 88 34 L 80 48 Q 74 56 64 56 Z" />
+        <path d="M 38 50 Q 32 56 32 70 L 30 100 Q 30 112 38 118 L 60 124 Q 78 122 82 110 L 82 86 Q 80 70 70 56 L 60 50 Z" />
+        <path d="M 72 42 Q 84 36 92 28 L 96 24 L 92 18 L 84 22 Q 74 28 66 38 Z" />
+        <path d="M 36 116 Q 30 130 36 154 L 40 196 Q 42 210 48 216 L 56 220 L 56 226 L 38 226 L 32 220 L 28 200 L 28 156 Q 26 134 30 116 Z" />
+        <path d="M 62 122 Q 70 132 72 156 L 76 200 Q 78 214 86 220 L 96 222 L 96 228 L 76 228 L 68 222 L 60 200 L 58 158 Q 58 134 60 122 Z" />
+        <ellipse cx="42" cy="228" rx="14" ry="4" />
+        <ellipse cx="84" cy="230" rx="14" ry="4" />
       </g>
     </svg>
   );
@@ -3185,12 +3191,6 @@ function GameAudit({
               <p className="cpw-eyebrow">Current Pitch Window</p>
               <div className="cpw-grid">
                 <div className="cpw-grid__pitch">
-                  {eventLabel && eventLabel.title ? (
-                    <>
-                      <div className="cpw-pitch__title">{eventLabel.title}</div>
-                      {eventLabel.detail ? <div className="cpw-pitch__detail">{eventLabel.detail}</div> : null}
-                    </>
-                  ) : null}
                   {pitchOutcomeLabel(selected.snapshot) || hitClassificationLabel(selected.snapshot) ? (
                     <div className="cpw-pitch__chips">
                       {pitchOutcomeLabel(selected.snapshot) ? (

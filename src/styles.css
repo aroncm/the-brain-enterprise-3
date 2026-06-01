@@ -16923,7 +16923,12 @@ body.audit-immersive .app-main {
 
 .theme-mobian .degradation-ring span { display: none; }
 
-.theme-mobian .strike-zone-column { position: relative; display: grid; place-items: center; min-width: 0; }
+.theme-mobian .strike-zone-column { position: relative; display: block; width: 100%; min-width: 0; }
+
+.theme-mobian .cpw-pitch__chips:empty,
+.theme-mobian .cpw-grid__pitch:empty {
+  display: none;
+}
 
 .theme-mobian .strike-zone-column .batter-silhouette {
   position: absolute;
