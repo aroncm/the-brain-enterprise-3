@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 480" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Baseball batter silhouette">
+  <title>Baseball batter silhouette</title>
+  <g fill="#141414">
+    <path d="M178 30 L228 14 Q236 14 236 22 Q234 30 226 32 L182 56 Q172 50 178 30 Z"/>
+    <path d="M104 56 Q102 30 138 26 Q176 28 178 56 L198 54 Q200 64 192 70 L178 74 Q176 92 158 100 L130 100 Q108 96 104 78 Z"/>
+    <path d="M146 102 L140 92 Q160 84 168 64 L184 64 Q180 84 168 100 Z"/>
+    <path d="M104 100 Q82 108 78 132 L70 200 Q66 244 80 274 L158 282 Q180 274 180 248 L172 178 Q166 132 150 108 L148 100 Z"/>
+    <path d="M148 274 Q160 296 164 332 L172 410 Q176 432 184 438 L202 442 L202 454 L168 454 L156 442 L146 416 L136 360 L128 290 Z"/>
+    <path d="M92 274 Q76 296 72 332 L66 410 Q60 432 50 440 L28 446 L28 458 L70 458 L88 442 L98 416 L104 360 L110 290 Z"/>
+  </g>
+</svg>
