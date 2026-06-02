@@ -16849,6 +16849,27 @@ body.audit-immersive .app-main {
 
 .theme-mobian .panel__toggle:hover { background: #1a1a1a; border-color: #3a3a3a; }
 
+.theme-mobian .panel__toggle--msf {
+  background: #2ec4a0;
+  border-color: #2ec4a0;
+  color: #0a0a0a;
+}
+.theme-mobian .panel__toggle--msf:hover { background: #28b08e; border-color: #28b08e; }
+
+.theme-mobian .panel__toggle--rss {
+  background: #f0d050;
+  border-color: #f0d050;
+  color: #0a0a0a;
+}
+.theme-mobian .panel__toggle--rss:hover { background: #d8b941; border-color: #d8b941; }
+
+.theme-mobian .panel__toggle--outcome {
+  background: #e05b4b;
+  border-color: #e05b4b;
+  color: #ffffff;
+}
+.theme-mobian .panel__toggle--outcome:hover { background: #c64a3c; border-color: #c64a3c; }
+
 .theme-mobian .panel--collapsed .panel__body { display: none; }
 .theme-mobian .panel--collapsed .panel__header { margin-bottom: 0; }
 
@@ -16877,15 +16898,19 @@ body.audit-immersive .app-main {
   color: #a0a0a0;
 }
 
-.theme-mobian .pull-meter-track {
+/* Override the base .counterfactual-grid div cascade (border + padding + paper bg)
+   that would otherwise crush the meter track and hide the fill. */
+.theme-mobian .counterfactual-grid .pull-meter-track {
   position: relative;
-  height: 4px;
+  height: 6px;
+  border: 0;
+  padding: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 
-.theme-mobian .pull-meter-track i {
+.theme-mobian .counterfactual-grid .pull-meter-track i {
   display: block;
   height: 100%;
   background: #2ec4a0;
@@ -17457,7 +17482,8 @@ body.audit-immersive .app-main {
   grid-template-columns: 280px minmax(320px, 1fr) 390px;
   align-items: center;
   gap: 18px;
-  padding: 18px 22px;
+  padding: 12px 22px;
+  scroll-margin-top: 160px;
 }
 
 .theme-mobian .signal-banner__block {
@@ -17475,9 +17501,9 @@ body.audit-immersive .app-main {
 .theme-mobian .signal-banner__eyebrow {
   margin: 0;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.8px;
+  letter-spacing: 1.6px;
   text-transform: uppercase;
   color: rgba(0, 0, 0, 0.65);
 }
@@ -17490,13 +17516,36 @@ body.audit-immersive .app-main {
 
 .theme-mobian .signal-banner__value {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 36px;
+  font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.4px;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.theme-mobian .signal-banner__pitcher-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.theme-mobian .signal-banner__game-detail {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+
+.theme-mobian .signal-banner--3col.signal-stay .signal-banner__game-detail,
+.theme-mobian .signal-banner--3col.signal-pull_now .signal-banner__game-detail,
+.theme-mobian .signal-banner--3col.signal-distress .signal-banner__game-detail {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .theme-mobian .signal-banner__block--signal .signal-banner__value {

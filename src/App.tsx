@@ -255,6 +255,14 @@ function compactInningLabel(half: string | null | undefined, inning: number | nu
   return `${inning}`;
 }
 
+function formatGameDate(iso: string | null | undefined): string {
+  const token = String(iso || "").trim();
+  if (!token) return "";
+  const d = new Date(token);
+  if (Number.isNaN(d.getTime())) return token;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function batterDisplayName(snapshot: PitchingReplayEntry["snapshot"]): string {
   const raw = String(snapshot.batter_name ?? "").trim();
   const id = String(snapshot.batter_id ?? "").trim();
@@ -3075,6 +3083,11 @@ function GameAudit({
   const [msfOpen, setMsfOpen] = useState(true);
   const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
+  const replayPanelRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!selectedGameId || !replayPanelRef.current) return;
+    replayPanelRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedGameId]);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -3244,11 +3257,18 @@ function GameAudit({
         <EmptyState title="No replay loaded" detail="Select a completed game with finalized pitch-level replay detail." />
       ) : (
         <>
-          <article className="panel replay-panel">
+          <article ref={replayPanelRef} className="panel replay-panel">
             <div className={`signal-banner signal-banner--3col signal-${signalClass(displayStatus)}`}>
               <div className="signal-banner__block signal-banner__block--pitcher">
                 <p className="signal-banner__eyebrow">Starting Pitcher</p>
-                <strong className="signal-banner__value">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                <div className="signal-banner__pitcher-row">
+                  <strong className="signal-banner__value">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                  {selectedGame ? (
+                    <span className="signal-banner__game-detail">
+                      {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <div className="signal-banner__block signal-banner__block--signal">
                 <p className="signal-banner__eyebrow">Model Signal</p>
@@ -3466,7 +3486,7 @@ function GameAudit({
               </p>
               <button
                 type="button"
-                className="panel__toggle"
+                className="panel__toggle panel__toggle--msf"
                 aria-label={msfOpen ? "Collapse Model Signal Factors" : "Expand Model Signal Factors"}
                 aria-expanded={msfOpen}
                 onClick={() => setMsfOpen((o) => !o)}
@@ -3544,7 +3564,7 @@ function GameAudit({
                 </p>
                 <button
                   type="button"
-                  className="panel__toggle"
+                  className="panel__toggle panel__toggle--rss"
                   aria-label={rssOpen ? "Collapse Reliever Stress Signal" : "Expand Reliever Stress Signal"}
                   aria-expanded={rssOpen}
                   onClick={() => setRssOpen((o) => !o)}
@@ -3596,7 +3616,7 @@ function GameAudit({
               </p>
               <button
                 type="button"
-                className="panel__toggle"
+                className="panel__toggle panel__toggle--outcome"
                 aria-label={outcomeOpen ? "Collapse Actual Outcome Summary" : "Expand Actual Outcome Summary"}
                 aria-expanded={outcomeOpen}
                 onClick={() => setOutcomeOpen((o) => !o)}
