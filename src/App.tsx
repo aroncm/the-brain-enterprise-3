@@ -10,6 +10,7 @@ import {
   Grid2X2 as SquaresFour,
   LineChart as ChartLineUp,
   List as ListDashes,
+  Plus,
   RefreshCw as ArrowsClockwise,
   Search as MagnifyingGlass,
   TrendingDown as TrendDown,
@@ -52,7 +53,7 @@ import type {
 import { teamAccents } from "./teamAccents";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
-type Workflow = "command" | "audit" | "allocation" | "briefings";
+type Workflow = "audit" | "briefings";
 type Team = { abbr: string; name: string; club: string; division: string };
 type MatrixCell = "standard" | "tandem" | "push" | "workload";
 
@@ -127,10 +128,8 @@ const MLB_TEAMS: Team[] = [
 ];
 
 const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
-  { id: "command", label: "Season Insights" },
   { id: "audit", label: "Game Replays" },
-  { id: "allocation", label: "Staff Review" },
-  { id: "briefings", label: "Briefings" },
+  { id: "briefings", label: "Game Briefings" },
 ];
 
 function appSearchParams(): URLSearchParams {
@@ -140,7 +139,7 @@ function appSearchParams(): URLSearchParams {
 
 function initialWorkflowFromSearch(): Workflow {
   const workflowParam = appSearchParams().get("workflow");
-  return WORKFLOWS.some((item) => item.id === workflowParam) ? (workflowParam as Workflow) : "command";
+  return WORKFLOWS.some((item) => item.id === workflowParam) ? (workflowParam as Workflow) : "audit";
 }
 
 function initialTeamFromSearch(): string {
@@ -155,9 +154,7 @@ function initialGameIdFromSearch(): string | null {
 }
 
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
-  command: ChartLineUp,
   audit: MagnifyingGlass,
-  allocation: UsersThree,
   briefings: PresentationChart,
 };
 
@@ -1167,96 +1164,83 @@ function SignalTimeline({
   );
 }
 
-function Header({
+function TopNav({
   team,
   workflow,
-  loadState,
   onRefresh,
   onTeamChange,
   onWorkflowChange,
 }: {
-  team: Team;
+  team: Team | null;
   workflow: Workflow;
   loadState: LoadState;
   onRefresh: () => void;
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
 }) {
-  const renderWorkflowButton = (item: (typeof WORKFLOWS)[number]) => {
-    const Icon = WORKFLOW_ICONS[item.id];
-    return (
-      <button
-        key={item.id}
-        type="button"
-        className={`cmdx-nav-item${workflow === item.id ? " active" : ""}`}
-        onClick={() => onWorkflowChange(item.id)}
-      >
-        <span className="cmdx-nav-icon" aria-hidden="true">
-          <Icon size={18} />
-        </span>
-        <span className="cmdx-nav-copy">
-          <strong>{item.label}</strong>
-        </span>
-      </button>
-    );
-  };
-
+  const accents = team ? teamAccents(team.abbr) : null;
+  const teamColor = accents?.primary ?? "#ffffff";
   return (
-    <header className="cmdx-sidebar">
-      <div className="cmdx-sidebar-brand">
-        <img src="/iteration-5-dark.svg" alt="Baseball brAIn" />
+    <header className="top-nav">
+      <div className="top-nav__brand-group">
+        <a className="top-nav__brand" href="/" aria-label="Baseball brAIn">
+          <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
+            <text x="20" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="36" fontWeight="300" letterSpacing="6" fill="#FFFFFF">BASEBALL</text>
+            <text x="322" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="84" fontWeight="700" letterSpacing="-1" fill="#FFFFFF" fillOpacity="0.7">
+              <tspan fillOpacity="0.7">br</tspan>
+              <tspan fill={teamColor} fillOpacity="1">AI</tspan>
+              <tspan fillOpacity="0.7">n</tspan>
+            </text>
+            <polygon points="277,17 312,52 277,87 242,52" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinejoin="miter" />
+            <line x1="269" y1="52" x2="285" y2="52" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
+            <line x1="277" y1="44" x2="277" y2="60" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </a>
+        {team ? (
+          <div className="top-nav__team">
+            <span className="top-nav__team-logo"><TeamLogo abbr={team.abbr} /></span>
+            <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
+          </div>
+        ) : null}
       </div>
 
-      <nav className="cmdx-sidebar-nav" aria-label="Primary workflows">
-        <span className="cmdx-sidebar-section">Pitching Intelligence</span>
-        {WORKFLOWS.map(renderWorkflowButton)}
+      <nav className="top-nav__tabs" aria-label="Primary workflows">
+        {WORKFLOWS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={`top-nav__tab${workflow === item.id ? " top-nav__tab--active" : ""}`}
+            onClick={() => onWorkflowChange(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
       </nav>
 
-      <div className="cmdx-sidebar-footer">
-        <div className="cmdx-sidebar-user">
-          <span className="cmdx-sidebar-user-avatar">JD</span>
-          <span>
-            <strong>John Doe</strong>
-            <em>Platform Admin</em>
-          </span>
-        </div>
-
-        <label className="cmdx-sidebar-team">
-          <span className="cmdx-sidebar-team-abbr">{team.abbr}</span>
-          <span className="cmdx-sidebar-select-wrap">
-            <select
-              value={team.abbr}
-              onChange={(event) => {
-                const next = MLB_TEAMS.find((item) => item.abbr === event.target.value);
-                if (next) onTeamChange(next);
-              }}
-            >
-              {MLB_TEAMS.map((item) => (
-                <option key={item.abbr} value={item.abbr}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </span>
+      <div className="top-nav__actions">
+        <label className="top-nav__club-chip">
+          <span>{team?.club ?? "Select Club"}</span>
+          <Plus size={14} aria-hidden="true" />
+          <select
+            className="top-nav__club-select"
+            value={team?.abbr ?? ""}
+            onChange={(event) => {
+              const next = MLB_TEAMS.find((item) => item.abbr === event.target.value);
+              if (next) onTeamChange(next);
+            }}
+            aria-label="Select club"
+          >
+            {!team ? <option value="" disabled>Select Club</option> : null}
+            {MLB_TEAMS.map((item) => (
+              <option key={item.abbr} value={item.abbr}>{item.name}</option>
+            ))}
+          </select>
         </label>
-
-        <button
-          type="button"
-          className={`cmdx-sidebar-refresh ${loadState === "ready" ? "ready" : "pending"}`}
-          onClick={onRefresh}
-          aria-label={loadState === "ready" ? "Data ready. Refresh data." : loadState === "loading" ? "Loading data. Refresh data." : "Data needs attention. Refresh data."}
-          title={loadState === "ready" ? "Data ready" : loadState === "loading" ? "Loading data" : "Data needs attention"}
-        >
-          <ArrowsClockwise size={15} aria-hidden="true" />
-          <span>Refresh Data</span>
+        <button type="button" className="top-nav__data-sync" onClick={onRefresh}>
+          <ArrowsClockwise size={14} aria-hidden="true" />
+          <span>Data Sync</span>
         </button>
-
-        <div className="cmdx-sidebar-status">
-          <strong>
-            <i className={loadState === "ready" ? "ready" : "pending"} aria-hidden="true" />
-            {loadState === "ready" ? "System Online" : loadState === "loading" ? "Syncing" : "Needs Attention"}
-          </strong>
-        </div>
+        <div className="top-nav__profile" aria-label="Admin profile">A</div>
       </div>
     </header>
   );
@@ -2989,7 +2973,6 @@ function GameAudit({
   preventableRows,
   season,
   onSeasonChange,
-  onExitAudit,
 }: {
   team: Team;
   games: EnterpriseGameSummary[];
@@ -3000,7 +2983,6 @@ function GameAudit({
   preventableRows: PreventableRunsOpportunityRow[];
   season: string;
   onSeasonChange: (season: string) => void;
-  onExitAudit: () => void;
 }) {
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
@@ -3146,20 +3128,7 @@ function GameAudit({
   return (
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
       <header className="audit-header">
-        <div className="audit-header__brand" aria-label="Baseball brAIn">
-          <svg viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn" width="220" height="45" style={{ display: "block" }}>
-            <text x="20" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="36" fontWeight="300" letterSpacing="6" fill="#FFFFFF">BASEBALL</text>
-            <text x="322" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="84" fontWeight="700" letterSpacing="-1" fill="#FFFFFF" fillOpacity="0.7">
-              <tspan fillOpacity="0.7">br</tspan>
-              <tspan fill={accents.label} fillOpacity="1">AI</tspan>
-              <tspan fillOpacity="0.7">n</tspan>
-            </text>
-            <polygon points="277,17 312,52 277,87 242,52" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinejoin="miter" />
-            <line x1="269" y1="52" x2="285" y2="52" stroke={accents.label} strokeWidth="1.8" strokeLinecap="round" />
-            <line x1="277" y1="44" x2="277" y2="60" stroke={accents.label} strokeWidth="1.8" strokeLinecap="round" />
-            <text textAnchor="middle" x="282" y="110" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="15" fontWeight="400" letterSpacing="3.5" fill={accents.label}>ADVANCED BASEBALL INTELLIGENCE</text>
-          </svg>
-        </div>
+        <h2 className="audit-header__page">GAME REPLAYS</h2>
         <div className="audit-header__filters">
           <label className="audit-filter">
             <span>Season</span>
@@ -3179,11 +3148,6 @@ function GameAudit({
             </select>
           </label>
         </div>
-        <div className="audit-header__team">
-          <span className="audit-header__logo"><TeamLogo abbr={team.abbr} /></span>
-          <h1 className="audit-header__name" style={{ color: accents.label }}>{team.name}</h1>
-        </div>
-        <h2 className="audit-header__page">Game Replays</h2>
       </header>
 
       {!selectedGameId || !replay || !selected ? (
@@ -4258,88 +4222,44 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <Header
+      <TopNav
         team={selectedTeam}
         workflow={workflow}
         loadState={loadState}
         onRefresh={refreshAll}
         onTeamChange={(team) => {
           setSelectedTeamAbbr(team.abbr);
-          setWorkflow("command");
         }}
         onWorkflowChange={setWorkflow}
       />
 
       <div className="app-main">
-      {workflow !== "command" ? (
-        <div className="season-row">
-          <div className="topbar-copy">
-            <span>Baseball brAIn · Professional Operational Intelligence</span>
-            <strong>{selectedTeam.name}</strong>
-            <em>Pitcher Intelligence — every pitch, every pitcher, every situation.</em>
-          </div>
-          <label>
-            Season
-            <select value={season} onChange={(event) => setSeason(event.target.value)}>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-            </select>
-          </label>
-        </div>
-      ) : null}
+        {loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence from ${apiBase}.`} />}
+        {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Set VITE_BASEBALL_BRAIN_API_BASE in the frontend environment." />}
+        {loadState === "error" && <EmptyState title="API source unavailable" detail={error ?? "The Baseball brAIn API did not respond."} />}
 
-      {loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence from ${apiBase}.`} />}
-      {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Set VITE_BASEBALL_BRAIN_API_BASE in the frontend environment." />}
-      {loadState === "error" && <EmptyState title="API source unavailable" detail={error ?? "The Baseball brAIn API did not respond."} />}
+        {loadState === "ready" && workflow === "audit" && (
+          <GameAudit
+            team={selectedTeam}
+            games={games}
+            selectedGameId={selectedGameId}
+            onGameChange={setSelectedGameId}
+            replay={replay}
+            recap={recap}
+            preventableRows={auditPreventableRuns?.rows ?? []}
+            season={season}
+            onSeasonChange={setSeason}
+          />
+        )}
 
-      {loadState === "ready" && payload && workflow === "command" && (
-        <CommandCenter
-          team={selectedTeam}
-          season={season}
-          payload={payload}
-          preventableRuns={dashboardPreventableRuns}
-          preventableRunsError={dashboardPreventableRunsError}
-          preventableRunsLoading={dashboardPreventableRunsLoading}
-          profiles={profiles}
-          auditSummary={auditSummary}
-          games={games}
-          onOpenAudit={() => setWorkflow("audit")}
-          onOpenGameAudit={(gameId) => {
-            setSelectedGameId(gameId);
-            setWorkflow("audit");
-          }}
-          onRefresh={refreshAll}
-          onSeasonChange={setSeason}
-        />
-      )}
-
-      {loadState === "ready" && workflow === "audit" && (
-        <GameAudit
-          team={selectedTeam}
-          games={games}
-          selectedGameId={selectedGameId}
-          onGameChange={setSelectedGameId}
-          replay={replay}
-          recap={recap}
-          preventableRows={auditPreventableRuns?.rows ?? []}
-          season={season}
-          onSeasonChange={setSeason}
-          onExitAudit={() => setWorkflow("command")}
-        />
-      )}
-
-      {loadState === "ready" && workflow === "allocation" && (
-        <PitcherAllocation profiles={profiles} bullpenOptions={bullpenOptions} />
-      )}
-
-      {loadState === "ready" && workflow === "briefings" && (
-        <BriefingSettings
-          team={selectedTeam}
-          settings={recapSettings}
-          status={recapSettingsStatus}
-          onSave={handleSaveRecapSettings}
-        />
-      )}
+        {loadState === "ready" && workflow === "briefings" && (
+          <BriefingSettings
+            team={selectedTeam}
+            settings={recapSettings}
+            status={recapSettingsStatus}
+            onSave={handleSaveRecapSettings}
+          />
+        )}
 
       <footer className="app-footer">
         <span>Source: {apiBase || UNAVAILABLE}</span>
