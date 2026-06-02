@@ -3084,18 +3084,29 @@ function GameAudit({
   const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
   const replayPanelRef = useRef<HTMLElement | null>(null);
+  const replayGameId = replay?.game?.game_id ?? null;
   useEffect(() => {
-    if (!selectedGameId) return;
-    const id = requestAnimationFrame(() => {
+    if (!selectedGameId || !replayGameId || replayGameId !== selectedGameId) return;
+    let cancelled = false;
+    const scroll = () => {
+      if (cancelled) return;
       const el = replayPanelRef.current;
       if (!el) return;
       const navbar = document.querySelector(".top-nav") as HTMLElement | null;
       const offset = navbar?.getBoundingClientRect().height ?? 160;
       const top = el.getBoundingClientRect().top + window.scrollY - offset - 4;
       window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    });
-    return () => cancelAnimationFrame(id);
-  }, [selectedGameId]);
+    };
+    const rafId = requestAnimationFrame(scroll);
+    const t1 = window.setTimeout(scroll, 250);
+    const t2 = window.setTimeout(scroll, 800);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [selectedGameId, replayGameId]);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
