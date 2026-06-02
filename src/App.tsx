@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   Grid2X2 as SquaresFour,
   LineChart as ChartLineUp,
   List as ListDashes,
+  Minus,
   Plus,
   RefreshCw as ArrowsClockwise,
   Search as MagnifyingGlass,
@@ -638,16 +639,27 @@ function exitAndDamageCopy(pitcher: PitchingRecapPitcher | null): string {
   return `${exit}; ${runs}.${hold}`;
 }
 
-function pullWindowMetrics(entry: PitchingReplayEntry | null): { stuff: string; decay: string; degradation: string } {
+function pullWindowMetrics(entry: PitchingReplayEntry | null): {
+  stuff: string; decay: string; degradation: string;
+  stuffRaw: number | null; decayRaw: number | null; degradationRaw: number | null;
+} {
   if (!entry) {
-    return { stuff: UNAVAILABLE, decay: UNAVAILABLE, degradation: UNAVAILABLE };
+    return {
+      stuff: UNAVAILABLE, decay: UNAVAILABLE, degradation: UNAVAILABLE,
+      stuffRaw: null, decayRaw: null, degradationRaw: null,
+    };
   }
   const state = replayState(entry);
+  const stuff = stuffScore(entry);
   const decay = (state.inning_decay_factor ?? 0) + (state.tto_decay_factor ?? 0);
+  const degradation = state.enhanced_degradation_score ?? state.degradation_score ?? null;
   return {
-    stuff: `${stuffScore(entry)}/100`,
+    stuff: `${stuff}/100`,
     decay: fmtNumber(decay, 2),
-    degradation: fmtNumber(state.enhanced_degradation_score ?? state.degradation_score, 2),
+    degradation: fmtNumber(degradation, 2),
+    stuffRaw: stuff,
+    decayRaw: decay,
+    degradationRaw: degradation,
   };
 }
 
@@ -1170,17 +1182,86 @@ function pageHeadingForWorkflow(workflow: Workflow): string {
   return "";
 }
 
+function CustomSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+  ariaLabel,
+  minWidth,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  options: Array<{ value: string; label: string }>;
+  placeholder?: string;
+  ariaLabel?: string;
+  minWidth?: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selected = options.find((opt) => opt.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="custom-select" style={minWidth ? { minWidth } : undefined}>
+      <button
+        type="button"
+        className="custom-select__trigger"
+        onClick={() => setOpen((current) => !current)}
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className="custom-select__label">{selected?.label ?? placeholder ?? ""}</span>
+        <Plus size={14} aria-hidden="true" />
+      </button>
+      {open ? (
+        <ul className="custom-select__panel" role="listbox">
+          {options.map((opt) => (
+            <li
+              key={opt.value}
+              role="option"
+              aria-selected={opt.value === value}
+              className={`custom-select__option${opt.value === value ? " is-selected" : ""}`}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+            >
+              {opt.label}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function TopNav({
   team,
   workflow,
-  onRefresh,
+  loadState,
   onTeamChange,
   onWorkflowChange,
 }: {
   team: Team | null;
   workflow: Workflow;
   loadState: LoadState;
-  onRefresh: () => void;
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
 }) {
@@ -1217,28 +1298,23 @@ function TopNav({
         </nav>
 
         <div className="top-nav__actions">
-          <label className="top-nav__club-chip">
-            <span>{team?.name ?? "Select Club"}</span>
-            <Plus size={14} aria-hidden="true" />
-            <select
-              className="top-nav__club-select"
-              value={team?.abbr ?? ""}
-              onChange={(event) => {
-                const next = MLB_TEAMS.find((item) => item.abbr === event.target.value);
-                if (next) onTeamChange(next);
-              }}
-              aria-label="Select club"
-            >
-              {!team ? <option value="" disabled>Select Club</option> : null}
-              {MLB_TEAMS.map((item) => (
-                <option key={item.abbr} value={item.abbr}>{item.name}</option>
-              ))}
-            </select>
-          </label>
-          <button type="button" className="top-nav__data-sync" onClick={onRefresh}>
-            <ArrowsClockwise size={14} aria-hidden="true" />
-            <span>Data Sync</span>
-          </button>
+          <CustomSelect
+            ariaLabel="Select club"
+            placeholder="Select Club"
+            minWidth={200}
+            value={team?.abbr ?? ""}
+            options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
+            onChange={(next) => {
+              const team = MLB_TEAMS.find((item) => item.abbr === next);
+              if (team) onTeamChange(team);
+            }}
+          />
+          <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
+            {loadState === "loading" ? "Loading Data" :
+             loadState === "ready" ? "Data Ready" :
+             loadState === "missing-config" ? "Setup Required" :
+             "Connection Error"}
+          </span>
           <div className="top-nav__profile" aria-label="Admin profile">A</div>
         </div>
       </div>
@@ -2996,6 +3072,9 @@ function GameAudit({
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
   const [autoplay, setAutoplay] = useState(false);
+  const [msfOpen, setMsfOpen] = useState(true);
+  const [rssOpen, setRssOpen] = useState(true);
+  const [outcomeOpen, setOutcomeOpen] = useState(true);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -3140,20 +3219,23 @@ function GameAudit({
         <div className="audit-header__filters">
           <label className="audit-filter">
             <span>Season</span>
-            <select value={season} onChange={(event) => onSeasonChange(event.target.value)}>
-              <option value="2026">2026</option>
-              <option value="2025">2025</option>
-            </select>
+            <CustomSelect
+              ariaLabel="Select season"
+              minWidth={140}
+              value={season}
+              options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
+              onChange={onSeasonChange}
+            />
           </label>
           <label className="audit-filter">
             <span>Game</span>
-            <select value={selectedGameId ?? ""} onChange={(event) => onGameChange(event.target.value)}>
-              {games.map((game) => (
-                <option key={game.game_id} value={game.game_id}>
-                  {gameLabel(game)}
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              ariaLabel="Select game"
+              minWidth={240}
+              value={selectedGameId ?? ""}
+              options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+              onChange={onGameChange}
+            />
           </label>
         </div>
       </header>
@@ -3371,8 +3453,8 @@ function GameAudit({
             </div>
           </article>
 
-          <article className="panel evidence-panel">
-            <div className="panel-title">
+          <article className={`panel evidence-panel${msfOpen ? "" : " panel--collapsed"}`}>
+            <div className="panel__header">
               <p className="eyebrow model-signal-eyebrow">
                 <span className="model-signal-dot" aria-hidden="true" />
                 Model Signal Factors
@@ -3382,7 +3464,17 @@ function GameAudit({
                   aria-label="Description"
                 >i</span>
               </p>
+              <button
+                type="button"
+                className="panel__toggle"
+                aria-label={msfOpen ? "Collapse Model Signal Factors" : "Expand Model Signal Factors"}
+                aria-expanded={msfOpen}
+                onClick={() => setMsfOpen((o) => !o)}
+              >
+                {msfOpen ? <Minus size={16} /> : <Plus size={16} />}
+              </button>
             </div>
+            <div className="panel__body">
             <div className="evidence-grid">
               <section>
                 <h4>Stuff</h4>
@@ -3440,13 +3532,27 @@ function GameAudit({
                 </section>
               ) : null}
             </div>
+            </div>
           </article>
 
           {teamRelievers.length > 0 ? (
-            <article className="panel rss-panel">
-              <div className="panel-title">
-                <p className="eyebrow">Reliever Stress Signal</p>
+            <article className={`panel rss-panel${rssOpen ? "" : " panel--collapsed"}`}>
+              <div className="panel__header">
+                <p className="eyebrow model-signal-eyebrow">
+                  <span className="model-signal-dot model-signal-dot--rss" aria-hidden="true" />
+                  Reliever Stress Signal
+                </p>
+                <button
+                  type="button"
+                  className="panel__toggle"
+                  aria-label={rssOpen ? "Collapse Reliever Stress Signal" : "Expand Reliever Stress Signal"}
+                  aria-expanded={rssOpen}
+                  onClick={() => setRssOpen((o) => !o)}
+                >
+                  {rssOpen ? <Minus size={16} /> : <Plus size={16} />}
+                </button>
               </div>
+              <div className="panel__body">
               <div className="rss-table">
                 {teamRelievers.map((pitcher, index) => (
                   <div key={pitcher.pitcher_id || pitcher.pitcher_name} className="rss-row">
@@ -3478,19 +3584,53 @@ function GameAudit({
                   </div>
                 ))}
               </div>
+              </div>
             </article>
           ) : null}
 
-          <article className="panel counterfactual-panel">
-            <p className="eyebrow">Actual Outcome Summary</p>
+          <article className={`panel counterfactual-panel${outcomeOpen ? "" : " panel--collapsed"}`}>
+            <div className="panel__header">
+              <p className="eyebrow model-signal-eyebrow">
+                <span className="model-signal-dot model-signal-dot--outcome" aria-hidden="true" />
+                Actual Outcome Summary
+              </p>
+              <button
+                type="button"
+                className="panel__toggle"
+                aria-label={outcomeOpen ? "Collapse Actual Outcome Summary" : "Expand Actual Outcome Summary"}
+                aria-expanded={outcomeOpen}
+                onClick={() => setOutcomeOpen((o) => !o)}
+              >
+                {outcomeOpen ? <Minus size={16} /> : <Plus size={16} />}
+              </button>
+            </div>
+            <div className="panel__body">
             <div className="counterfactual-grid">
               <div className="outcome-card">
                 <strong className="outcome-card__title">Pull Now Summary</strong>
                 <p>{actionPointCopy(keyPitcher)}</p>
-                <ul className="mini-metric-list">
-                  <li>Stuff <b>{pullMetrics.stuff}</b></li>
-                  <li>Decay <b>{pullMetrics.decay}</b></li>
-                  <li>Degradation <b>{pullMetrics.degradation}</b></li>
+                <ul className="pull-meter-list">
+                  <li>
+                    <span className="pull-meter-label">Stuff</span>
+                    <div className="pull-meter-track" aria-hidden="true">
+                      <i style={{ width: `${Math.max(0, Math.min(100, ((pullMetrics.stuffRaw ?? 0) / 100) * 100))}%` }} />
+                    </div>
+                    <b className="pull-meter-value">{pullMetrics.stuff}</b>
+                  </li>
+                  <li>
+                    <span className="pull-meter-label">Decay</span>
+                    <div className="pull-meter-track" aria-hidden="true">
+                      <i style={{ width: `${Math.max(0, Math.min(100, ((pullMetrics.decayRaw ?? 0) / 0.2) * 100))}%` }} />
+                    </div>
+                    <b className="pull-meter-value">{pullMetrics.decay}</b>
+                  </li>
+                  <li>
+                    <span className="pull-meter-label">Degradation</span>
+                    <div className="pull-meter-track" aria-hidden="true">
+                      <i style={{ width: `${Math.max(0, Math.min(100, ((pullMetrics.degradationRaw ?? 0) / 3) * 100))}%` }} />
+                    </div>
+                    <b className="pull-meter-value">{pullMetrics.degradation}</b>
+                  </li>
                 </ul>
               </div>
               <div className="outcome-card">
@@ -3501,6 +3641,7 @@ function GameAudit({
                 <strong className="outcome-card__title">Actual Result</strong>
                 <p>{exitAndDamageCopy(keyPitcher)}</p>
               </div>
+            </div>
             </div>
           </article>
 
@@ -4239,7 +4380,6 @@ export default function App() {
         team={selectedTeam}
         workflow={workflow}
         loadState={loadState}
-        onRefresh={refreshAll}
         onTeamChange={(team) => {
           setSelectedTeamAbbr(team.abbr);
         }}
@@ -4247,9 +4387,9 @@ export default function App() {
       />
 
       <div className="app-main">
-        {loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence from ${apiBase}.`} />}
-        {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Set VITE_BASEBALL_BRAIN_API_BASE in the frontend environment." />}
-        {loadState === "error" && <EmptyState title="API source unavailable" detail={error ?? "The Baseball brAIn API did not respond."} />}
+        {loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />}
+        {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Contact your Baseball brAIn admin to enable this workspace." />}
+        {loadState === "error" && <EmptyState title="API source unavailable" detail="The Baseball brAIn API did not respond. Try again in a moment." />}
 
         {loadState === "ready" && workflow === "audit" && (
           <GameAudit
@@ -4275,7 +4415,6 @@ export default function App() {
         )}
 
       <footer className="app-footer">
-        <span>Source: {apiBase || UNAVAILABLE}</span>
         <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
         <span>Confidential · Baseball brAIn, Inc.</span>
       </footer>
