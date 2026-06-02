@@ -319,6 +319,10 @@ p {
   position: relative;
 }
 
+.workflow-audit:has(.audit-header--collapsed) {
+  margin-top: -22px;
+}
+
 .workflow-audit:has(.audit-header--collapsed) .signal-banner {
   padding-right: 168px;
 }
