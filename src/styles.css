@@ -306,9 +306,21 @@ p {
 }
 
 .audit-header--collapsed {
-  padding: 8px 32px;
-  align-items: center;
-  justify-content: flex-end;
+  position: absolute;
+  top: 12px;
+  right: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  z-index: 5;
+}
+
+.workflow-audit {
+  position: relative;
+}
+
+.workflow-audit:has(.audit-header--collapsed) .signal-banner {
+  padding-right: 168px;
 }
 
 .audit-header__filters {
