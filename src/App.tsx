@@ -3085,8 +3085,16 @@ function GameAudit({
   const [outcomeOpen, setOutcomeOpen] = useState(true);
   const replayPanelRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!selectedGameId || !replayPanelRef.current) return;
-    replayPanelRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!selectedGameId) return;
+    const id = requestAnimationFrame(() => {
+      const el = replayPanelRef.current;
+      if (!el) return;
+      const navbar = document.querySelector(".top-nav") as HTMLElement | null;
+      const offset = navbar?.getBoundingClientRect().height ?? 160;
+      const top = el.getBoundingClientRect().top + window.scrollY - offset - 4;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(id);
   }, [selectedGameId]);
   const teamReplayEntries = useMemo(
     () =>
@@ -3230,7 +3238,7 @@ function GameAudit({
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
       <header className="audit-header">
         <div className="audit-header__filters">
-          <label className="audit-filter">
+          <div className="audit-filter">
             <span>Season</span>
             <CustomSelect
               ariaLabel="Select season"
@@ -3239,8 +3247,8 @@ function GameAudit({
               options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
               onChange={onSeasonChange}
             />
-          </label>
-          <label className="audit-filter">
+          </div>
+          <div className="audit-filter">
             <span>Game</span>
             <CustomSelect
               ariaLabel="Select game"
@@ -3249,7 +3257,7 @@ function GameAudit({
               options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
               onChange={onGameChange}
             />
-          </label>
+          </div>
         </div>
       </header>
 
@@ -4093,10 +4101,14 @@ function BriefingSettings({
 
   return (
     <section className="workflow theme-mobian briefing-workflow">
-      <header className="audit-header">
-        <div className="audit-header__filters">
-          <label className="audit-filter">
-            <span>Game</span>
+      <article className="panel briefing-panel">
+        <div className="briefing-heading-row">
+          <div className="briefing-heading">
+            <h2 className="briefing-heading__title">Generate Game Recap</h2>
+            <p className="briefing-heading__sub">Select a game to generate a game briefing.</p>
+          </div>
+          <div className="briefing-game-select">
+            <span className="briefing-game-select__label">Game</span>
             <CustomSelect
               ariaLabel="Select game"
               minWidth={260}
@@ -4104,14 +4116,7 @@ function BriefingSettings({
               options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
               onChange={onGameChange}
             />
-          </label>
-        </div>
-      </header>
-
-      <article className="panel briefing-panel">
-        <div className="briefing-heading">
-          <h2 className="briefing-heading__title">Generate Game Recap</h2>
-          <p className="briefing-heading__sub">Select a game to generate a game briefing.</p>
+          </div>
         </div>
 
         <div className="briefing-action-row">
