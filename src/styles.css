@@ -865,6 +865,7 @@ select {
 .replay-panel {
   padding: 0;
   overflow: hidden;
+  scroll-margin-top: 160px;
 }
 
 .signal-banner {
@@ -17534,18 +17535,22 @@ body.audit-immersive .app-main {
 }
 
 .theme-mobian .signal-banner__game-detail {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   letter-spacing: 0.04em;
-  color: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
   white-space: nowrap;
 }
 
-.theme-mobian .signal-banner--3col.signal-stay .signal-banner__game-detail,
-.theme-mobian .signal-banner--3col.signal-pull_now .signal-banner__game-detail,
-.theme-mobian .signal-banner--3col.signal-distress .signal-banner__game-detail {
-  color: rgba(255, 255, 255, 0.7);
+.theme-mobian .signal-banner--3col.signal-stay .signal-banner__game-detail {
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
 }
 
 .theme-mobian .signal-banner__block--signal .signal-banner__value {
