@@ -323,26 +323,8 @@ p {
   background: transparent;
 }
 
-.audit-header--collapsed {
-  position: absolute;
-  top: 12px;
-  right: 24px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  z-index: 5;
-}
-
-.workflow-audit {
-  position: relative;
-}
-
-.workflow-audit:has(.audit-header--collapsed) {
+.workflow-audit--filters-hidden {
   margin-top: -22px;
-}
-
-.workflow-audit:has(.audit-header--collapsed) .signal-banner {
-  padding-right: 168px;
 }
 
 .audit-header__filters {
@@ -351,7 +333,7 @@ p {
   gap: 16px;
 }
 
-.theme-mobian .audit-header__toggle {
+.top-nav__filter-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -370,13 +352,13 @@ p {
   transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
-.theme-mobian .audit-header__toggle:hover {
+.top-nav__filter-toggle:hover {
   background: #141414;
   border-color: #3a3a3a;
   color: #ffffff;
 }
 
-.theme-mobian .audit-header__toggle:focus-visible {
+.top-nav__filter-toggle:focus-visible {
   outline: 2px solid #2ec4a0;
   outline-offset: 2px;
 }

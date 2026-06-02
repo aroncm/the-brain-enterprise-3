@@ -258,6 +258,14 @@ function compactInningLabel(half: string | null | undefined, inning: number | nu
 function formatGameDate(iso: string | null | undefined): string {
   const token = String(iso || "").trim();
   if (!token) return "";
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(token);
+  if (match) {
+    const [, y, m, d] = match;
+    const local = new Date(Number(y), Number(m) - 1, Number(d));
+    if (!Number.isNaN(local.getTime())) {
+      return local.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+  }
   const d = new Date(token);
   if (Number.isNaN(d.getTime())) return token;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -1266,12 +1274,16 @@ function TopNav({
   loadState,
   onTeamChange,
   onWorkflowChange,
+  filtersOpen,
+  onToggleFilters,
 }: {
   team: Team | null;
   workflow: Workflow;
   loadState: LoadState;
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
+  filtersOpen?: boolean;
+  onToggleFilters?: () => void;
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.primary ?? "#ffffff";
@@ -1334,6 +1346,18 @@ function TopNav({
           <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
           <span className="top-nav__sep" aria-hidden="true">+</span>
           <h2 className="top-nav__page">{pageHeadingForWorkflow(workflow)}</h2>
+          {workflow === "audit" && filtersOpen != null && onToggleFilters ? (
+            <button
+              type="button"
+              className="top-nav__filter-toggle"
+              aria-label={filtersOpen ? "Hide Season and Game filters" : "Show Season and Game filters"}
+              aria-expanded={filtersOpen}
+              onClick={onToggleFilters}
+            >
+              {filtersOpen ? <Minus size={14} /> : <Plus size={14} />}
+              <span>{filtersOpen ? "Hide Filters" : "Show Filters"}</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
     </header>
@@ -3067,6 +3091,7 @@ function GameAudit({
   preventableRows,
   season,
   onSeasonChange,
+  filtersOpen,
 }: {
   team: Team;
   games: EnterpriseGameSummary[];
@@ -3077,6 +3102,7 @@ function GameAudit({
   preventableRows: PreventableRunsOpportunityRow[];
   season: string;
   onSeasonChange: (season: string) => void;
+  filtersOpen: boolean;
 }) {
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
@@ -3084,7 +3110,6 @@ function GameAudit({
   const [msfOpen, setMsfOpen] = useState(true);
   const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -3224,9 +3249,9 @@ function GameAudit({
     "--team-row-bg": accents.rowBg,
   } as CSSProperties;
   return (
-    <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
-      <header className={`audit-header${filtersOpen ? "" : " audit-header--collapsed"}`}>
-        {filtersOpen ? (
+    <section className={`workflow theme-mobian workflow-audit${filtersOpen ? "" : " workflow-audit--filters-hidden"}`} style={themeStyle}>
+      {filtersOpen ? (
+        <header className="audit-header">
           <div className="audit-header__filters">
             <div className="audit-filter">
               <span>Season</span>
@@ -3249,18 +3274,8 @@ function GameAudit({
               />
             </div>
           </div>
-        ) : null}
-        <button
-          type="button"
-          className="audit-header__toggle"
-          aria-label={filtersOpen ? "Hide Season and Game filters" : "Show Season and Game filters"}
-          aria-expanded={filtersOpen}
-          onClick={() => setFiltersOpen((o) => !o)}
-        >
-          {filtersOpen ? <Minus size={14} /> : <Plus size={14} />}
-          <span>{filtersOpen ? "Hide Filters" : "Show Filters"}</span>
-        </button>
-      </header>
+        </header>
+      ) : null}
 
       {!selectedGameId || !replay || !selected ? (
         <EmptyState title="No replay loaded" detail="Select a completed game with finalized pitch-level replay detail." />
@@ -4260,6 +4275,7 @@ function BriefingSettings({
 export default function App() {
   const [selectedTeamAbbr, setSelectedTeamAbbr] = useState(initialTeamFromSearch);
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflowFromSearch);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [season, setSeason] = useState("2026");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(initialGameIdFromSearch);
   const [games, setGames] = useState<EnterpriseGameSummary[]>([]);
@@ -4410,6 +4426,8 @@ export default function App() {
           setSelectedTeamAbbr(team.abbr);
         }}
         onWorkflowChange={setWorkflow}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen((o) => !o)}
       />
 
       <div className="app-main">
@@ -4428,6 +4446,7 @@ export default function App() {
             preventableRows={auditPreventableRuns?.rows ?? []}
             season={season}
             onSeasonChange={setSeason}
+            filtersOpen={filtersOpen}
           />
         )}
 
