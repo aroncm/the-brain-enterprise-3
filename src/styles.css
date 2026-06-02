@@ -298,17 +298,53 @@ p {
 .audit-header {
   display: flex;
   align-items: flex-end;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 24px;
   padding: 18px 32px 16px;
   border-bottom: 1px solid #1e1e1e;
   background: transparent;
 }
 
+.audit-header--collapsed {
+  padding: 8px 32px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .audit-header__filters {
   display: inline-flex;
   align-items: flex-end;
   gap: 16px;
+}
+
+.theme-mobian .audit-header__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 8px 14px;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 999px;
+  color: #d0d0d0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.theme-mobian .audit-header__toggle:hover {
+  background: #141414;
+  border-color: #3a3a3a;
+  color: #ffffff;
+}
+
+.theme-mobian .audit-header__toggle:focus-visible {
+  outline: 2px solid #2ec4a0;
+  outline-offset: 2px;
 }
 
 .audit-filter {

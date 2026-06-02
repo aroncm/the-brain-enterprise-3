@@ -3083,30 +3083,7 @@ function GameAudit({
   const [msfOpen, setMsfOpen] = useState(true);
   const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
-  const replayPanelRef = useRef<HTMLElement | null>(null);
-  const replayGameId = replay?.game?.game_id ?? null;
-  useEffect(() => {
-    if (!selectedGameId || !replayGameId || replayGameId !== selectedGameId) return;
-    let cancelled = false;
-    const scroll = () => {
-      if (cancelled) return;
-      const el = replayPanelRef.current;
-      if (!el) return;
-      const navbar = document.querySelector(".top-nav") as HTMLElement | null;
-      const offset = navbar?.getBoundingClientRect().height ?? 160;
-      const top = el.getBoundingClientRect().top + window.scrollY - offset - 4;
-      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-    };
-    const rafId = requestAnimationFrame(scroll);
-    const t1 = window.setTimeout(scroll, 250);
-    const t2 = window.setTimeout(scroll, 800);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(rafId);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, [selectedGameId, replayGameId]);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -3247,36 +3224,48 @@ function GameAudit({
   } as CSSProperties;
   return (
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
-      <header className="audit-header">
-        <div className="audit-header__filters">
-          <div className="audit-filter">
-            <span>Season</span>
-            <CustomSelect
-              ariaLabel="Select season"
-              minWidth={140}
-              value={season}
-              options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
-              onChange={onSeasonChange}
-            />
+      <header className={`audit-header${filtersOpen ? "" : " audit-header--collapsed"}`}>
+        {filtersOpen ? (
+          <div className="audit-header__filters">
+            <div className="audit-filter">
+              <span>Season</span>
+              <CustomSelect
+                ariaLabel="Select season"
+                minWidth={140}
+                value={season}
+                options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
+                onChange={onSeasonChange}
+              />
+            </div>
+            <div className="audit-filter">
+              <span>Game</span>
+              <CustomSelect
+                ariaLabel="Select game"
+                minWidth={240}
+                value={selectedGameId ?? ""}
+                options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+                onChange={onGameChange}
+              />
+            </div>
           </div>
-          <div className="audit-filter">
-            <span>Game</span>
-            <CustomSelect
-              ariaLabel="Select game"
-              minWidth={240}
-              value={selectedGameId ?? ""}
-              options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
-              onChange={onGameChange}
-            />
-          </div>
-        </div>
+        ) : null}
+        <button
+          type="button"
+          className="audit-header__toggle"
+          aria-label={filtersOpen ? "Hide Season and Game filters" : "Show Season and Game filters"}
+          aria-expanded={filtersOpen}
+          onClick={() => setFiltersOpen((o) => !o)}
+        >
+          {filtersOpen ? <Minus size={14} /> : <Plus size={14} />}
+          <span>{filtersOpen ? "Hide Filters" : "Show Filters"}</span>
+        </button>
       </header>
 
       {!selectedGameId || !replay || !selected ? (
         <EmptyState title="No replay loaded" detail="Select a completed game with finalized pitch-level replay detail." />
       ) : (
         <>
-          <article ref={replayPanelRef} className="panel replay-panel">
+          <article className="panel replay-panel">
             <div className={`signal-banner signal-banner--3col signal-${signalClass(displayStatus)}`}>
               <div className="signal-banner__block signal-banner__block--pitcher">
                 <p className="signal-banner__eyebrow">Starting Pitcher</p>
