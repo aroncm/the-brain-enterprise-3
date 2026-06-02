@@ -89,76 +89,94 @@ p {
   top: 0;
   z-index: 50;
   width: 100%;
-  min-height: 104px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 0 32px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 32px 14px;
   background: #000000;
   border-bottom: 1px solid #1e1e1e;
 }
 
-.top-nav__brand-group {
+.top-nav__row {
   display: flex;
   align-items: center;
-  gap: 22px;
-  flex: 1 1 auto;
-  min-width: 0;
+  gap: 24px;
+}
+
+.top-nav__row--primary {
+  justify-content: space-between;
+}
+
+.top-nav__row--team {
+  gap: 14px;
 }
 
 .top-nav__brand { display: block; line-height: 0; flex-shrink: 0; }
-.top-nav__brain-svg { width: 200px; height: auto; display: block; }
-
-.top-nav__team {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
+.top-nav__brain-svg { width: 280px; height: auto; display: block; }
 
 .top-nav__team-logo {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .top-nav__team-logo .team-logo {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   background: transparent;
   border: 0;
   border-radius: 0;
 }
 
+.top-nav__team-logo .team-logo img {
+  width: 100%;
+  height: 100%;
+}
+
 .top-nav__team-name {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 800;
-  letter-spacing: -0.5px;
+  letter-spacing: -1px;
+  text-transform: uppercase;
   margin: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.top-nav__sep {
+  font-size: 32px;
+  font-weight: 700;
+  color: #555;
+  line-height: 1;
+}
+
+.top-nav__page {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .top-nav__tabs {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 36px;
+  gap: 28px;
+  margin-left: 8px;
+  flex: 1 1 auto;
 }
 
 .top-nav__tab {
   background: transparent;
   border: 0;
-  padding: 10px 4px;
+  padding: 8px 4px;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #8a8a8a;
   cursor: pointer;
@@ -169,7 +187,7 @@ p {
 .top-nav__tab--active {
   color: #ffffff;
   border-bottom: 2px solid #e05b4b;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
 .top-nav__actions {
@@ -183,16 +201,24 @@ p {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 200px;
   padding: 8px 14px;
   border: 1px solid #2a2a2a;
   border-radius: 8px;
-  background: transparent;
+  background: #0a0a0a;
   color: #ffffff;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.top-nav__club-chip > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-nav__club-select {
@@ -206,6 +232,12 @@ p {
   background: transparent;
   padding: 0;
   min-height: 0;
+}
+
+.top-nav__club-chip select option,
+.audit-filter select option {
+  background: #0a0a0a;
+  color: #ffffff;
 }
 
 .top-nav__data-sync {
@@ -242,21 +274,11 @@ p {
 .audit-header {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 24px;
-  padding: 24px 32px 20px;
+  padding: 18px 32px 16px;
   border-bottom: 1px solid #1e1e1e;
   background: transparent;
-}
-
-.audit-header__page {
-  margin: 0;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -1px;
-  color: #ffffff;
-  text-transform: uppercase;
 }
 
 .audit-header__filters {
@@ -867,7 +889,7 @@ select {
 
 .replay-layout {
   display: grid;
-  grid-template-columns: 250px minmax(360px, 1fr) 360px;
+  grid-template-columns: 280px minmax(320px, 1fr) 390px;
   gap: 18px;
   padding: 22px;
 }
@@ -16674,8 +16696,14 @@ body.audit-immersive .app-main {
 }
 
 .theme-mobian .signal-summary-eyebrow {
-  text-align: center;
-  color: #a0a0a0;
+  margin: 0;
+  text-align: left;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #2ec4a0;
 }
 
 .theme-mobian .degradation-ring--lg {
@@ -16888,18 +16916,6 @@ body.audit-immersive .app-main {
   font-size: 32px;
   font-weight: 800;
   letter-spacing: -1px;
-  text-transform: uppercase;
-}
-
-.theme-mobian .audit-header__page {
-  grid-area: page;
-  margin: 0;
-  justify-self: end;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -1px;
-  color: #ffffff;
   text-transform: uppercase;
 }
 
@@ -17322,6 +17338,57 @@ body.audit-immersive .app-main {
   font-weight: 700;
   letter-spacing: 0.2px;
   color: #ffffff;
+}
+
+.theme-mobian .signal-banner--3col {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 28px;
+}
+
+.theme-mobian .signal-banner__block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.theme-mobian .signal-banner__block--signal {
+  align-items: center;
+  text-align: center;
+}
+
+.theme-mobian .signal-banner__eyebrow {
+  margin: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.theme-mobian .signal-banner--3col.signal-stay .signal-banner__eyebrow,
+.theme-mobian .signal-banner--3col.signal-pull_now .signal-banner__eyebrow,
+.theme-mobian .signal-banner--3col.signal-distress .signal-banner__eyebrow {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.theme-mobian .signal-banner__value {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-mobian .signal-banner__block--signal .signal-banner__value {
+  letter-spacing: 0.06em;
 }
 
 .theme-mobian .stuff-condition-card {

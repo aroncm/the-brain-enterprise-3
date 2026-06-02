@@ -1164,6 +1164,12 @@ function SignalTimeline({
   );
 }
 
+function pageHeadingForWorkflow(workflow: Workflow): string {
+  if (workflow === "audit") return "GAME REPLAYS";
+  if (workflow === "briefings") return "GAME BRIEFINGS";
+  return "";
+}
+
 function TopNav({
   team,
   workflow,
@@ -1182,7 +1188,7 @@ function TopNav({
   const teamColor = accents?.primary ?? "#ffffff";
   return (
     <header className="top-nav">
-      <div className="top-nav__brand-group">
+      <div className="top-nav__row top-nav__row--primary">
         <a className="top-nav__brand" href="/" aria-label="Baseball brAIn">
           <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
             <text x="20" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="36" fontWeight="300" letterSpacing="6" fill="#FFFFFF">BASEBALL</text>
@@ -1196,52 +1202,55 @@ function TopNav({
             <line x1="277" y1="44" x2="277" y2="60" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </a>
-        {team ? (
-          <div className="top-nav__team">
-            <span className="top-nav__team-logo"><TeamLogo abbr={team.abbr} /></span>
-            <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
-          </div>
-        ) : null}
-      </div>
 
-      <nav className="top-nav__tabs" aria-label="Primary workflows">
-        {WORKFLOWS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`top-nav__tab${workflow === item.id ? " top-nav__tab--active" : ""}`}
-            onClick={() => onWorkflowChange(item.id)}
-          >
-            {item.label}
+        <nav className="top-nav__tabs" aria-label="Primary workflows">
+          {WORKFLOWS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`top-nav__tab${workflow === item.id ? " top-nav__tab--active" : ""}`}
+              onClick={() => onWorkflowChange(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="top-nav__actions">
+          <label className="top-nav__club-chip">
+            <span>{team?.name ?? "Select Club"}</span>
+            <Plus size={14} aria-hidden="true" />
+            <select
+              className="top-nav__club-select"
+              value={team?.abbr ?? ""}
+              onChange={(event) => {
+                const next = MLB_TEAMS.find((item) => item.abbr === event.target.value);
+                if (next) onTeamChange(next);
+              }}
+              aria-label="Select club"
+            >
+              {!team ? <option value="" disabled>Select Club</option> : null}
+              {MLB_TEAMS.map((item) => (
+                <option key={item.abbr} value={item.abbr}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="top-nav__data-sync" onClick={onRefresh}>
+            <ArrowsClockwise size={14} aria-hidden="true" />
+            <span>Data Sync</span>
           </button>
-        ))}
-      </nav>
-
-      <div className="top-nav__actions">
-        <label className="top-nav__club-chip">
-          <span>{team?.club ?? "Select Club"}</span>
-          <Plus size={14} aria-hidden="true" />
-          <select
-            className="top-nav__club-select"
-            value={team?.abbr ?? ""}
-            onChange={(event) => {
-              const next = MLB_TEAMS.find((item) => item.abbr === event.target.value);
-              if (next) onTeamChange(next);
-            }}
-            aria-label="Select club"
-          >
-            {!team ? <option value="" disabled>Select Club</option> : null}
-            {MLB_TEAMS.map((item) => (
-              <option key={item.abbr} value={item.abbr}>{item.name}</option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="top-nav__data-sync" onClick={onRefresh}>
-          <ArrowsClockwise size={14} aria-hidden="true" />
-          <span>Data Sync</span>
-        </button>
-        <div className="top-nav__profile" aria-label="Admin profile">A</div>
+          <div className="top-nav__profile" aria-label="Admin profile">A</div>
+        </div>
       </div>
+
+      {team ? (
+        <div className="top-nav__row top-nav__row--team">
+          <span className="top-nav__team-logo"><TeamLogo abbr={team.abbr} /></span>
+          <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
+          <span className="top-nav__sep" aria-hidden="true">+</span>
+          <h2 className="top-nav__page">{pageHeadingForWorkflow(workflow)}</h2>
+        </div>
+      ) : null}
     </header>
   );
 }
@@ -3128,7 +3137,6 @@ function GameAudit({
   return (
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
       <header className="audit-header">
-        <h2 className="audit-header__page">GAME REPLAYS</h2>
         <div className="audit-header__filters">
           <label className="audit-filter">
             <span>Season</span>
@@ -3155,8 +3163,15 @@ function GameAudit({
       ) : (
         <>
           <article className="panel replay-panel">
-            <div className={`signal-banner signal-${signalClass(displayStatus)}`}>
-              <strong>{selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}</strong>
+            <div className={`signal-banner signal-banner--3col signal-${signalClass(displayStatus)}`}>
+              <div className="signal-banner__block signal-banner__block--pitcher">
+                <p className="signal-banner__eyebrow">Starting Pitcher</p>
+                <strong className="signal-banner__value">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+              </div>
+              <div className="signal-banner__block signal-banner__block--signal">
+                <p className="signal-banner__eyebrow">Model Signal</p>
+                <strong className="signal-banner__value">{selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}</strong>
+              </div>
               {signalDwellSummary ? (
                 <div className="signal-banner__dwell">
                   <span className="signal-banner__dwell-label">Signal Dwell</span>
@@ -3176,8 +3191,6 @@ function GameAudit({
                 <p className="pws-heading">Pitch Window Summary</p>
 
                 <section className="pws-section pws-pitcher-section">
-                  <p className="pws-eyebrow">Starting Pitcher</p>
-                  <h3 className="pws-pitcher">{displayPersonName(selected.snapshot.pitcher_name)}</h3>
                   <div className="pws-stats">
                     <div className="pws-stat">
                       <span>Inning</span>
