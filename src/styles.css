@@ -17598,6 +17598,227 @@ body.audit-immersive .app-main {
   color: #2ec4a0;
 }
 
+/* ---------- Iteration 14: Game Briefings page ---------- */
 
+.theme-mobian.briefing-workflow,
+.theme-mobian .briefing-workflow {
+  background: #000000;
+  color: #f5f5f5;
+  min-height: 100vh;
+}
 
+.theme-mobian .briefing-panel {
+  background: transparent;
+  border: 0;
+  padding: 24px 32px 48px;
+  box-shadow: none;
+}
+
+.theme-mobian .briefing-heading {
+  margin: 0 0 24px;
+}
+
+.theme-mobian .briefing-heading__title {
+  margin: 0 0 6px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.theme-mobian .briefing-heading__sub {
+  margin: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #a0a0a0;
+}
+
+.theme-mobian .briefing-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  border-bottom: 1px solid #1e1e1e;
+  margin-bottom: 24px;
+}
+
+.theme-mobian .briefing-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.theme-mobian .briefing-action:hover {
+  background: #1a1a1a;
+  border-color: #3a3a3a;
+}
+
+.theme-mobian .briefing-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.theme-mobian .briefing-action--primary {
+  background: #2ec4a0;
+  border-color: #2ec4a0;
+  color: #0a0a0a;
+}
+
+.theme-mobian .briefing-action--primary:hover {
+  background: #28b08e;
+  border-color: #28b08e;
+}
+
+.theme-mobian .briefing-tab {
+  margin-left: auto;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #8a8a8a;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.theme-mobian .briefing-tab:hover { color: #d0d0d0; }
+
+.theme-mobian .briefing-tab--active {
+  color: #ffffff;
+  border-bottom-color: #e05b4b;
+}
+
+.theme-mobian .briefing-status {
+  margin: 0 0 16px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  color: #a0a0a0;
+}
+
+/* Delivery Settings (rendered behind the Delivery Settings tab) */
+.theme-mobian .legacy-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 8px 0 0;
+}
+
+.theme-mobian .legacy-settings-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 8px 24px;
+  align-items: start;
+}
+
+.theme-mobian .legacy-settings-row > span {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+  padding-top: 9px;
+}
+
+.theme-mobian .legacy-settings-row > strong {
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding-top: 8px;
+}
+
+.theme-mobian .legacy-settings-row > em {
+  grid-column: 2;
+  font-style: normal;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  color: #6a6a6a;
+  margin-top: 4px;
+}
+
+.theme-mobian .legacy-settings-row input,
+.theme-mobian .legacy-settings-row .team-add-inline select,
+.theme-mobian .recipient-team-row input {
+  min-height: 36px;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  color: #ffffff;
+  padding: 0 12px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+
+.theme-mobian .legacy-settings-row .team-add-inline select option {
+  background: #0a0a0a;
+  color: #ffffff;
+}
+
+.theme-mobian .recipient-team-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-mobian .recipient-team-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin: 0;
+}
+
+.theme-mobian .recipient-team-row strong {
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 13px;
+}
+
+.theme-mobian .team-add-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.theme-mobian .team-add-inline button {
+  padding: 8px 14px;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.theme-mobian .team-add-inline button:hover {
+  background: #1a1a1a;
+  border-color: #3a3a3a;
+}
+
+.theme-mobian .legacy-settings-save {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
 

@@ -3947,11 +3947,19 @@ function BriefingPreview({ response, team }: { response: PitchingRecapEmailRespo
 
 function BriefingSettings({
   team,
+  games,
+  selectedGameId,
+  onGameChange,
   settings,
   status,
   onSave,
 }: {
   team: Team;
+  games: EnterpriseGameSummary[];
+  selectedGameId: string | null;
+  onGameChange: (id: string) => void;
+  season: string;
+  onSeasonChange: (season: string) => void;
   settings: PitchingRecapSettings | null;
   status: string | null;
   onSave: (patch: Partial<PitchingRecapSettings>) => Promise<void>;
@@ -3961,13 +3969,12 @@ function BriefingSettings({
   const [finalizedTeamsText, setFinalizedTeamsText] = useState("");
   const [recipientsByTeam, setRecipientsByTeam] = useState<Record<string, string>>({});
   const [teamToAdd, setTeamToAdd] = useState(team.abbr);
-  const [previewTeam, setPreviewTeam] = useState(team.abbr);
-  const [previewDate, setPreviewDate] = useState("");
   const [previewResponse, setPreviewResponse] = useState<PitchingRecapEmailResponse | null>(null);
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
+  const [view, setView] = useState<"preview" | "settings">("preview");
 
   const configuredTeams = useMemo(() => {
     const values = new Set<string>();
@@ -3977,9 +3984,6 @@ function BriefingSettings({
     if (values.size === 0) values.add(team.abbr);
     return MLB_TEAMS.map((club) => club.abbr).filter((abbr) => values.has(abbr));
   }, [autoTeamsText, finalizedTeamsText, recapTeamsText, recipientsByTeam, team.abbr]);
-
-  const quickPickTeams = configuredTeams.slice(0, 4);
-  const previewTeamObject = MLB_TEAMS.find((club) => club.abbr === previewTeam) ?? team;
 
   useEffect(() => {
     setRecapTeamsText((settings?.recap_teams ?? []).join(", "));
@@ -3998,7 +4002,6 @@ function BriefingSettings({
     });
     setRecipientsByTeam(nextRecipients);
     setTeamToAdd(team.abbr);
-    setPreviewTeam(team.abbr);
   }, [settings, team.abbr]);
 
   async function handleSave() {
@@ -4030,31 +4033,15 @@ function BriefingSettings({
       ...current,
       [abbr]: current[abbr] ?? (settings?.team_recipients?.[abbr] ?? []).join(", "),
     }));
-    setPreviewTeam(abbr);
-  }
-
-  async function resolvePreviewGame(targetTeam: string): Promise<EnterpriseGameSummary> {
-    const gamePayload = await fetchEnterpriseGames({
-      league: "mlb",
-      team: targetTeam,
-      date: previewDate || undefined,
-      limit: previewDate ? 20 : 75,
-    });
-    const match = gamePayload.games.find((game) => game.home_team === targetTeam || game.away_team === targetTeam) ?? gamePayload.games[0];
-    if (!match) {
-      throw new Error(previewDate ? `No completed recap game found for ${targetTeam} on ${previewDate}.` : `No completed recap game found for ${targetTeam}.`);
-    }
-    return match;
   }
 
   async function handleGenerate(send: boolean) {
-    if (!previewTeam) return;
+    if (!selectedGameId) return;
     if (send) setSending(true);
     else setGenerating(true);
     setPreviewStatus(send ? "Sending briefing..." : "Generating briefing preview...");
     try {
-      const game = await resolvePreviewGame(previewTeam);
-      const response = await sendPitchingRecapEmail({ game_id: game.game_id, team: previewTeam, send }, "mlb");
+      const response = await sendPitchingRecapEmail({ game_id: selectedGameId, team: team.abbr, send }, "mlb");
       setPreviewResponse(response);
       const recipients = response.sent_to?.length ? response.sent_to.join(", ") : response.recipients?.join(", ");
       setPreviewStatus(send ? (response.sent ? `Briefing sent${recipients ? ` to ${recipients}` : ""}.` : "Briefing generated, but no email was sent.") : "Briefing preview generated.");
@@ -4068,8 +4055,8 @@ function BriefingSettings({
 
   async function copyPreview(kind: "email" | "text") {
     if (!previewResponse) return;
-    const plainText = buildBriefingPlainText(previewResponse, previewTeamObject);
-    const text = kind === "email" ? `${previewResponse.subject ?? `brAIn — ${previewTeam} Recap`}\n\n${plainText}` : plainText;
+    const plainText = buildBriefingPlainText(previewResponse, team);
+    const text = kind === "email" ? `${previewResponse.subject ?? `brAIn — ${team.abbr} Recap`}\n\n${plainText}` : plainText;
     try {
       if (kind === "email" && previewResponse.html && "ClipboardItem" in window && navigator.clipboard.write) {
         const ClipboardItemCtor = window.ClipboardItem;
@@ -4105,147 +4092,160 @@ function BriefingSettings({
   }
 
   return (
-    <section className="workflow briefing-workflow">
-      <article className="panel generate-recap-panel">
-        <div className="generate-recap-header">
-          <h2>Generate Recap</h2>
-          <p>Select a team and date to generate or send a pitcher intel email.</p>
+    <section className="workflow theme-mobian briefing-workflow">
+      <header className="audit-header">
+        <div className="audit-header__filters">
+          <label className="audit-filter">
+            <span>Game</span>
+            <CustomSelect
+              ariaLabel="Select game"
+              minWidth={260}
+              value={selectedGameId ?? ""}
+              options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+              onChange={onGameChange}
+            />
+          </label>
         </div>
-        <div className="generate-recap-controls">
-          <label>
-            Team
-            <select value={previewTeam} onChange={(event) => setPreviewTeam(event.target.value)}>
-              {configuredTeams.map((abbr) => {
-                const club = MLB_TEAMS.find((item) => item.abbr === abbr);
-                return (
-                  <option key={abbr} value={abbr}>
-                    {abbr}{club ? ` · ${club.name}` : ""}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-          {quickPickTeams.length > 0 ? (
-            <div className="quick-picks">
-              <span>Quick picks</span>
-              {quickPickTeams.map((abbr) => (
-                <button key={abbr} type="button" className={previewTeam === abbr ? "active" : ""} onClick={() => setPreviewTeam(abbr)}>
-                  {abbr}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <label>
-            Date
-            <input type="date" value={previewDate} onChange={(event) => setPreviewDate(event.target.value)} />
-          </label>
-          <button type="button" onClick={() => void handleGenerate(false)} disabled={generating || sending}>
+      </header>
+
+      <article className="panel briefing-panel">
+        <div className="briefing-heading">
+          <h2 className="briefing-heading__title">Generate Game Recap</h2>
+          <p className="briefing-heading__sub">Select a game to generate a game briefing.</p>
+        </div>
+
+        <div className="briefing-action-row">
+          <button
+            type="button"
+            className="briefing-action briefing-action--primary"
+            onClick={() => { setView("preview"); void handleGenerate(false); }}
+            disabled={generating || sending || !selectedGameId}
+          >
             {generating ? "Generating..." : "Generate"}
           </button>
-          <button type="button" className="send-button" onClick={() => void handleGenerate(true)} disabled={generating || sending}>
+          <button
+            type="button"
+            className="briefing-action"
+            onClick={() => { setView("preview"); void handleGenerate(true); }}
+            disabled={generating || sending || !selectedGameId}
+          >
             {sending ? "Sending..." : "Send Email"}
           </button>
-          <button type="button" onClick={() => void copyPreview("email")} disabled={!previewResponse}>
+          <button
+            type="button"
+            className="briefing-action"
+            onClick={() => { setView("preview"); void copyPreview("email"); }}
+            disabled={!previewResponse}
+          >
             Copy Email
           </button>
-          <button type="button" onClick={exportPreviewPdf} disabled={!previewResponse}>
+          <button
+            type="button"
+            className="briefing-action"
+            onClick={() => { setView("preview"); exportPreviewPdf(); }}
+            disabled={!previewResponse}
+          >
             Export PDF
           </button>
-          <button type="button" onClick={() => void copyPreview("text")} disabled={!previewResponse}>
+          <button
+            type="button"
+            className="briefing-action"
+            onClick={() => { setView("preview"); void copyPreview("text"); }}
+            disabled={!previewResponse}
+          >
             Copy Text
           </button>
-        </div>
-        {previewStatus ? <p className="settings-status-message">{previewStatus}</p> : null}
-      </article>
 
-      {previewResponse ? (
-        <BriefingPreview response={previewResponse} team={previewTeamObject} />
-      ) : (
-        <article className="panel briefing-empty-preview">
-          <div>
-            <strong>Select a team and click Generate</strong>
-            <p>Enterprise pitcher analysis for front-office staff. Each recap covers starters and relievers with analytical bullets, game box scores, and Mound Signal timing.</p>
-          </div>
-        </article>
-      )}
-
-      <article className="panel delivery-settings-panel">
-        <div className="panel-title horizontal">
-          <div>
-            <p className="eyebrow">Delivery Settings</p>
-            <h3>Postgame recap delivery settings.</h3>
-            <p>Configure per-team recipients, delivery provider, and auto-send for nightly emails.</p>
-          </div>
-          <button type="button" onClick={handleSave} disabled={!settings || saving}>
-            {saving ? "Saving..." : "Save Settings"}
+          <button
+            type="button"
+            className={`briefing-tab${view === "settings" ? " briefing-tab--active" : ""}`}
+            onClick={() => setView(view === "settings" ? "preview" : "settings")}
+          >
+            Delivery Settings
           </button>
         </div>
 
-        <div className="legacy-settings-form">
-          <div className="legacy-settings-row">
-            <span>Automatic email delivery</span>
-            <strong>{settings?.shared_email_configured ? "Enabled" : "Needs provider"}</strong>
-            <em>When enabled, selected teams send after full replay detail is ready.</em>
-          </div>
-          <div className="legacy-settings-row">
-            <span>Email provider</span>
-            <strong>{settings?.email_provider ? settings.email_provider.toUpperCase() : UNAVAILABLE}</strong>
-            <em>SMTP credentials are managed in the secure backend config.</em>
-          </div>
-          <div className="legacy-settings-row">
-            <span>Add team</span>
-            <div className="team-add-inline">
-              <select value={teamToAdd} onChange={(event) => setTeamToAdd(event.target.value)}>
-                {MLB_TEAMS.map((club) => (
-                  <option key={club.abbr} value={club.abbr}>
-                    {club.abbr} · {club.name}
-                  </option>
+        {previewStatus ? <p className="briefing-status">{previewStatus}</p> : null}
+
+        {view === "preview" ? (
+          previewResponse ? <BriefingPreview response={previewResponse} team={team} /> : null
+        ) : (
+          <div className="legacy-settings-form">
+            <div className="legacy-settings-row">
+              <span>Automatic email delivery</span>
+              <strong>{settings?.shared_email_configured ? "Enabled" : "Needs provider"}</strong>
+              <em>When enabled, selected teams send after full replay detail is ready.</em>
+            </div>
+            <div className="legacy-settings-row">
+              <span>Email provider</span>
+              <strong>{settings?.email_provider ? settings.email_provider.toUpperCase() : UNAVAILABLE}</strong>
+              <em>SMTP credentials are managed in the secure backend config.</em>
+            </div>
+            <div className="legacy-settings-row">
+              <span>Add team</span>
+              <div className="team-add-inline">
+                <select value={teamToAdd} onChange={(event) => setTeamToAdd(event.target.value)}>
+                  {MLB_TEAMS.map((club) => (
+                    <option key={club.abbr} value={club.abbr}>
+                      {club.abbr} · {club.name}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={addClubToLists}>
+                  Add to all lists
+                </button>
+              </div>
+              <em>Adds the club to the recap workflow, auto-send checks, finalized replay wait list, and recipient table.</em>
+            </div>
+            <div className="legacy-settings-row">
+              <span>Teams on this page</span>
+              <input value={recapTeamsText} onChange={(event) => setRecapTeamsText(event.target.value)} placeholder="ATL, LAD, NYY" />
+              <em>These clubs appear in the recap workflow, quick picks, and recipient list.</em>
+            </div>
+            <div className="legacy-settings-row">
+              <span>Automatic email teams</span>
+              <input value={autoTeamsText} onChange={(event) => setAutoTeamsText(event.target.value)} placeholder="ATL, LAD, NYY" />
+              <em>Only these teams are checked for automatic postgame email delivery.</em>
+            </div>
+            <div className="legacy-settings-row">
+              <span>Finalized replay teams</span>
+              <input value={finalizedTeamsText} onChange={(event) => setFinalizedTeamsText(event.target.value)} placeholder="ATL, LAD, NYY" />
+              <em>For these teams, recap emails wait for canonical replay detail before anything is sent.</em>
+            </div>
+            <div className="legacy-settings-row recipient-block-row">
+              <span>Recipients by team</span>
+              <div className="recipient-team-table">
+                {configuredTeams.map((abbr) => (
+                  <label key={abbr} className="recipient-team-row">
+                    <strong>{abbr}</strong>
+                    <input
+                      value={recipientsByTeam[abbr] ?? ""}
+                      onChange={(event) =>
+                        setRecipientsByTeam((current) => ({
+                          ...current,
+                          [abbr]: event.target.value,
+                        }))
+                      }
+                      placeholder="ops@example.com, pitching@example.com"
+                    />
+                  </label>
                 ))}
-              </select>
-              <button type="button" onClick={addClubToLists}>
-                Add to all lists
+              </div>
+              <em>Comma-separated recipients. Newly added teams appear here immediately.</em>
+            </div>
+            <div className="legacy-settings-save">
+              <button
+                type="button"
+                className="briefing-action briefing-action--primary"
+                onClick={handleSave}
+                disabled={!settings || saving}
+              >
+                {saving ? "Saving..." : "Save Settings"}
               </button>
+              {status ? <p className="briefing-status">{status}</p> : null}
             </div>
-            <em>Adds the club to the recap workflow, auto-send checks, finalized replay wait list, and recipient table.</em>
           </div>
-          <div className="legacy-settings-row">
-            <span>Teams on this page</span>
-            <input value={recapTeamsText} onChange={(event) => setRecapTeamsText(event.target.value)} placeholder="ATL, LAD, NYY" />
-            <em>These clubs appear in the recap workflow, quick picks, and recipient list.</em>
-          </div>
-          <div className="legacy-settings-row">
-            <span>Automatic email teams</span>
-            <input value={autoTeamsText} onChange={(event) => setAutoTeamsText(event.target.value)} placeholder="ATL, LAD, NYY" />
-            <em>Only these teams are checked for automatic postgame email delivery.</em>
-          </div>
-          <div className="legacy-settings-row">
-            <span>Finalized replay teams</span>
-            <input value={finalizedTeamsText} onChange={(event) => setFinalizedTeamsText(event.target.value)} placeholder="ATL, LAD, NYY" />
-            <em>For these teams, recap emails wait for canonical replay detail before anything is sent.</em>
-          </div>
-          <div className="legacy-settings-row recipient-block-row">
-            <span>Recipients by team</span>
-            <div className="recipient-team-table">
-              {configuredTeams.map((abbr) => (
-                <label key={abbr} className="recipient-team-row">
-                  <strong>{abbr}</strong>
-                  <input
-                    value={recipientsByTeam[abbr] ?? ""}
-                    onChange={(event) =>
-                      setRecipientsByTeam((current) => ({
-                        ...current,
-                        [abbr]: event.target.value,
-                      }))
-                    }
-                    placeholder="ops@example.com, pitching@example.com"
-                  />
-                </label>
-              ))}
-            </div>
-            <em>Comma-separated recipients. Newly added teams appear here immediately.</em>
-          </div>
-        </div>
-        {status ? <p className="settings-status-message">{status}</p> : null}
+        )}
       </article>
     </section>
   );
@@ -4428,6 +4428,11 @@ export default function App() {
         {loadState === "ready" && workflow === "briefings" && (
           <BriefingSettings
             team={selectedTeam}
+            games={games}
+            selectedGameId={selectedGameId}
+            onGameChange={setSelectedGameId}
+            season={season}
+            onSeasonChange={setSeason}
             settings={recapSettings}
             status={recapSettingsStatus}
             onSave={handleSaveRecapSettings}
