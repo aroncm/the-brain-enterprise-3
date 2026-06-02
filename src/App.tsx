@@ -1290,6 +1290,7 @@ function TopNav({
             <line x1="269" y1="52" x2="285" y2="52" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
             <line x1="277" y1="44" x2="277" y2="60" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
           </svg>
+          <span className="top-nav__tagline">Advanced Baseball Intelligence</span>
         </a>
 
         <nav className="top-nav__tabs" aria-label="Primary workflows">

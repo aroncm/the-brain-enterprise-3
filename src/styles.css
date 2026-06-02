@@ -111,8 +111,26 @@ p {
   gap: 14px;
 }
 
-.top-nav__brand { display: block; line-height: 0; flex-shrink: 0; }
+.top-nav__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0;
+  flex-shrink: 0;
+  text-decoration: none;
+}
 .top-nav__brain-svg { width: 280px; height: auto; display: block; }
+.top-nav__tagline {
+  margin-top: 6px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #ffffff;
+  line-height: 1;
+  text-align: center;
+}
 
 .top-nav__team-logo {
   width: 56px;
