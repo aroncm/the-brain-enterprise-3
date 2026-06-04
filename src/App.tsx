@@ -10,6 +10,7 @@ import {
   Grid2X2 as SquaresFour,
   LineChart as ChartLineUp,
   List as ListDashes,
+  LogOut,
   Minus,
   Plus,
   RefreshCw as ArrowsClockwise,
@@ -19,6 +20,8 @@ import {
   Users,
   UsersRound as UsersThree,
 } from "lucide-react";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ProtectedApp } from "./components/ProtectedApp";
 import {
   ApiConfigurationError,
   fetchEnterpriseGames,
@@ -1276,6 +1279,9 @@ function TopNav({
   onWorkflowChange,
   filtersOpen,
   onToggleFilters,
+  allowedTeams,
+  userInitial,
+  onSignOut,
 }: {
   team: Team | null;
   workflow: Workflow;
@@ -1284,9 +1290,14 @@ function TopNav({
   onWorkflowChange: (workflow: Workflow) => void;
   filtersOpen?: boolean;
   onToggleFilters?: () => void;
+  allowedTeams?: Team[];
+  userInitial?: string;
+  onSignOut?: () => void;
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.primary ?? "#ffffff";
+  const visibleTeams = allowedTeams && allowedTeams.length > 0 ? allowedTeams : MLB_TEAMS;
+  const teamDropdownDisabled = Boolean(allowedTeams && allowedTeams.length === 1);
   return (
     <header className="top-nav">
       <div className="top-nav__row top-nav__row--primary">
@@ -1324,10 +1335,11 @@ function TopNav({
             placeholder="Select Club"
             minWidth={200}
             value={team?.abbr ?? ""}
-            options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
+            options={visibleTeams.map((item) => ({ value: item.abbr, label: item.name }))}
             onChange={(next) => {
-              const team = MLB_TEAMS.find((item) => item.abbr === next);
-              if (team) onTeamChange(team);
+              if (teamDropdownDisabled) return;
+              const nextTeam = visibleTeams.find((item) => item.abbr === next);
+              if (nextTeam) onTeamChange(nextTeam);
             }}
           />
           <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
@@ -1336,7 +1348,18 @@ function TopNav({
              loadState === "missing-config" ? "Setup Required" :
              "Connection Error"}
           </span>
-          <div className="top-nav__profile" aria-label="Admin profile">A</div>
+          <div className="top-nav__profile" aria-label="Signed-in user">{userInitial ?? "A"}</div>
+          {onSignOut ? (
+            <button
+              type="button"
+              className="top-nav__signout"
+              aria-label="Sign out"
+              title="Sign out"
+              onClick={onSignOut}
+            >
+              <LogOut size={16} />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -4273,7 +4296,45 @@ function BriefingSettings({
 }
 
 export default function App() {
-  const [selectedTeamAbbr, setSelectedTeamAbbr] = useState(initialTeamFromSearch);
+  return (
+    <AuthProvider>
+      <ProtectedApp>
+        <AppBody />
+      </ProtectedApp>
+    </AuthProvider>
+  );
+}
+
+function AppBody() {
+  const { profile, user, signOut } = useAuth();
+  const allowedTeams = useMemo(() => {
+    if (!profile) return MLB_TEAMS;
+    if (profile.role === "admin") return MLB_TEAMS;
+    const allowed = new Set(profile.teamAbbrs);
+    return MLB_TEAMS.filter((team) => allowed.has(team.abbr));
+  }, [profile]);
+
+  const fallbackTeamAbbr = useMemo(() => {
+    const fromUrl = initialTeamFromSearch();
+    if (allowedTeams.some((team) => team.abbr === fromUrl)) return fromUrl;
+    return allowedTeams[0]?.abbr ?? MLB_TEAMS[0].abbr;
+  }, [allowedTeams]);
+
+  const [selectedTeamAbbr, setSelectedTeamAbbr] = useState(() => fallbackTeamAbbr);
+  useEffect(() => {
+    if (!allowedTeams.some((team) => team.abbr === selectedTeamAbbr)) {
+      setSelectedTeamAbbr(fallbackTeamAbbr);
+    }
+  }, [allowedTeams, selectedTeamAbbr, fallbackTeamAbbr]);
+
+  const userInitial = useMemo(() => {
+    const source = (profile?.fullName || user?.email || "").trim();
+    return source ? source.charAt(0).toUpperCase() : "A";
+  }, [profile?.fullName, user?.email]);
+  const handleSignOut = useCallback(() => {
+    void signOut();
+  }, [signOut]);
+
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflowFromSearch);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [season, setSeason] = useState("2026");
@@ -4286,7 +4347,9 @@ export default function App() {
   const [recapSettings, setRecapSettings] = useState<PitchingRecapSettings | null>(null);
   const [recapSettingsStatus, setRecapSettingsStatus] = useState<string | null>(null);
 
-  const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
+  const selectedTeam = allowedTeams.find((team) => team.abbr === selectedTeamAbbr)
+    ?? allowedTeams[0]
+    ?? (MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0]);
   const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
   const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50 });
   const {
@@ -4428,6 +4491,9 @@ export default function App() {
         onWorkflowChange={setWorkflow}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((o) => !o)}
+        allowedTeams={allowedTeams}
+        userInitial={userInitial}
+        onSignOut={handleSignOut}
       />
 
       <div className="app-main">
