@@ -4558,11 +4558,6 @@ function AppBody() {
           <EmptyState title="Admin access required" detail="You do not have permission to view the admin workspace." />
         )}
       </div>
-
-      <footer className="app-footer">
-        <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
-        <span>Confidential · Baseball brAIn, Inc.</span>
-      </footer>
     </main>
   );
 }
@@ -4699,11 +4694,6 @@ function SharedReplayPage({ grantId, allTeams }: { grantId: string; allTeams: Te
           />
         ) : null}
       </div>
-
-      <footer className="app-footer">
-        <span>Shared single-game access · {grant?.expires_at ? `Expires ${grant.expires_at.slice(0, 10)}` : "Expires when the access window closes"}</span>
-        <span>Confidential · Baseball brAIn, Inc.</span>
-      </footer>
     </main>
   );
 }
