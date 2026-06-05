@@ -33,9 +33,11 @@ import {
   fetchPitchingReplay,
   fetchPreventableRunsOpportunities,
   fetchRunSavingBoard,
+  fetchShareReplayBundle,
   getConfiguredApiBase,
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
+  type ShareGrantPublic,
 } from "./api";
 import type {
   BullpenOption,
@@ -4301,7 +4303,17 @@ function BriefingSettings({
   );
 }
 
+function initialGrantFromSearch(): string | null {
+  const params = appSearchParams();
+  const grant = params.get("grant");
+  return grant ? grant.trim() || null : null;
+}
+
 export default function App() {
+  const grantId = initialGrantFromSearch();
+  if (grantId) {
+    return <SharedReplayPage grantId={grantId} allTeams={MLB_TEAMS} />;
+  }
   return (
     <AuthProvider>
       <ProtectedApp>
@@ -4549,6 +4561,147 @@ function AppBody() {
 
       <footer className="app-footer">
         <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
+        <span>Confidential · Baseball brAIn, Inc.</span>
+      </footer>
+    </main>
+  );
+}
+
+function SharedReplayPage({ grantId, allTeams }: { grantId: string; allTeams: Team[] }) {
+  const [grant, setGrant] = useState<ShareGrantPublic | null>(null);
+  const [replay, setReplay] = useState<PitchingReplayResponse | null>(null);
+  const [recap, setRecap] = useState<PitchingGameRecap | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "expired" | "error">("loading");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadState("loading");
+    setErrorDetail(null);
+    fetchShareReplayBundle(grantId)
+      .then((bundle) => {
+        if (cancelled) return;
+        setGrant(bundle.grant);
+        setReplay(bundle.replay);
+        setRecap(bundle.recap);
+        setLoadState("ready");
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Unable to load this replay";
+        if (/expired|inactive|not eligible/i.test(message)) {
+          setLoadState("expired");
+        } else {
+          setLoadState("error");
+        }
+        setErrorDetail(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [grantId]);
+
+  const teamFromGrant: Team = useMemo(() => {
+    const abbr = (grant?.team || "").toUpperCase();
+    const match = allTeams.find((team) => team.abbr === abbr);
+    if (match) return match;
+    return { abbr: abbr || "MLB", name: abbr || "Baseball brAIn", club: abbr || "MLB", division: "" };
+  }, [grant?.team, allTeams]);
+
+  const sharedGame: EnterpriseGameSummary | null = useMemo(() => {
+    if (!grant) return null;
+    return {
+      game_id: String(grant.game_id || ""),
+      date: String(grant.date || ""),
+      home_team: String(grant.home_team || ""),
+      away_team: String(grant.away_team || ""),
+      ballpark: null,
+      decision_summary: null,
+      starting_pitcher: null,
+      opponent: null,
+    } as unknown as EnterpriseGameSummary;
+  }, [grant]);
+
+  const sharedGames = useMemo(() => (sharedGame ? [sharedGame] : []), [sharedGame]);
+
+  const season = useMemo(() => {
+    const dateString = grant?.date ?? "";
+    const match = /^(\d{4})-/.exec(dateString);
+    return match ? match[1] : "2026";
+  }, [grant?.date]);
+
+  const accents = teamAccents(teamFromGrant.abbr);
+  const teamColor = accents.primary;
+
+  return (
+    <main className="app-shell">
+      <header className="top-nav shared-replay-nav">
+        <div className="top-nav__row top-nav__row--primary">
+          <div className="top-nav__brand" aria-label="Baseball brAIn">
+            <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
+              <text x="20" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="36" fontWeight="300" letterSpacing="6" fill="#FFFFFF">BASEBALL</text>
+              <text x="322" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="84" fontWeight="700" letterSpacing="-1" fill="#FFFFFF" fillOpacity="0.7">
+                <tspan fillOpacity="0.7">br</tspan>
+                <tspan fill={teamColor} fillOpacity="1">AI</tspan>
+                <tspan fillOpacity="0.7">n</tspan>
+              </text>
+              <polygon points="277,17 312,52 277,87 242,52" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinejoin="miter" />
+              <line x1="269" y1="52" x2="285" y2="52" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
+              <line x1="277" y1="44" x2="277" y2="60" stroke={teamColor} strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            <span className="top-nav__tagline">Advanced Baseball Intelligence</span>
+          </div>
+          <div className="shared-replay-nav__hint">
+            {grant?.recipient_hint ? (
+              <>
+                <span className="shared-replay-nav__label">Shared with</span>
+                <span className="shared-replay-nav__value">{grant.recipient_hint}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
+        {grant ? (
+          <div className="top-nav__row top-nav__row--team">
+            <span className="top-nav__team-logo"><TeamLogo abbr={teamFromGrant.abbr} /></span>
+            <h1 className="top-nav__team-name" style={{ color: teamColor }}>{teamFromGrant.name.toUpperCase()}</h1>
+            <span className="top-nav__sep" aria-hidden="true">+</span>
+            <h2 className="top-nav__page">GAME REPLAYS</h2>
+          </div>
+        ) : null}
+      </header>
+
+      <div className="app-main">
+        {loadState === "loading" && <EmptyState title="Loading shared replay" detail="Fetching pitching evidence for the requested game." />}
+        {loadState === "expired" && (
+          <EmptyState
+            title="This replay link has expired"
+            detail={errorDetail ?? "Ask the sender to share a fresh link."}
+          />
+        )}
+        {loadState === "error" && (
+          <EmptyState
+            title="Replay unavailable"
+            detail={errorDetail ?? "Try refreshing the page in a moment."}
+          />
+        )}
+        {loadState === "ready" && replay && sharedGame ? (
+          <GameAudit
+            team={teamFromGrant}
+            games={sharedGames}
+            selectedGameId={sharedGame.game_id}
+            onGameChange={() => undefined}
+            replay={replay}
+            recap={recap}
+            preventableRows={[]}
+            season={season}
+            onSeasonChange={() => undefined}
+            filtersOpen={false}
+          />
+        ) : null}
+      </div>
+
+      <footer className="app-footer">
+        <span>Shared single-game access · {grant?.expires_at ? `Expires ${grant.expires_at.slice(0, 10)}` : "Expires when the access window closes"}</span>
         <span>Confidential · Baseball brAIn, Inc.</span>
       </footer>
     </main>

@@ -352,6 +352,34 @@ export function sendPitchingRecapEmail(
   });
 }
 
+// ---------- Public-share Replay (Phase D) ----------
+
+export type ShareGrantPublic = {
+  grant_id: string;
+  game_id: string;
+  team: string | null;
+  date: string | null;
+  home_team: string | null;
+  away_team: string | null;
+  matchup: string | null;
+  recipient_hint: string | null;
+  expires_at: string | null;
+  state: string | null;
+  access_url: string | null;
+};
+
+export type ShareReplayBundle = {
+  grant: ShareGrantPublic;
+  replay: PitchingReplayResponse;
+  recap: PitchingGameRecap;
+};
+
+export function fetchShareReplayBundle(grantId: string): Promise<ShareReplayBundle> {
+  return fetchJson<ShareReplayBundle>(
+    `/v1/pitching/share/grant/${encodeURIComponent(grantId)}/replay`,
+  );
+}
+
 // ---------- Admin API (Phase B) ----------
 
 import { supabase } from "./lib/supabase";
