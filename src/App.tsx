@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ProtectedApp } from "./components/ProtectedApp";
+import { AdminPage } from "./pages/AdminPage";
 import {
   ApiConfigurationError,
   fetchEnterpriseGames,
@@ -57,7 +58,7 @@ import type {
 import { teamAccents } from "./teamAccents";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
-type Workflow = "audit" | "briefings";
+type Workflow = "audit" | "briefings" | "admin";
 type Team = { abbr: string; name: string; club: string; division: string };
 type MatrixCell = "standard" | "tandem" | "push" | "workload";
 
@@ -131,9 +132,10 @@ const MLB_TEAMS: Team[] = [
   { abbr: "WSH", name: "Washington Nationals", club: "Nationals", division: "NL East" },
 ];
 
-const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
+const WORKFLOWS: Array<{ id: Workflow; label: string; adminOnly?: boolean }> = [
   { id: "audit", label: "Game Replays" },
   { id: "briefings", label: "Game Briefings" },
+  { id: "admin", label: "Admin", adminOnly: true },
 ];
 
 function appSearchParams(): URLSearchParams {
@@ -160,6 +162,7 @@ function initialGameIdFromSearch(): string | null {
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
   audit: MagnifyingGlass,
   briefings: PresentationChart,
+  admin: Users,
 };
 
 const PITCH_TYPE_NAMES: Record<string, string> = {
@@ -1198,6 +1201,7 @@ function SignalTimeline({
 function pageHeadingForWorkflow(workflow: Workflow): string {
   if (workflow === "audit") return "GAME REPLAYS";
   if (workflow === "briefings") return "GAME BRIEFINGS";
+  if (workflow === "admin") return "ADMIN";
   return "";
 }
 
@@ -1282,6 +1286,7 @@ function TopNav({
   allowedTeams,
   userInitial,
   onSignOut,
+  isAdminRole,
 }: {
   team: Team | null;
   workflow: Workflow;
@@ -1293,6 +1298,7 @@ function TopNav({
   allowedTeams?: Team[];
   userInitial?: string;
   onSignOut?: () => void;
+  isAdminRole?: boolean;
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.primary ?? "#ffffff";
@@ -1317,7 +1323,7 @@ function TopNav({
         </a>
 
         <nav className="top-nav__tabs" aria-label="Primary workflows">
-          {WORKFLOWS.map((item) => (
+          {WORKFLOWS.filter((item) => !item.adminOnly || isAdminRole).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -4307,6 +4313,7 @@ export default function App() {
 
 function AppBody() {
   const { profile, user, signOut } = useAuth();
+  const isAdminRole = profile?.role === "admin";
   const allowedTeams = useMemo(() => {
     if (!profile) return MLB_TEAMS;
     if (profile.role === "admin") return MLB_TEAMS;
@@ -4494,6 +4501,7 @@ function AppBody() {
         allowedTeams={allowedTeams}
         userInitial={userInitial}
         onSignOut={handleSignOut}
+        isAdminRole={isAdminRole}
       />
 
       <div className="app-main">
@@ -4530,11 +4538,19 @@ function AppBody() {
           />
         )}
 
+        {workflow === "admin" && isAdminRole && (
+          <AdminPage allTeams={MLB_TEAMS} />
+        )}
+
+        {workflow === "admin" && !isAdminRole && (
+          <EmptyState title="Admin access required" detail="You do not have permission to view the admin workspace." />
+        )}
+      </div>
+
       <footer className="app-footer">
         <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
         <span>Confidential · Baseball brAIn, Inc.</span>
       </footer>
-      </div>
     </main>
   );
 }

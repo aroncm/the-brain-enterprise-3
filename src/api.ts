@@ -351,3 +351,121 @@ export function sendPitchingRecapEmail(
     body: JSON.stringify(params),
   });
 }
+
+// ---------- Admin API (Phase B) ----------
+
+import { supabase } from "./lib/supabase";
+
+export type AdminUserRecord = {
+  user_id: string;
+  email: string;
+  role: "admin" | "viewer";
+  full_name: string | null;
+  team_abbrs: string[];
+  created_at: string | null;
+};
+
+async function authedHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Sign in required");
+  return { Authorization: `Bearer ${token}` };
+}
+
+export async function listAdminUsers(): Promise<AdminUserRecord[]> {
+  const headers = await authedHeaders();
+  const payload = await fetchJson<{ users: AdminUserRecord[] }>("/v1/admin/users", { headers });
+  return payload.users ?? [];
+}
+
+export async function inviteAdminUser(input: {
+  email: string;
+  role: "admin" | "viewer";
+  team_abbrs: string[];
+  full_name?: string | null;
+}): Promise<AdminUserRecord> {
+  const headers = await authedHeaders();
+  const payload = await fetchJson<{ user: AdminUserRecord }>("/v1/admin/users/invite", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(input),
+  });
+  return payload.user;
+}
+
+export async function updateAdminUser(
+  userId: string,
+  patch: { role?: "admin" | "viewer"; team_abbrs?: string[]; full_name?: string | null },
+): Promise<void> {
+  const headers = await authedHeaders();
+  await fetchJson<{ ok: boolean }>(`/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteAdminUser(userId: string): Promise<void> {
+  const headers = await authedHeaders();
+  await fetchJson<{ ok: boolean }>(`/v1/admin/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    headers,
+  });
+}
+
+export type TeamRecipientRecord = {
+  id: string;
+  team_abbr: string;
+  email: string;
+  name: string | null;
+  briefings_enabled: boolean;
+};
+
+export async function listTeamRecipients(teamAbbr: string): Promise<TeamRecipientRecord[]> {
+  const { data, error } = await supabase
+    .from("team_recipients")
+    .select("id, team_abbr, email, name, briefings_enabled")
+    .eq("team_abbr", teamAbbr.toUpperCase())
+    .order("email");
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    team_abbr: String(row.team_abbr).toUpperCase(),
+    email: String(row.email),
+    name: row.name ?? null,
+    briefings_enabled: Boolean(row.briefings_enabled),
+  }));
+}
+
+export async function addTeamRecipient(
+  teamAbbr: string,
+  email: string,
+  name?: string | null,
+): Promise<TeamRecipientRecord> {
+  const { data, error } = await supabase
+    .from("team_recipients")
+    .insert({ team_abbr: teamAbbr.toUpperCase(), email, name: name ?? null })
+    .select("id, team_abbr, email, name, briefings_enabled")
+    .single();
+  if (error) throw error;
+  return {
+    id: String(data.id),
+    team_abbr: String(data.team_abbr).toUpperCase(),
+    email: String(data.email),
+    name: data.name ?? null,
+    briefings_enabled: Boolean(data.briefings_enabled),
+  };
+}
+
+export async function updateTeamRecipient(
+  recipientId: string,
+  patch: { briefings_enabled?: boolean; name?: string | null },
+): Promise<void> {
+  const { error } = await supabase.from("team_recipients").update(patch).eq("id", recipientId);
+  if (error) throw error;
+}
+
+export async function deleteTeamRecipient(recipientId: string): Promise<void> {
+  const { error } = await supabase.from("team_recipients").delete().eq("id", recipientId);
+  if (error) throw error;
+}
