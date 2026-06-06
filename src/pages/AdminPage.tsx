@@ -9,6 +9,7 @@ import {
   inviteAdminUser,
   listAdminUsers,
   listTeamRecipients,
+  setAdminUserPassword,
   updateAdminUser,
   updateTeamRecipient,
 } from "../api";
@@ -83,6 +84,26 @@ function UsersTab({ allTeams }: { allTeams: Team[] }) {
     }
   };
 
+  const onSetPassword = async (target: AdminUserRecord) => {
+    const next = prompt(
+      `Set a temporary password for ${target.email || target.user_id}.\n` +
+        `They'll sign in at baseballbrain.club with this password and can rotate it later.\n\n` +
+        `Minimum 8 characters.`,
+      "",
+    );
+    if (!next) return;
+    if (next.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    try {
+      await setAdminUserPassword(target.user_id, next);
+      alert(`Password set for ${target.email || target.user_id}. Share it with them out-of-band.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Set password failed");
+    }
+  };
+
   return (
     <div className="admin-section">
       <div className="admin-section__header">
@@ -153,6 +174,14 @@ function UsersTab({ allTeams }: { allTeams: Team[] }) {
                     onClick={() => setEditingUserId(row.user_id)}
                   >
                     Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-text-button"
+                    onClick={() => { void onSetPassword(row); }}
+                    title="Set a temporary password (for invite or recovery troubleshooting)"
+                  >
+                    Set password
                   </button>
                   {row.user_id !== currentUser?.id ? (
                     <button

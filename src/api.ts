@@ -441,6 +441,18 @@ export async function deleteAdminUser(userId: string): Promise<void> {
   });
 }
 
+export async function setAdminUserPassword(userId: string, password: string): Promise<void> {
+  const headers = await authedHeaders();
+  await fetchJson<{ ok: boolean }>(
+    `/v1/admin/users/${encodeURIComponent(userId)}/set-password`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ password }),
+    },
+  );
+}
+
 export type TeamRecipientRecord = {
   id: string;
   team_abbr: string;
