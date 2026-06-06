@@ -16,8 +16,10 @@ interface AuthContextValue {
   profile: Profile | null;
   loading: boolean;
   profileLoading: boolean;
+  needsPasswordSetup: boolean;
   signOut: () => Promise<void>;
   reloadProfile: () => Promise<void>;
+  clearPasswordSetup: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -49,11 +51,26 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
   };
 }
 
+function detectInitialPasswordSetup(): boolean {
+  if (typeof window === "undefined") return false;
+  // Supabase emits ?type=invite|recovery|signup (PKCE) or
+  // #type=invite|recovery|signup (legacy hash). If we see either, the
+  // user just clicked an email link and needs the password-setup form
+  // — even though Supabase will also fire PASSWORD_RECOVERY shortly,
+  // we flip the flag immediately so ProtectedApp doesn't briefly
+  // render the App while the auth event is still in flight.
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const type = (search.get("type") || hash.get("type") || "").toLowerCase();
+  return type === "invite" || type === "recovery" || type === "signup";
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(() => detectInitialPasswordSetup());
 
   useEffect(() => {
     let cancelled = false;
@@ -62,8 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+      if (event === "PASSWORD_RECOVERY") {
+        setNeedsPasswordSetup(true);
+      }
+      if (event === "SIGNED_OUT") {
+        setNeedsPasswordSetup(false);
+      }
     });
     return () => {
       cancelled = true;
@@ -92,11 +115,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setNeedsPasswordSetup(false);
   }, []);
 
   const reloadProfile = useCallback(async () => {
     await loadProfile(session?.user?.id ?? null);
   }, [loadProfile, session?.user?.id]);
+
+  const clearPasswordSetup = useCallback(() => {
+    setNeedsPasswordSetup(false);
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -105,10 +133,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       loading,
       profileLoading,
+      needsPasswordSetup,
       signOut,
       reloadProfile,
+      clearPasswordSetup,
     }),
-    [session, profile, loading, profileLoading, signOut, reloadProfile],
+    [session, profile, loading, profileLoading, needsPasswordSetup, signOut, reloadProfile, clearPasswordSetup],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

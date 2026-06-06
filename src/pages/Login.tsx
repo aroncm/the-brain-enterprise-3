@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../context/AuthContext";
 
 type Mode = "signIn" | "setPassword" | "forgotPassword";
 
@@ -20,6 +21,7 @@ function detectInitialMode(): Mode {
 }
 
 export function Login() {
+  const { clearPasswordSetup } = useAuth();
   const initialMode = useMemo(() => detectInitialMode(), []);
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
@@ -84,6 +86,9 @@ export function Login() {
     if (window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    // Release the needs-password gate in AuthContext so ProtectedApp
+    // renders the App now that the user actually has a password.
+    clearPasswordSetup();
     setSubmitting(false);
   };
 
