@@ -51,17 +51,37 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
   };
 }
 
-function detectInitialPasswordSetup(): boolean {
-  if (typeof window === "undefined") return false;
-  // Supabase emits ?type=invite|recovery|signup (PKCE) or
-  // #type=invite|recovery|signup (legacy hash). If we see either, the
-  // user just clicked an email link and needs the password-setup form
-  // — even though Supabase will also fire PASSWORD_RECOVERY shortly,
-  // we flip the flag immediately so ProtectedApp doesn't briefly
-  // render the App while the auth event is still in flight.
+type AuthLinkParams = {
+  code: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  type: string | null;
+  errorDescription: string | null;
+};
+
+function readAuthLinkParams(): AuthLinkParams {
+  if (typeof window === "undefined") {
+    return { code: null, accessToken: null, refreshToken: null, type: null, errorDescription: null };
+  }
   const search = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  const type = (search.get("type") || hash.get("type") || "").toLowerCase();
+  const pick = (key: string) => search.get(key) || hash.get(key) || null;
+  return {
+    code: pick("code"),
+    accessToken: pick("access_token"),
+    refreshToken: pick("refresh_token"),
+    type: (pick("type") || "").toLowerCase() || null,
+    errorDescription: pick("error_description"),
+  };
+}
+
+function clearAuthLinkUrl() {
+  if (typeof window === "undefined") return;
+  if (!window.history?.replaceState) return;
+  window.history.replaceState({}, document.title, window.location.pathname + window.location.search.replace(/[?&]?(code|type|access_token|refresh_token|expires_in|expires_at|token_type|provider_token|provider_refresh_token|error|error_code|error_description)=[^&]*/g, "").replace(/^&/, "?"));
+}
+
+function isPasswordSetupType(type: string | null): boolean {
   return type === "invite" || type === "recovery" || type === "signup";
 }
 
@@ -70,15 +90,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(() => detectInitialPasswordSetup());
+  // Seed from the URL synchronously so ProtectedApp never renders the
+  // App in the brief window between mount and Supabase's session
+  // exchange completing.
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(
+    () => isPasswordSetupType(readAuthLinkParams().type),
+  );
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      setSession(data.session);
-      setLoading(false);
-    });
+
+    const finishUrlExchange = async () => {
+      const params = readAuthLinkParams();
+      if (params.errorDescription) {
+        setLinkError(params.errorDescription);
+        clearAuthLinkUrl();
+        return;
+      }
+      try {
+        if (params.code) {
+          // PKCE flow: ?code=... in the query string.
+          await supabase.auth.exchangeCodeForSession(params.code);
+        } else if (params.accessToken && params.refreshToken) {
+          // Legacy implicit flow: #access_token=...&refresh_token=...
+          await supabase.auth.setSession({
+            access_token: params.accessToken,
+            refresh_token: params.refreshToken,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLinkError(err instanceof Error ? err.message : "Could not complete sign-in link");
+        }
+      }
+      if (params.code || params.accessToken) {
+        clearAuthLinkUrl();
+      }
+      // After the exchange, getSession returns the active session — which
+      // is what we use to drive ProtectedApp.
+      if (!cancelled) {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        setSession(data.session);
+        if (isPasswordSetupType(params.type)) {
+          setNeedsPasswordSetup(true);
+        }
+        setLoading(false);
+      }
+    };
+
+    void finishUrlExchange();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       if (event === "PASSWORD_RECOVERY") {
