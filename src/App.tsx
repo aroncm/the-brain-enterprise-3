@@ -418,25 +418,32 @@ function scorebookChain(description: string | null | undefined): string | null {
 }
 
 function officialScoringLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
+  const explicitLabel = String(snapshot.official_scoring_label || "").trim();
+  if (explicitLabel) return explicitLabel;
   const rawEvent = String(snapshot.events || "").trim();
   const normalizedEvent = rawEvent.toLowerCase().replace(/\s+/g, "_");
   const mapped = OFFICIAL_EVENT_LABELS[normalizedEvent];
   if (mapped && ["1B", "2B", "3B", "HR", "BB", "IBB", "HBP", "K"].includes(mapped)) return mapped;
-  const chain = scorebookChain(snapshot.des ?? snapshot.description ?? snapshot.pitch_call);
+  const chain = scorebookChain(snapshot.official_description ?? snapshot.des ?? snapshot.description ?? snapshot.pitch_call);
   if (chain) return mapped && !mapped.includes("Out") ? `${mapped} · ${chain}` : chain;
   if (mapped) return mapped;
   return rawEvent ? normalize(rawEvent) : pitchOutcomeLabel(snapshot);
 }
 
-function signedInches(value: number | null | undefined): string | null {
+function formatSignedInches(value: number | null | undefined): string | null {
   if (value == null || !Number.isFinite(value)) return null;
-  const inches = value * 12;
-  return `${inches > 0 ? "+" : ""}${inches.toFixed(1)}"`;
+  return `${value > 0 ? "+" : ""}${value.toFixed(1)}"`;
+}
+
+function movementInches(value: number | null | undefined, fallbackFeet: number | null | undefined): number | null {
+  if (value != null && Number.isFinite(value)) return Number(value);
+  if (fallbackFeet != null && Number.isFinite(fallbackFeet)) return Number(fallbackFeet) * 12;
+  return null;
 }
 
 function pitchMovementLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
-  const horizontal = signedInches(snapshot.pfx_x);
-  const vertical = signedInches(snapshot.pfx_z);
+  const horizontal = formatSignedInches(movementInches(snapshot.movement_horizontal_inches, snapshot.pfx_x));
+  const vertical = formatSignedInches(movementInches(snapshot.movement_vertical_inches, snapshot.pfx_z));
   const parts = [];
   if (horizontal) parts.push(`${horizontal} H`);
   if (vertical) parts.push(`${vertical} V`);
@@ -450,6 +457,94 @@ function currentPitchName(snapshot: PitchingReplayEntry["snapshot"]): string {
 function pitchInfoLabel(snapshot: PitchingReplayEntry["snapshot"]): string {
   const speed = snapshot.release_speed == null ? "velo unavailable" : `${fmtNumber(snapshot.release_speed, 1)} mph`;
   return `${currentPitchName(snapshot)} · ${speed} · ${pitchMovementLabel(snapshot)}`;
+}
+
+function pitchFactItems(snapshot: PitchingReplayEntry["snapshot"]) {
+  const horizontal = formatSignedInches(movementInches(snapshot.movement_horizontal_inches, snapshot.pfx_x));
+  const vertical = formatSignedInches(movementInches(snapshot.movement_vertical_inches, snapshot.pfx_z));
+  return [
+    { label: "Result", value: officialScoringLabel(snapshot) || pitchOutcomeLabel(snapshot) || "Pitch" },
+    { label: "Pitch", value: currentPitchName(snapshot) },
+    { label: "Velocity", value: snapshot.release_speed == null ? "Unavailable" : `${fmtNumber(snapshot.release_speed, 1)} mph` },
+    { label: "H-Mov", value: horizontal ?? "Unavailable" },
+    { label: "V-Mov", value: vertical ?? "Unavailable" },
+  ];
+}
+
+const PITCH_MIX_COLORS = ["#2ec4a0", "#4c8df6", "#fce066", "#e0528f", "#4dd0e1", "#f5a03b", "#b894ff", "#9aa0a6"];
+
+type PitchMixRow = {
+  name: string;
+  count: number;
+  pct: number;
+  avgVelo: number | null;
+  color: string;
+};
+
+function pitchMixRowsForWindow(entries: PitchingReplayEntry[], selectedIndex: number): PitchMixRow[] {
+  const slice = entries.slice(0, Math.max(0, selectedIndex) + 1);
+  const buckets = new Map<string, { name: string; count: number; veloTotal: number; veloCount: number }>();
+  for (const entry of slice) {
+    const name = currentPitchName(entry.snapshot);
+    const key = normalizedPitchKey(name || "Pitch");
+    const existing = buckets.get(key) ?? { name, count: 0, veloTotal: 0, veloCount: 0 };
+    existing.count += 1;
+    if (entry.snapshot.release_speed != null && Number.isFinite(entry.snapshot.release_speed)) {
+      existing.veloTotal += Number(entry.snapshot.release_speed);
+      existing.veloCount += 1;
+    }
+    buckets.set(key, existing);
+  }
+  const total = slice.length || 1;
+  return Array.from(buckets.values())
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .map((bucket, index) => ({
+      name: bucket.name,
+      count: bucket.count,
+      pct: bucket.count / total,
+      avgVelo: bucket.veloCount ? bucket.veloTotal / bucket.veloCount : null,
+      color: PITCH_MIX_COLORS[index % PITCH_MIX_COLORS.length],
+    }));
+}
+
+function pitchMixGradient(rows: PitchMixRow[]): string {
+  if (!rows.length) return "#1e1e1e 0deg 360deg";
+  let cursor = 0;
+  const segments = rows.map((row) => {
+    const start = cursor;
+    const end = Math.min(360, cursor + row.pct * 360);
+    cursor = end;
+    return `${row.color} ${start.toFixed(1)}deg ${end.toFixed(1)}deg`;
+  });
+  if (cursor < 360) segments.push(`#1e1e1e ${cursor.toFixed(1)}deg 360deg`);
+  return segments.join(", ");
+}
+
+function PitchMixSnapshot({ entries, selectedIndex }: { entries: PitchingReplayEntry[]; selectedIndex: number }) {
+  const rows = pitchMixRowsForWindow(entries, selectedIndex);
+  if (!rows.length) return null;
+  return (
+    <section className="pws-section pitch-mix-card" aria-label="Pitch mix snapshot">
+      <p className="pws-eyebrow">Pitch Mix Snapshot</p>
+      <div className="pitch-mix-card__body">
+        <span
+          className="pitch-mix-donut"
+          aria-hidden="true"
+          style={{ "--pitch-mix-gradient": pitchMixGradient(rows) } as CSSProperties}
+        />
+        <div className="pitch-mix-legend">
+          {rows.map((row) => (
+            <div key={row.name} className="pitch-mix-legend__row">
+              <span className="pitch-mix-legend__dot" style={{ backgroundColor: row.color }} />
+              <strong>{row.name}</strong>
+              <b style={{ color: row.color }}>{Math.round(row.pct * 100)}%</b>
+              <em>{row.avgVelo == null ? "velo unavailable" : `${fmtNumber(row.avgVelo, 1)} mph`}</em>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function trendBucketForCurrentPitch(
@@ -574,8 +669,16 @@ function upcomingPocketHitters(entry: PitchingReplayEntry | null) {
   const hitters = entry?.snapshot.upcoming_hitter_pocket?.hitters ?? [];
   return hitters.slice(0, 3).map((hitter) => ({
     name: displayPersonName(hitter.player_name ?? hitter.batter_name ?? hitter.name ?? hitter.player_id ?? hitter.batter_id ?? "Hitter"),
-    hand: String(hitter.stand ?? hitter.handedness ?? "").toUpperCase().charAt(0),
+    hand: handednessShortLabel(hitter.stand ?? hitter.handedness),
   }));
+}
+
+function handednessShortLabel(value: string | null | undefined): string {
+  const initial = String(value || "").trim().toUpperCase().charAt(0);
+  if (initial === "R") return "RH";
+  if (initial === "L") return "LH";
+  if (initial === "S") return "SH";
+  return "Hand unavailable";
 }
 
 function teamLogoUrl(abbr: string): string | null {
@@ -1206,6 +1309,7 @@ function GaugeMetric({
   value,
   detail,
   percent,
+  benchmarkPercent,
   tone = "neutral",
   role,
 }: {
@@ -1213,10 +1317,12 @@ function GaugeMetric({
   value: string;
   detail?: string;
   percent?: number;
+  benchmarkPercent?: number;
   tone?: "neutral" | "good" | "warn" | "bad" | "gold" | "prep";
   role?: "DRIVER" | "HELD UP" | "WATCH" | null;
 }) {
   const width = percent == null ? 0 : Math.round(clamp(percent) * 100);
+  const benchmarkLeft = benchmarkPercent == null ? null : Math.round(clamp(benchmarkPercent) * 100);
   const roleSlug = role ? role.toLowerCase().replace(" ", "-") : null;
   const roleClass = roleSlug ? `gauge-role-pill gauge-role-pill--${roleSlug}` : null;
   const cardClass = `evidence-gauge evidence-gauge--${tone}${roleSlug ? ` evidence-gauge--role-${roleSlug}` : ""}`;
@@ -1229,6 +1335,7 @@ function GaugeMetric({
       </div>
       {percent != null ? (
         <div className="gauge-track" aria-hidden="true">
+          {benchmarkLeft != null ? <span className="gauge-benchmark" style={{ left: `${benchmarkLeft}%` }} /> : null}
           <i style={{ width: `${width}%` }} />
         </div>
       ) : null}
@@ -1478,14 +1585,28 @@ function TopNav({
   team,
   workflow,
   loadState,
+  games,
+  selectedGameId,
+  season,
+  auditFiltersOpen,
   onTeamChange,
   onWorkflowChange,
+  onGameChange,
+  onSeasonChange,
+  onAuditFiltersOpenChange,
 }: {
   team: Team | null;
   workflow: Workflow;
   loadState: LoadState;
+  games: EnterpriseGameSummary[];
+  selectedGameId: string | null;
+  season: string;
+  auditFiltersOpen: boolean;
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
+  onGameChange: (id: string) => void;
+  onSeasonChange: (season: string) => void;
+  onAuditFiltersOpenChange: (open: boolean) => void;
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.primary ?? "#ffffff";
@@ -1520,36 +1641,76 @@ function TopNav({
           ))}
         </nav>
 
+        {team ? (
+          <div className="top-nav__context">
+            <span className="top-nav__team-logo"><TeamLogo abbr={team.abbr} /></span>
+            <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
+            <span className="top-nav__sep" aria-hidden="true">+</span>
+            <h2 className="top-nav__page">{pageHeadingForWorkflow(workflow)}</h2>
+          </div>
+        ) : null}
+
         <div className="top-nav__actions">
-          <CustomSelect
-            ariaLabel="Select club"
-            placeholder="Select Club"
-            minWidth={200}
-            value={team?.abbr ?? ""}
-            options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
-            onChange={(next) => {
-              const team = MLB_TEAMS.find((item) => item.abbr === next);
-              if (team) onTeamChange(team);
-            }}
-          />
-          <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
-            {loadState === "loading" ? "Loading Data" :
-             loadState === "ready" ? "Data Ready" :
-             loadState === "missing-config" ? "Setup Required" :
-             "Connection Error"}
-          </span>
-          <div className="top-nav__profile" aria-label="Admin profile">A</div>
+          <div className="top-nav__actions-primary">
+            <CustomSelect
+              ariaLabel="Select club"
+              placeholder="Select Club"
+              minWidth={200}
+              value={team?.abbr ?? ""}
+              options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
+              onChange={(next) => {
+                const team = MLB_TEAMS.find((item) => item.abbr === next);
+                if (team) onTeamChange(team);
+              }}
+            />
+            <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
+              {loadState === "loading" ? "Loading Data" :
+               loadState === "ready" ? "Data Ready" :
+               loadState === "missing-config" ? "Setup Required" :
+               "Connection Error"}
+            </span>
+            <div className="top-nav__profile" aria-label="Admin profile">A</div>
+          </div>
+          {workflow === "audit" ? (
+            <div className={`top-nav__audit-controls${auditFiltersOpen ? "" : " top-nav__audit-controls--collapsed"}`}>
+              {auditFiltersOpen ? (
+                <>
+                  <div className="audit-filter">
+                    <span>Season</span>
+                    <CustomSelect
+                      ariaLabel="Select season"
+                      minWidth={118}
+                      value={season}
+                      options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
+                      onChange={onSeasonChange}
+                    />
+                  </div>
+                  <div className="audit-filter">
+                    <span>Game</span>
+                    <CustomSelect
+                      ariaLabel="Select game"
+                      minWidth={260}
+                      value={selectedGameId ?? ""}
+                      options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+                      onChange={onGameChange}
+                    />
+                  </div>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className="audit-header__toggle top-nav__filters-toggle"
+                aria-label={auditFiltersOpen ? "Hide Season and Game filters" : "Show Season and Game filters"}
+                aria-expanded={auditFiltersOpen}
+                onClick={() => onAuditFiltersOpenChange(!auditFiltersOpen)}
+              >
+                {auditFiltersOpen ? <Minus size={14} /> : <Plus size={14} />}
+                <span>{auditFiltersOpen ? "Hide Filters" : "Show Filters"}</span>
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
-
-      {team ? (
-        <div className="top-nav__row top-nav__row--team">
-          <span className="top-nav__team-logo"><TeamLogo abbr={team.abbr} /></span>
-          <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
-          <span className="top-nav__sep" aria-hidden="true">+</span>
-          <h2 className="top-nav__page">{pageHeadingForWorkflow(workflow)}</h2>
-        </div>
-      ) : null}
     </header>
   );
 }
@@ -3275,22 +3436,16 @@ function GameAudit({
   team,
   games,
   selectedGameId,
-  onGameChange,
   replay,
   recap,
   preventableRows,
-  season,
-  onSeasonChange,
 }: {
   team: Team;
   games: EnterpriseGameSummary[];
   selectedGameId: string | null;
-  onGameChange: (id: string) => void;
   replay: PitchingReplayResponse | null;
   recap: PitchingGameRecap | null;
   preventableRows: PreventableRunsOpportunityRow[];
-  season: string;
-  onSeasonChange: (season: string) => void;
 }) {
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
@@ -3298,7 +3453,6 @@ function GameAudit({
   const [msfOpen, setMsfOpen] = useState(true);
   const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
-  const [filtersOpen, setFiltersOpen] = useState(true);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -3447,43 +3601,6 @@ function GameAudit({
   } as CSSProperties;
   return (
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
-      <header className={`audit-header${filtersOpen ? "" : " audit-header--collapsed"}`}>
-        {filtersOpen ? (
-          <div className="audit-header__filters">
-            <div className="audit-filter">
-              <span>Season</span>
-              <CustomSelect
-                ariaLabel="Select season"
-                minWidth={140}
-                value={season}
-                options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
-                onChange={onSeasonChange}
-              />
-            </div>
-            <div className="audit-filter">
-              <span>Game</span>
-              <CustomSelect
-                ariaLabel="Select game"
-                minWidth={240}
-                value={selectedGameId ?? ""}
-                options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
-                onChange={onGameChange}
-              />
-            </div>
-          </div>
-        ) : null}
-        <button
-          type="button"
-          className="audit-header__toggle"
-          aria-label={filtersOpen ? "Hide Season and Game filters" : "Show Season and Game filters"}
-          aria-expanded={filtersOpen}
-          onClick={() => setFiltersOpen((o) => !o)}
-        >
-          {filtersOpen ? <Minus size={14} /> : <Plus size={14} />}
-          <span>{filtersOpen ? "Hide Filters" : "Show Filters"}</span>
-        </button>
-      </header>
-
       {!selectedGameId || !replay || !selected ? (
         <EmptyState title="No replay loaded" detail="Select a completed game with finalized pitch-level replay detail." />
       ) : (
@@ -3581,24 +3698,36 @@ function GameAudit({
                       <span className="pws-cpw__hitclass">{hitClassificationLabel(selected.snapshot)}</span>
                     ) : null}
                   </div>
-                  <p className="pws-pitch-detail">{pitchInfoLabel(selected.snapshot)}</p>
+                  <div className="pws-pitch-facts">
+                    {pitchFactItems(selected.snapshot).map((item) => (
+                      <span key={item.label} className="pws-pitch-fact">
+                        <em>{item.label}</em>
+                        <strong>{item.value}</strong>
+                      </span>
+                    ))}
+                  </div>
                 </section>
 
-                <div className="pws-score">
-                  {(() => {
-                    const ownIsAway = replay.game.away_team === team.abbr;
-                    const awayTone = ownIsAway ? "own" : "opp";
-                    const homeTone = ownIsAway ? "opp" : "own";
-                    return (
-                      <>
-                        <span className={`pws-score__team pws-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>{replay.game.away_team}</span>
-                        <strong className="pws-score__num">{selected.snapshot.away_score ?? 0}</strong>
-                        <span className="pws-score__dash">—</span>
-                        <strong className="pws-score__num">{selected.snapshot.home_score ?? 0}</strong>
-                        <span className={`pws-score__team pws-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>{replay.game.home_team}</span>
-                      </>
-                    );
-                  })()}
+                <PitchMixSnapshot entries={entries} selectedIndex={selectedIndex} />
+
+                <div className="pws-score-block">
+                  <p className="pws-eyebrow">Current Score</p>
+                  <div className="pws-score">
+                    {(() => {
+                      const ownIsAway = replay.game.away_team === team.abbr;
+                      const awayTone = ownIsAway ? "own" : "opp";
+                      const homeTone = ownIsAway ? "opp" : "own";
+                      return (
+                        <>
+                          <span className={`pws-score__team pws-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>{replay.game.away_team}</span>
+                          <strong className="pws-score__num">{selected.snapshot.away_score ?? 0}</strong>
+                          <span className="pws-score__dash">—</span>
+                          <strong className="pws-score__num">{selected.snapshot.home_score ?? 0}</strong>
+                          <span className={`pws-score__team pws-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>{replay.game.home_team}</span>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </aside>
 
@@ -3611,7 +3740,7 @@ function GameAudit({
                       {pocketHitters.map((hitter, index) => (
                         <li key={`${hitter.name}-${index}`}>
                           <strong>{hitter.name}</strong>
-                          <em>{hitter.hand === "L" || hitter.hand === "R" || hitter.hand === "S" ? `${hitter.hand}HH` : "Hand unavailable"}</em>
+                          <em>{hitter.hand}</em>
                         </li>
                       ))}
                     </ol>
@@ -3657,10 +3786,10 @@ function GameAudit({
                   </div>
                 </div>
                 <div className="decision-gauge-grid">
-                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail="Stuff concern scale." percent={stuffPressure} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
-                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail="Command concern scale." percent={commandPressure} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
-                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail="Inning and lineup-turnover load." percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
-                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Baseline 1.0; capped near 3.0 in replay display." percent={scaledPercent(selected.snapshot.leverage_index, 3)} tone={concernTone(scaledPercent(selected.snapshot.leverage_index, 3))} role={concernRole(scaledPercent(selected.snapshot.leverage_index, 3))} />
+                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail="Stuff concern scale." percent={stuffPressure} benchmarkPercent={0.5} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
+                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail="Command concern scale." percent={commandPressure} benchmarkPercent={0.5} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
+                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail="Inning and lineup-turnover load." percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Baseline 1.0; capped near 3.0 in replay display." percent={scaledPercent(selected.snapshot.leverage_index, 3)} benchmarkPercent={scaledPercent(1.0, 3)} tone={concernTone(scaledPercent(selected.snapshot.leverage_index, 3))} role={concernRole(scaledPercent(selected.snapshot.leverage_index, 3))} />
                 </div>
                 <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
                   <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
@@ -3755,48 +3884,48 @@ function GameAudit({
                 />
                 {(() => {
                   const tone = highGoodTone(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike);
-                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike))} Opponent-adjusted change ${fmtSigned(selectedState?.opponent_adjusted_whiff_drop, 2)}.`} percent={selectedState?.whiff_rate_15 ?? undefined} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike))} Opponent-adjusted change ${fmtSigned(selectedState?.opponent_adjusted_whiff_drop, 2)}.`} percent={selectedState?.whiff_rate_15 ?? undefined} benchmarkPercent={REPLAY_RATE_BENCHMARKS.swingingStrike} tone={tone} role={roleFromTone(tone)} />;
                 })()}
-                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} percent={scaledPercent(selectedState?.pitch_mix_drift_10, 1)} tone={concernTone(scaledPercent(selectedState?.pitch_mix_drift_10, 1))} role={concernRole(scaledPercent(selectedState?.pitch_mix_drift_10, 1))} />
+                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} percent={scaledPercent(selectedState?.pitch_mix_drift_10, 1)} benchmarkPercent={0.2} tone={concernTone(scaledPercent(selectedState?.pitch_mix_drift_10, 1))} role={concernRole(scaledPercent(selectedState?.pitch_mix_drift_10, 1))} />
                 <StuffConditionCard body={pitcherOnlyCondition} />
               </section>
               <section>
                 <h4>Command and Contact</h4>
                 {(() => {
                   const tone = highGoodTone(selectedState?.strike_rate_10, REPLAY_RATE_BENCHMARKS.strike);
-                  return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.strike))} percent={selectedState?.strike_rate_10 ?? undefined} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.strike))} percent={selectedState?.strike_rate_10 ?? undefined} benchmarkPercent={REPLAY_RATE_BENCHMARKS.strike} tone={tone} role={roleFromTone(tone)} />;
                 })()}
                 {(() => {
                   const tone = highGoodTone(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike);
-                  return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike))} percent={selectedState?.called_strike_rate_15 ?? undefined} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike))} percent={selectedState?.called_strike_rate_15 ?? undefined} benchmarkPercent={REPLAY_RATE_BENCHMARKS.calledStrike} tone={tone} role={roleFromTone(tone)} />;
                 })()}
                 {(() => {
                   const tone = highGoodTone(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase);
-                  return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={rateDetail("League proxy", fmtRate(REPLAY_RATE_BENCHMARKS.chase))} percent={selectedState?.chase_proxy_rate_15 ?? undefined} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={rateDetail("League proxy", fmtRate(REPLAY_RATE_BENCHMARKS.chase))} percent={selectedState?.chase_proxy_rate_15 ?? undefined} benchmarkPercent={REPLAY_RATE_BENCHMARKS.chase} tone={tone} role={roleFromTone(tone)} />;
                 })()}
                 {(() => {
                   const tone = lowGoodTone(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact);
-                  return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.hardContact))} percent={selectedState?.hard_contact_rate_15 ?? undefined} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.hardContact))} percent={selectedState?.hard_contact_rate_15 ?? undefined} benchmarkPercent={REPLAY_RATE_BENCHMARKS.hardContact} tone={tone} role={roleFromTone(tone)} />;
                 })()}
                 {(() => {
                   const tone = lowGoodTone(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss);
-                  return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`${rateDetail("Replay", `${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft`)} 5-pitch window ${fmtNumber(selectedState?.zone_miss_distance_5, 2)} ft.`} percent={scaledPercent(selectedState?.zone_miss_distance_10, 0.8)} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`${rateDetail("Replay", `${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft`)} 5-pitch window ${fmtNumber(selectedState?.zone_miss_distance_5, 2)} ft.`} percent={scaledPercent(selectedState?.zone_miss_distance_10, 0.8)} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.zoneMiss, 0.8)} tone={tone} role={roleFromTone(tone)} />;
                 })()}
                 {(() => {
                   const tone = lowGoodTone(selectedState?.location_dispersion_10, REPLAY_RATE_BENCHMARKS.commandSpread);
-                  return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`${rateDetail("Replay", fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2))} 5-pitch spread ${fmtNumber(selectedState?.location_dispersion_5, 2)}.`} percent={scaledPercent(selectedState?.location_dispersion_10, 1.4)} tone={tone} role={roleFromTone(tone)} />;
+                  return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`${rateDetail("Replay", fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2))} 5-pitch spread ${fmtNumber(selectedState?.location_dispersion_5, 2)}.`} percent={scaledPercent(selectedState?.location_dispersion_10, 1.4)} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.commandSpread, 1.4)} tone={tone} role={roleFromTone(tone)} />;
                 })()}
               </section>
               <section>
                 <h4>Decision Context</h4>
-                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail={selected.snapshot.leverage_index >= 1.5 ? "Above the 1.0 baseline; replay display caps near 3.0." : "Baseline is 1.0; replay display caps near 3.0."} percent={scaledPercent(selected.snapshot.leverage_index, 3)} tone={concernTone(scaledPercent(selected.snapshot.leverage_index, 3))} role={concernRole(scaledPercent(selected.snapshot.leverage_index, 3))} />
-                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} percent={selectedState?.empirical_degradation_percentile ?? undefined} tone={concernTone(selectedState?.empirical_degradation_percentile)} role={concernRole(selectedState?.empirical_degradation_percentile)} />
-                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} percent={selectedState?.pitcher_empirical_degradation_percentile ?? undefined} tone={concernTone(selectedState?.pitcher_empirical_degradation_percentile)} role={concernRole(selectedState?.pitcher_empirical_degradation_percentile)} />
-                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(scaledPercent(selectedState?.enhanced_degradation_score, 3))} detail={`Raw enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}.`} percent={scaledPercent(selectedState?.enhanced_degradation_score, 3)} tone={concernTone(scaledPercent(selectedState?.enhanced_degradation_score, 3))} role={concernRole(scaledPercent(selectedState?.enhanced_degradation_score, 3))} />
-                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced.`} percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail={selected.snapshot.leverage_index >= 1.5 ? "Above the 1.0 baseline; replay display caps near 3.0." : "Baseline is 1.0; replay display caps near 3.0."} percent={scaledPercent(selected.snapshot.leverage_index, 3)} benchmarkPercent={scaledPercent(1.0, 3)} tone={concernTone(scaledPercent(selected.snapshot.leverage_index, 3))} role={concernRole(scaledPercent(selected.snapshot.leverage_index, 3))} />
+                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} percent={selectedState?.empirical_degradation_percentile ?? undefined} benchmarkPercent={0.5} tone={concernTone(selectedState?.empirical_degradation_percentile)} role={concernRole(selectedState?.empirical_degradation_percentile)} />
+                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} percent={selectedState?.pitcher_empirical_degradation_percentile ?? undefined} benchmarkPercent={0.5} tone={concernTone(selectedState?.pitcher_empirical_degradation_percentile)} role={concernRole(selectedState?.pitcher_empirical_degradation_percentile)} />
+                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(scaledPercent(selectedState?.enhanced_degradation_score, 3))} detail={`Raw enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}.`} percent={scaledPercent(selectedState?.enhanced_degradation_score, 3)} benchmarkPercent={0.5} tone={concernTone(scaledPercent(selectedState?.enhanced_degradation_score, 3))} role={concernRole(scaledPercent(selectedState?.enhanced_degradation_score, 3))} />
+                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced.`} percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
               </section>
               {hasWatchSignal ? (
-                <section>
+                <section className="evidence-grid__relief">
                   <h4>Relief Alternatives</h4>
                   {reliefOptions.length === 0 ? (
                     <GaugeMetric label="Bullpen options" value={UNAVAILABLE} detail="No relief alternatives were attached to this pitch window." />
@@ -4516,6 +4645,7 @@ export default function App() {
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflowFromSearch);
   const [season, setSeason] = useState("2026");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(initialGameIdFromSearch);
+  const [auditFiltersOpen, setAuditFiltersOpen] = useState(true);
   const [games, setGames] = useState<EnterpriseGameSummary[]>([]);
   const [profilesPayload, setProfilesPayload] = useState<PitcherProfilesPayload | null>(null);
   const [auditSummary, setAuditSummary] = useState<PitchingAuditSummaryPayload | null>(null);
@@ -4660,10 +4790,17 @@ export default function App() {
         team={selectedTeam}
         workflow={workflow}
         loadState={loadState}
+        games={games}
+        selectedGameId={selectedGameId}
+        season={season}
+        auditFiltersOpen={auditFiltersOpen}
         onTeamChange={(team) => {
           setSelectedTeamAbbr(team.abbr);
         }}
         onWorkflowChange={setWorkflow}
+        onGameChange={setSelectedGameId}
+        onSeasonChange={setSeason}
+        onAuditFiltersOpenChange={setAuditFiltersOpen}
       />
 
       <div className="app-main">
@@ -4676,12 +4813,9 @@ export default function App() {
             team={selectedTeam}
             games={games}
             selectedGameId={selectedGameId}
-            onGameChange={setSelectedGameId}
             replay={replay}
             recap={recap}
             preventableRows={auditPreventableRuns?.rows ?? []}
-            season={season}
-            onSeasonChange={setSeason}
           />
         )}
 
@@ -4700,10 +4834,12 @@ export default function App() {
         )}
       </div>
 
-      <footer className="app-footer">
-        <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
-        <span>Confidential · Baseball brAIn, Inc.</span>
-      </footer>
+      {workflow !== "audit" ? (
+        <footer className="app-footer">
+          <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
+          <span>Confidential · Baseball brAIn, Inc.</span>
+        </footer>
+      ) : null}
     </main>
   );
 }

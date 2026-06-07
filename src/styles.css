@@ -18314,3 +18314,356 @@ body.audit-immersive .app-main {
     text-align: left !important;
   }
 }
+
+/* ============================================================
+   Game Replays revision overrides — nav-owned filters, pitch
+   facts, pitch mix, baseline ticks, and no white replay footer.
+   ============================================================ */
+
+body.audit-immersive,
+body.audit-immersive .app-shell,
+body.audit-immersive .app-main {
+  background: #000000 !important;
+}
+
+body.audit-immersive .app-main {
+  padding: 0 !important;
+}
+
+.top-nav {
+  padding: 10px 28px 8px !important;
+}
+
+.top-nav__row--primary {
+  align-items: flex-start !important;
+  gap: 18px !important;
+}
+
+.top-nav__brand {
+  flex: 0 0 auto !important;
+}
+
+.top-nav__brain-svg {
+  width: 260px !important;
+  max-width: 28vw !important;
+}
+
+.top-nav__tabs {
+  flex: 0 0 auto !important;
+  align-self: flex-start !important;
+}
+
+.top-nav__context {
+  display: flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  gap: 12px !important;
+  margin-left: 8px !important;
+  padding-left: 18px !important;
+  border-left: 1px solid #222222 !important;
+}
+
+.top-nav__context .top-nav__team-logo {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.top-nav__context .top-nav__team-name,
+.top-nav__context .top-nav__page {
+  margin: 0 !important;
+  white-space: nowrap !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: clamp(22px, 2.2vw, 38px) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.top-nav__context .top-nav__sep {
+  color: #4a4a4a !important;
+  font-size: 24px !important;
+  font-weight: 800 !important;
+}
+
+.top-nav__actions {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  min-width: 420px !important;
+}
+
+.top-nav__actions-primary,
+.top-nav__audit-controls {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+}
+
+.top-nav__audit-controls {
+  flex-wrap: wrap !important;
+}
+
+.top-nav__audit-controls .audit-filter {
+  min-width: 118px !important;
+}
+
+.top-nav__audit-controls .audit-filter:nth-child(2) {
+  min-width: 260px !important;
+}
+
+.top-nav__filters-toggle {
+  min-height: 34px !important;
+  padding: 8px 12px !important;
+}
+
+.top-nav__row--team {
+  display: none !important;
+}
+
+.theme-mobian.workflow-audit {
+  min-height: calc(100vh - 118px) !important;
+  padding: 0 6px 24px !important;
+  background: #000000 !important;
+}
+
+.theme-mobian .replay-panel {
+  margin-top: 0 !important;
+  border-radius: 0 0 10px 10px !important;
+}
+
+.theme-mobian .signal-banner--3col {
+  margin-top: 0 !important;
+}
+
+.theme-mobian .pws-pitch-facts {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+  margin-top: 8px !important;
+}
+
+.theme-mobian .pws-pitch-fact {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+  padding: 8px !important;
+  border: 1px solid #242424 !important;
+  border-radius: 7px !important;
+  background: #0a0a0a !important;
+}
+
+.theme-mobian .pws-pitch-fact:first-child {
+  grid-column: span 2 !important;
+  border-color: rgba(224, 91, 75, 0.45) !important;
+}
+
+.theme-mobian .pws-pitch-fact em {
+  color: #8a8a8a !important;
+  font-size: 8px !important;
+  font-style: normal !important;
+  font-weight: 900 !important;
+  letter-spacing: 1.2px !important;
+  text-transform: uppercase !important;
+}
+
+.theme-mobian .pws-pitch-fact strong {
+  overflow: hidden !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.theme-mobian .pitch-mix-card {
+  border-top: 1px solid #1e1e1e !important;
+  padding-top: 10px !important;
+}
+
+.theme-mobian .pitch-mix-card__body {
+  display: grid !important;
+  grid-template-columns: 82px minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.theme-mobian .pitch-mix-donut {
+  position: relative !important;
+  display: block !important;
+  width: 78px !important;
+  height: 78px !important;
+  border-radius: 999px !important;
+  background: conic-gradient(var(--pitch-mix-gradient)) !important;
+  box-shadow: inset 0 0 0 1px #242424 !important;
+}
+
+.theme-mobian .pitch-mix-donut::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 20px !important;
+  border-radius: 999px !important;
+  background: #000000 !important;
+  box-shadow: 0 0 0 1px #1a1a1a !important;
+}
+
+.theme-mobian .pitch-mix-legend {
+  display: grid !important;
+  gap: 5px !important;
+  min-width: 0 !important;
+}
+
+.theme-mobian .pitch-mix-legend__row {
+  display: grid !important;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+
+.theme-mobian .pitch-mix-legend__dot {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 999px !important;
+}
+
+.theme-mobian .pitch-mix-legend strong,
+.theme-mobian .pitch-mix-legend b {
+  min-width: 0 !important;
+  color: #f8f8f8 !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+}
+
+.theme-mobian .pitch-mix-legend strong {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.theme-mobian .pitch-mix-legend em {
+  color: #8f8f8f !important;
+  font-size: 10px !important;
+  font-style: normal !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.theme-mobian .pws-score-block {
+  display: grid !important;
+  gap: 7px !important;
+  border-top: 1px solid #1e1e1e !important;
+  padding-top: 10px !important;
+}
+
+.theme-mobian .pws-score {
+  justify-content: flex-start !important;
+  margin: 0 !important;
+}
+
+.theme-mobian .next-pocket-card strong {
+  white-space: normal !important;
+  line-height: 1.15 !important;
+}
+
+.theme-mobian .next-pocket-card em {
+  color: #fce066 !important;
+}
+
+.theme-mobian .gauge-track {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.theme-mobian .gauge-benchmark {
+  position: absolute !important;
+  z-index: 3 !important;
+  top: -4px !important;
+  width: 2px !important;
+  height: 13px !important;
+  border-radius: 999px !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 1px #000000 !important;
+  opacity: 0.9 !important;
+  transform: translateX(-1px) !important;
+}
+
+.theme-mobian .gauge-role-pill,
+.theme-mobian .gauge-role-pill--driver,
+.theme-mobian .gauge-role-pill--held-up,
+.theme-mobian .gauge-role-pill--watch {
+  color: #000000 !important;
+}
+
+.theme-mobian .gauge-role-pill--driver {
+  background: #e05b4b !important;
+}
+
+.theme-mobian .gauge-role-pill--held-up {
+  background: #2ec4a0 !important;
+}
+
+.theme-mobian .gauge-role-pill--watch {
+  background: #fce066 !important;
+}
+
+.theme-mobian .evidence-grid__relief {
+  max-height: 560px !important;
+  overflow: auto !important;
+}
+
+.theme-mobian .evidence-grid__relief::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+.theme-mobian .evidence-grid__relief::-webkit-scrollbar-thumb {
+  background: #2b2b2b !important;
+  border-radius: 999px !important;
+}
+
+@media (max-width: 1280px) {
+  .top-nav__row--primary {
+    flex-wrap: wrap !important;
+  }
+
+  .top-nav__actions {
+    min-width: 320px !important;
+  }
+
+  .top-nav__context {
+    order: 4 !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+    border-left: 0 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .top-nav {
+    padding: 10px 14px !important;
+  }
+
+  .top-nav__brain-svg {
+    max-width: 72vw !important;
+  }
+
+  .top-nav__actions,
+  .top-nav__actions-primary,
+  .top-nav__audit-controls {
+    align-items: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .top-nav__actions-primary,
+  .top-nav__audit-controls {
+    flex-direction: column !important;
+  }
+
+  .theme-mobian .pitch-mix-card__body {
+    grid-template-columns: 1fr !important;
+  }
+}

@@ -387,10 +387,15 @@ export type PitchingReplayEntry = {
     release_speed?: number | null;
     pfx_x?: number | null;
     pfx_z?: number | null;
+    movement_horizontal_inches?: number | null;
+    movement_vertical_inches?: number | null;
     events?: string | null;
     description?: string | null;
     des?: string | null;
     hit_location?: string | null;
+    official_scoring_label?: string | null;
+    official_event?: string | null;
+    official_description?: string | null;
     pitch_call?: string | null;
     hit_classification?: string | null;
     batter_handedness?: string | null;
