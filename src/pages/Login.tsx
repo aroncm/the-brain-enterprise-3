@@ -7,6 +7,11 @@ type Mode = "signIn" | "setPassword" | "forgotPassword";
 const ENTERPRISE_BASE_URL =
   typeof window !== "undefined" ? `${window.location.origin}/` : "https://baseballbrain.club/";
 
+// Suffix appended to redirect URLs so Supabase preserves the flow type
+// in the final landing URL. Without this, the PKCE redirect only carries
+// ?code=... and we lose the recovery/invite signal.
+const RECOVERY_REDIRECT = `${ENTERPRISE_BASE_URL}?type=recovery`;
+
 function detectInitialMode(): Mode {
   if (typeof window === "undefined") return "signIn";
   // Supabase appends ?type=invite|recovery in PKCE flows and
@@ -101,7 +106,7 @@ export function Login() {
     }
     setSubmitting(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: ENTERPRISE_BASE_URL,
+      redirectTo: RECOVERY_REDIRECT,
     });
     if (resetError) {
       setError(resetError.message);

@@ -90,12 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  // Seed from the URL synchronously so ProtectedApp never renders the
-  // App in the brief window between mount and Supabase's session
-  // exchange completing.
-  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(
-    () => isPasswordSetupType(readAuthLinkParams().type),
-  );
+  // Seed from the URL synchronously. Any sign-in via URL params (code OR
+  // access_token) means the user clicked an invite or recovery link, and
+  // they need to set/reset their password before anything else. Default
+  // to true if ANY URL param looks auth-related; we only learn the type
+  // for sure after the exchange.
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState<boolean>(() => {
+    const params = readAuthLinkParams();
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line no-console
+      console.log("[auth] initial URL params", {
+        href: window.location.href,
+        ...params,
+      });
+    }
+    return Boolean(params.code) || Boolean(params.accessToken) || isPasswordSetupType(params.type);
+  });
   const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,23 +113,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const finishUrlExchange = async () => {
       const params = readAuthLinkParams();
+      // eslint-disable-next-line no-console
+      console.log("[auth] finishUrlExchange start", params);
       if (params.errorDescription) {
         setLinkError(params.errorDescription);
         clearAuthLinkUrl();
+        setLoading(false);
         return;
       }
+      let exchangeOk = false;
       try {
         if (params.code) {
-          // PKCE flow: ?code=... in the query string.
           await supabase.auth.exchangeCodeForSession(params.code);
+          exchangeOk = true;
+          // eslint-disable-next-line no-console
+          console.log("[auth] exchangeCodeForSession succeeded");
         } else if (params.accessToken && params.refreshToken) {
-          // Legacy implicit flow: #access_token=...&refresh_token=...
           await supabase.auth.setSession({
             access_token: params.accessToken,
             refresh_token: params.refreshToken,
           });
+          exchangeOk = true;
+          // eslint-disable-next-line no-console
+          console.log("[auth] setSession from hash succeeded");
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[auth] URL exchange failed", err);
         if (!cancelled) {
           setLinkError(err instanceof Error ? err.message : "Could not complete sign-in link");
         }
@@ -127,13 +147,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (params.code || params.accessToken) {
         clearAuthLinkUrl();
       }
-      // After the exchange, getSession returns the active session — which
-      // is what we use to drive ProtectedApp.
       if (!cancelled) {
         const { data } = await supabase.auth.getSession();
         if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.log("[auth] post-exchange session", {
+          hasSession: !!data.session,
+          userEmail: data.session?.user?.email,
+          exchangeOk,
+        });
         setSession(data.session);
-        if (isPasswordSetupType(params.type)) {
+        // If we just consumed URL auth params AND landed on a session,
+        // force password setup. Invite + recovery are the only flows
+        // that put auth params in the URL for an invite-only app, and
+        // both need the user to set a password before the next time.
+        if (exchangeOk) {
           setNeedsPasswordSetup(true);
         }
         setLoading(false);
@@ -143,6 +171,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void finishUrlExchange();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      // eslint-disable-next-line no-console
+      console.log("[auth] onAuthStateChange", event, { hasSession: !!nextSession });
       setSession(nextSession);
       if (event === "PASSWORD_RECOVERY") {
         setNeedsPasswordSetup(true);
