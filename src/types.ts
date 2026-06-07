@@ -339,6 +339,8 @@ export type PitchingReplayState = {
   opponent_adjusted_whiff_drop?: number | null;
   opponent_whiff_factor?: number | null;
   pitch_mix_drift_10?: number | null;
+  pitch_type_velocity_trends?: Record<string, Record<string, number | string | null | undefined>>;
+  pitch_type_spin_trends?: Record<string, Record<string, number | string | null | undefined>>;
   degradation_score: number;
   normalized_degradation_score?: number | null;
   enhanced_degradation_score?: number | null;
@@ -381,7 +383,14 @@ export type PitchingReplayEntry = {
     px?: number | null;
     pz?: number | null;
     pitch_type?: string | null;
+    pitch_name?: string | null;
     release_speed?: number | null;
+    pfx_x?: number | null;
+    pfx_z?: number | null;
+    events?: string | null;
+    description?: string | null;
+    des?: string | null;
+    hit_location?: string | null;
     pitch_call?: string | null;
     hit_classification?: string | null;
     batter_handedness?: string | null;
@@ -392,6 +401,25 @@ export type PitchingReplayEntry = {
     role?: string | null;
     team_appearance_order?: number | null;
     current_opponent_runs?: number | null;
+    upcoming_hitter_pocket?: {
+      hitters?: Array<{
+        player_id?: string | null;
+        batter_id?: string | null;
+        player_name?: string | null;
+        batter_name?: string | null;
+        name?: string | null;
+        stand?: string | null;
+        handedness?: string | null;
+        batting_order_slot?: number | null;
+        threat_score?: number | null;
+        split_threat_score?: number | null;
+      }>;
+      n_left?: number | null;
+      n_right?: number | null;
+      average_hitter_threat?: number | null;
+      max_hitter_threat?: number | null;
+      handedness_pattern?: string | null;
+    } | null;
     reliever_state?: PitchingReplayState & {
       rss_stuff?: number | null;
       rss_command?: number | null;
