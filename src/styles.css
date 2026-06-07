@@ -18667,3 +18667,185 @@ body.audit-immersive .app-main {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* Game Replays compact replay controls revision. Keep after prior audit overrides. */
+
+body.audit-immersive .top-nav {
+  padding: 6px 22px 6px !important;
+}
+
+body.audit-immersive .top-nav__row--primary {
+  align-items: flex-start !important;
+  gap: 14px !important;
+}
+
+body.audit-immersive .top-nav__brain-svg {
+  width: 224px !important;
+  max-width: 24vw !important;
+}
+
+body.audit-immersive .top-nav__tagline {
+  margin-top: -2px !important;
+  font-size: 10px !important;
+  letter-spacing: 3px !important;
+}
+
+body.audit-immersive .top-nav__tabs {
+  padding-top: 4px !important;
+}
+
+body.audit-immersive .top-nav__context {
+  padding-left: 14px !important;
+  gap: 9px !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-logo {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-name,
+body.audit-immersive .top-nav__context .top-nav__page {
+  font-size: clamp(18px, 1.55vw, 28px) !important;
+}
+
+body.audit-immersive .top-nav__actions {
+  gap: 5px !important;
+}
+
+body.audit-immersive .top-nav__actions-primary,
+body.audit-immersive .top-nav__audit-controls {
+  gap: 7px !important;
+}
+
+body.audit-immersive .top-nav__audit-controls {
+  align-items: flex-end !important;
+  flex-wrap: nowrap !important;
+}
+
+body.audit-immersive .top-nav__audit-controls .audit-filter--season {
+  min-width: 108px !important;
+}
+
+body.audit-immersive .top-nav__audit-controls .audit-filter--game {
+  min-width: 270px !important;
+}
+
+body.audit-immersive .top-nav__audit-controls .audit-filter:nth-child(2) {
+  min-width: 108px !important;
+}
+
+body.audit-immersive .top-nav__filters-toggle {
+  min-width: 132px !important;
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 11px !important;
+  border: 1px solid #2b2b2b !important;
+  border-radius: 8px !important;
+  background: #0a0a0a !important;
+  color: #f7f7f7 !important;
+  box-shadow: none !important;
+}
+
+body.audit-immersive .top-nav__filters-toggle span {
+  color: inherit !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: 1.6px !important;
+}
+
+body.audit-immersive .theme-mobian.workflow-audit {
+  min-height: calc(100vh - 88px) !important;
+  padding-top: 0 !important;
+}
+
+body.audit-immersive .theme-mobian .replay-panel {
+  padding-top: 0 !important;
+}
+
+.theme-mobian .pws-pitch-fact b {
+  align-self: flex-start !important;
+  margin-top: 2px !important;
+  padding: 3px 6px !important;
+  border-radius: 999px !important;
+  background: #1a1a1a !important;
+  color: #fce066 !important;
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+}
+
+.theme-mobian .pitch-mix-legend__row {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+
+.theme-mobian .pitch-mix-legend__dot {
+  flex: 0 0 auto !important;
+  align-self: center !important;
+}
+
+.theme-mobian .pitch-mix-legend strong,
+.theme-mobian .pitch-mix-legend b,
+.theme-mobian .pitch-mix-legend em {
+  flex: 0 0 auto !important;
+}
+
+.theme-mobian .pitch-mix-legend strong {
+  max-width: 108px !important;
+}
+
+.theme-mobian .evidence-gauge--role-warning .gauge-track i {
+  background: #fce066 !important;
+}
+
+.theme-mobian .evidence-gauge--role-holding .gauge-track i {
+  background: #2ec4a0 !important;
+}
+
+.theme-mobian .evidence-gauge--role-concern .gauge-track i {
+  background: #e05b4b !important;
+}
+
+.theme-mobian .gauge-role-pill--warning,
+.theme-mobian .gauge-role-pill--holding,
+.theme-mobian .gauge-role-pill--concern {
+  color: #000000 !important;
+}
+
+.theme-mobian .gauge-role-pill--warning {
+  background: #fce066 !important;
+}
+
+.theme-mobian .gauge-role-pill--holding {
+  background: #2ec4a0 !important;
+}
+
+.theme-mobian .gauge-role-pill--concern {
+  background: #e05b4b !important;
+}
+
+@media (max-width: 1280px) {
+  body.audit-immersive .top-nav__context {
+    order: 0 !important;
+    width: auto !important;
+    padding-left: 14px !important;
+    border-left: 1px solid #222222 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body.audit-immersive .top-nav__context {
+    order: 4 !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    border-left: 0 !important;
+  }
+
+  body.audit-immersive .top-nav__audit-controls {
+    flex-wrap: wrap !important;
+  }
+}
