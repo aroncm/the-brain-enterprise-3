@@ -585,10 +585,9 @@ type FactorRole = "CONCERN" | "HOLDING" | "WARNING";
 
 function concernRole(percent: number | null | undefined): FactorRole | null {
   if (percent == null || !Number.isFinite(percent)) return null;
-  if (percent >= 0.75) return "CONCERN";
-  if (percent >= 0.55) return "WARNING";
-  if (percent <= 0.25) return "HOLDING";
-  return null;
+  if (percent >= 0.7) return "CONCERN";
+  if (percent >= 0.4) return "WARNING";
+  return "HOLDING";
 }
 
 function degradationConcern(entry: PitchingReplayEntry | null): number | null {
@@ -721,6 +720,21 @@ function roleFromTone(tone: "neutral" | "good" | "gold" | "prep" | "bad"): Facto
   if (tone === "prep") return "WARNING";
   if (tone === "good") return "HOLDING";
   return null;
+}
+
+function factorRoleColor(role: FactorRole | null): string | null {
+  if (role === "CONCERN") return "#e05b4b";
+  if (role === "WARNING") return "#fce066";
+  if (role === "HOLDING") return "#2ec4a0";
+  return null;
+}
+
+function factorToneColor(tone: "neutral" | "good" | "warn" | "bad" | "gold" | "prep"): string {
+  if (tone === "good") return "#2ec4a0";
+  if (tone === "warn" || tone === "gold") return "#fce066";
+  if (tone === "prep") return "#f5a03b";
+  if (tone === "bad") return "#e05b4b";
+  return "#a0a0a0";
 }
 
 function upcomingPocketHitters(entry: PitchingReplayEntry | null) {
@@ -1158,38 +1172,6 @@ function relieverRssComponents(pitcher: PitchingRecapPitcher): Array<{ label: st
   ];
 }
 
-function entryEventLabel(
-  selected: PitchingReplayEntry,
-  previous: PitchingReplayEntry | null,
-  displayStatus: string,
-  previousStatus: string,
-  replay: PitchingReplayResponse,
-): { title: string; detail: string; tone: "neutral" | "gold" | "bad" } {
-  const scoreChanged =
-    previous != null &&
-    (selected.snapshot.home_score !== previous.snapshot.home_score || selected.snapshot.away_score !== previous.snapshot.away_score);
-  const signalAdvanced = previous != null && statusRank(displayStatus) > statusRank(previousStatus);
-  if (scoreChanged) {
-    return {
-      title: "Score changed",
-      detail: `The game moved to ${scoreForEntry(selected, replay)} after this sequence.`,
-      tone: "bad",
-    };
-  }
-  if (signalAdvanced) {
-    return {
-      title: `Signal advanced to ${displayStatus}`,
-      detail: `The model moved up because the combined mound evidence and game context crossed the ${displayStatus.toLowerCase()} threshold.`,
-      tone: statusRank(displayStatus) >= statusRank("PULL NOW") ? "bad" : "gold",
-    };
-  }
-  return {
-    title: "",
-    detail: `${displayPersonName(selected.snapshot.pitcher_name)} at pitch ${pitchCount(selected)} in the ${halfInningLabel(selected.snapshot.half, selected.snapshot.inning)}.`,
-    tone: "neutral",
-  };
-}
-
 function explicitMatrixCell(value: unknown): MatrixCell | null {
   const clean = String(value ?? "")
     .toLowerCase()
@@ -1381,20 +1363,28 @@ function GaugeMetric({
 }) {
   const width = percent == null ? 0 : Math.round(clamp(percent) * 100);
   const benchmarkLeft = benchmarkPercent == null ? null : Math.round(clamp(benchmarkPercent) * 100);
-  const roleSlug = role ? role.toLowerCase().replace(" ", "-") : null;
+  const resolvedRole = role ?? concernRole(percent);
+  const roleSlug = resolvedRole ? resolvedRole.toLowerCase().replace(" ", "-") : null;
   const roleClass = roleSlug ? `gauge-role-pill gauge-role-pill--${roleSlug}` : null;
   const cardClass = `evidence-gauge evidence-gauge--${tone}${roleSlug ? ` evidence-gauge--role-${roleSlug}` : ""}`;
+  const fillColor = factorRoleColor(resolvedRole) ?? factorToneColor(tone);
+  const fillStyle = {
+    width: `${width}%`,
+    "--gauge-fill": fillColor,
+  } as CSSProperties;
   return (
     <div className={cardClass}>
-      {roleClass ? <span className={roleClass}>{role}</span> : null}
       <div className="evidence-gauge-head">
-        <span>{label}</span>
+        <div className="evidence-gauge-labelrow">
+          <span>{label}</span>
+          {roleClass ? <b className={roleClass}>{resolvedRole}</b> : null}
+        </div>
         <strong>{value}</strong>
       </div>
       {percent != null ? (
         <div className="gauge-track" aria-hidden="true">
           {benchmarkLeft != null ? <span className="gauge-benchmark" style={{ left: `${benchmarkLeft}%` }} /> : null}
-          <i style={{ width: `${width}%` }} />
+          <i style={fillStyle} />
         </div>
       ) : null}
       {detail ? <em>{detail}</em> : null}
@@ -3557,8 +3547,6 @@ function GameAudit({
   const displayStatuses = useMemo(() => monotonicStatuses(entries), [entries]);
   const selected = entries[selectedIndex] ?? null;
   const displayStatus = selected ? displayStatuses[selectedIndex] ?? statusLabel(selected.recommendation.status) : "STAY";
-  const previous = selectedIndex > 0 ? entries[selectedIndex - 1] ?? null : null;
-  const previousStatus = selectedIndex > 0 ? displayStatuses[selectedIndex - 1] ?? "STAY" : "STAY";
   const selectedGame = games.find((game) => game.game_id === selectedGameId) ?? games[0] ?? null;
   const teamPitchers = selectedTeamPitchers(recap, team);
   const teamStarters = teamPitchers.filter((pitcher) => statusLabel(pitcher.role) !== "RELIEVER");
@@ -3575,7 +3563,6 @@ function GameAudit({
   const selectedIsReliever = isRelieverReplayEntry(selected);
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
-  const eventLabel = selected && replay ? entryEventLabel(selected, previous, displayStatus, previousStatus, replay) : null;
   const pitcherOnlyCondition = replayConditionSummary(selected);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
   const modelDecisionSummary = replayRecommendationSummary(pullEntry ?? selected);
@@ -3691,13 +3678,6 @@ function GameAudit({
                 </div>
               ) : null}
             </div>
-            {eventLabel && eventLabel.title ? (
-              <div className={`event-callout event-callout--${eventLabel.tone}`}>
-                <strong>{eventLabel.title}</strong>
-                <span>{eventLabel.detail}</span>
-              </div>
-            ) : null}
-
             <div className="replay-layout">
               <aside className="pitch-window-summary" style={{ borderTop: `3px solid ${accents.primary}` }}>
                 <p className="pws-heading">Pitch Window Summary</p>
