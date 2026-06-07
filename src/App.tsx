@@ -45,6 +45,7 @@ import type {
   PitchingRecapPitcher,
   PitchingRecapSettings,
   PitchingReplayEntry,
+  PitchingRelieverCandidate,
   PitchingReplayResponse,
   PitchingReplayState,
   PreventableRunsOpportunityRow,
@@ -601,51 +602,106 @@ function indexedConcernFromBaseline(values: number[]): number {
   return clamp((peak - baseline) / Math.max(0.01, 1 - baseline));
 }
 
-function degradationConcern(entry: PitchingReplayEntry | null): number | null {
-  if (!entry) return null;
-  const state = replayState(entry);
-  if (isRelieverReplayEntry(entry)) return clamp(num(state.rss_score) ?? 0);
-  return scaledPercent(num(state.enhanced_degradation_score) ?? num(state.degradation_score), 3);
+function scaledConcern(value: number | null | undefined, scale = 1): number | null {
+  if (value == null || !Number.isFinite(value) || scale <= 0) return null;
+  return clamp(value / scale);
 }
 
-function cumulativeDegradationConcern(entries: PitchingReplayEntry[], selectedIndex: number): number {
-  if (entries.length === 0) return 0;
+const SIGNAL_PRESSURE_THRESHOLDS = {
+  watch: 0.15,
+  prep: 0.42,
+  pullNow: 0.69,
+};
+
+function decisionPressureThresholds(entry: PitchingReplayEntry | null): typeof SIGNAL_PRESSURE_THRESHOLDS {
+  const thresholds = entry?.recommendation.decision_pressure_thresholds;
+  return {
+    watch: num(thresholds?.watch) ?? SIGNAL_PRESSURE_THRESHOLDS.watch,
+    prep: num(thresholds?.prep) ?? SIGNAL_PRESSURE_THRESHOLDS.prep,
+    pullNow: num(thresholds?.pullNow) ?? num(thresholds?.pull_now) ?? SIGNAL_PRESSURE_THRESHOLDS.pullNow,
+  };
+}
+
+function signalBand(status: string, thresholds = SIGNAL_PRESSURE_THRESHOLDS): { min: number; max: number } {
+  const label = statusLabel(status);
+  if (label === "PULL NOW" || label === "DISTRESS") return { min: thresholds.pullNow, max: 1 };
+  if (label === "PREP") return { min: thresholds.prep, max: thresholds.pullNow - 0.01 };
+  if (label === "WATCH") return { min: thresholds.watch, max: thresholds.prep - 0.01 };
+  return { min: 0, max: thresholds.watch - 0.01 };
+}
+
+function recommendationPressure(entry: PitchingReplayEntry | null): number | null {
+  if (!entry) return null;
+  return num(entry.recommendation.decision_pressure_score);
+}
+
+function signalAlignedDegradation(entry: PitchingReplayEntry | null, displayedStatus: string): number | null {
+  if (!entry) return null;
+  const band = signalBand(displayedStatus, decisionPressureThresholds(entry));
+  const raw = recommendationPressure(entry);
+  if (raw == null) return band.min;
+  return clamp(raw, band.min, band.max);
+}
+
+function cumulativeSignalAlignedDegradation(
+  entries: PitchingReplayEntry[],
+  statuses: string[],
+  selectedIndex: number,
+): number | null {
+  if (entries.length === 0) return null;
+  const cappedLength = Math.min(selectedIndex + 1, entries.length);
   const values = entries
-    .slice(0, Math.min(selectedIndex + 1, entries.length))
-    .map(degradationConcern)
+    .slice(0, cappedLength)
+    .map((entry, index) => signalAlignedDegradation(entry, statuses[index] ?? entry.recommendation.status))
     .filter((value): value is number => value != null && Number.isFinite(value));
-  return indexedConcernFromBaseline(values);
+  return values.length ? Math.max(...values) : null;
+}
+
+function pitcherOnlyDegradationConcern(entry: PitchingReplayEntry | null): number | null {
+  if (!entry) return null;
+  const state = replayState(entry);
+  return scaledConcern(
+    num(entry.recommendation.independent_degradation_score) ??
+      num(state.degradation_score) ??
+      num(state.normalized_degradation_score),
+    1,
+  );
 }
 
 function currentStuffConcern(entry: PitchingReplayEntry | null): number | null {
   if (!entry) return null;
   const state = replayState(entry);
-  return Math.max(
-    scaledPercent(Math.abs(velocityDrop(entry) ?? 0), 4),
-    scaledPercent(Math.abs(num(state.spin_slope_5) ?? 0), 250),
-    scaledPercent(Math.abs(num(state.pitch_mix_drift_10) ?? 0), 1),
-  );
+  const values = [
+    velocityDrop(entry) == null ? null : scaledConcern(Math.abs(velocityDrop(entry) ?? 0), 4),
+    num(state.spin_slope_5) == null ? null : scaledConcern(Math.abs(num(state.spin_slope_5) ?? 0), 250),
+    scaledConcern(Math.abs(num(state.pitch_mix_drift_10) ?? NaN), 1),
+  ].filter((value): value is number => value != null && Number.isFinite(value));
+  return values.length ? Math.max(...values) : null;
 }
 
 function currentCommandConcern(entry: PitchingReplayEntry | null): number | null {
   if (!entry) return null;
   const state = replayState(entry);
-  return Math.max(
-    scaledPercent(num(state.zone_miss_distance_10), 0.8),
-    scaledPercent(num(state.location_dispersion_10), 1.4),
-    scaledPercent(num(state.ball_rate_10), 1),
-  );
+  const values = [
+    scaledConcern(num(state.zone_miss_distance_10), 0.8),
+    scaledConcern(num(state.location_dispersion_10), 1.4),
+    scaledConcern(num(state.ball_rate_10), 1),
+  ].filter((value): value is number => value != null && Number.isFinite(value));
+  return values.length ? Math.max(...values) : null;
 }
 
 function currentWorkloadConcern(entry: PitchingReplayEntry | null): number | null {
   if (!entry) return null;
   const state = replayState(entry);
-  return scaledPercent((num(state.inning_decay_factor) ?? 0) + (num(state.tto_decay_factor) ?? 0), 3);
+  const inning = num(state.inning_decay_factor);
+  const tto = num(state.tto_decay_factor);
+  if (inning == null && tto == null) return null;
+  return scaledConcern((inning ?? 0) + (tto ?? 0), 3);
 }
 
 function currentLeverageConcern(entry: PitchingReplayEntry | null): number | null {
   if (!entry) return null;
-  return scaledPercent(num(entry.snapshot.leverage_index), 3);
+  return scaledConcern(num(entry.snapshot.leverage_index), 3);
 }
 
 function highGoodConcern(value: number | null | undefined, benchmark: number): number | null {
@@ -748,12 +804,55 @@ function factorToneColor(tone: "neutral" | "good" | "warn" | "bad" | "gold" | "p
   return "#a0a0a0";
 }
 
+function factorRoleLabel(role: FactorRole): string {
+  if (role === "CONCERN") return "Concern";
+  if (role === "WARNING") return "Warning";
+  return "Holding";
+}
+
 function upcomingPocketHitters(entry: PitchingReplayEntry | null) {
   const hitters = entry?.snapshot.upcoming_hitter_pocket?.hitters ?? [];
   return hitters.slice(0, 3).map((hitter) => ({
     name: displayPersonName(hitter.player_name ?? hitter.batter_name ?? hitter.name ?? hitter.player_id ?? hitter.batter_id ?? "Hitter"),
     hand: handednessShortLabel(hitter.stand ?? hitter.handedness),
   }));
+}
+
+function candidatesForEntry(entry: PitchingReplayEntry | null): PitchingRelieverCandidate[] {
+  if (!entry) return [];
+  const candidates = [
+    ...(entry.top_candidates ?? []),
+    ...(entry.snapshot.reliever_candidates ?? []),
+  ];
+  const byKey = new Map<string, PitchingRelieverCandidate>();
+  for (const candidate of candidates) {
+    const key = String(candidate.player_id || candidate.player_name || "").trim();
+    if (!key || byKey.has(key)) continue;
+    byKey.set(key, candidate);
+  }
+  return Array.from(byKey.values());
+}
+
+function reliefCandidatesThroughPitch(
+  entries: PitchingReplayEntry[],
+  selectedIndex: number,
+  selected: PitchingReplayEntry | null,
+): PitchingRelieverCandidate[] {
+  const byKey = new Map<string, PitchingRelieverCandidate>();
+  const addCandidate = (candidate: PitchingRelieverCandidate) => {
+    const key = String(candidate.player_id || candidate.player_name || "").trim();
+    if (!key || byKey.has(key)) return;
+    byKey.set(key, candidate);
+  };
+  candidatesForEntry(selected).forEach(addCandidate);
+  const capped = entries.slice(0, Math.min(selectedIndex + 1, entries.length)).reverse();
+  for (const entry of capped) {
+    candidatesForEntry(entry).forEach(addCandidate);
+  }
+  return Array.from(byKey.values()).sort((a, b) => {
+    const availability = Number(Boolean(b.available)) - Number(Boolean(a.available));
+    return availability || (b.net_option_score ?? 0) - (a.net_option_score ?? 0);
+  });
 }
 
 function handednessShortLabel(value: string | null | undefined): string {
@@ -1390,7 +1489,7 @@ function GaugeMetric({
       <div className="evidence-gauge-head">
         <div className="evidence-gauge-labelrow">
           <span>{label}</span>
-          {roleClass ? <b className={roleClass}>{resolvedRole}</b> : null}
+          {roleClass && resolvedRole ? <b className={roleClass}>{factorRoleLabel(resolvedRole)}</b> : null}
         </div>
         <strong>{value}</strong>
       </div>
@@ -1401,16 +1500,6 @@ function GaugeMetric({
         </div>
       ) : null}
       {detail ? <em>{detail}</em> : null}
-    </div>
-  );
-}
-
-function StuffConditionCard({ body }: { body: string }) {
-  if (!body) return null;
-  return (
-    <div className="stuff-condition-card">
-      <span className="stuff-condition-card__label">Pitcher-Only Condition</span>
-      <p>{body}</p>
     </div>
   );
 }
@@ -3571,45 +3660,43 @@ function GameAudit({
   const pullEntry = pullIndex >= 0 ? entries[pullIndex] ?? null : null;
   const pullMetrics = pullWindowMetrics(pullEntry);
   const hasWatchSignal = statusRank(displayStatus) >= statusRank("WATCH");
-  const bestCandidate = selected?.top_candidates?.find((candidate) => candidate.available) ?? selected?.top_candidates?.[0] ?? null;
+  const reliefOptions = reliefCandidatesThroughPitch(entries, selectedIndex, selected);
+  const bestCandidate = reliefOptions.find((candidate) => candidate.available) ?? reliefOptions[0] ?? null;
   const selectedState = selected ? replayState(selected) : null;
   const selectedIsReliever = isRelieverReplayEntry(selected);
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
-  const pitcherOnlyCondition = replayConditionSummary(selected);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
   const modelDecisionSummary = replayRecommendationSummary(pullEntry ?? selected);
-  const cumulativeDegradation = cumulativeDegradationConcern(entries, selectedIndex);
-  const currentStuffPressure = normalizedConcern(currentStuffConcern(selected));
-  const currentCommandPressure = normalizedConcern(currentCommandConcern(selected));
-  const currentWorkloadPressure = normalizedConcern(currentWorkloadConcern(selected));
-  const currentLeveragePressure = normalizedConcern(currentLeverageConcern(selected));
-  const stuffPressure = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, currentStuffConcern), currentStuffPressure);
-  const commandPressure = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, currentCommandConcern), currentCommandPressure);
-  const decayPressure = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, currentWorkloadConcern), currentWorkloadPressure);
-  const leveragePressure = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, currentLeverageConcern), currentLeveragePressure);
+  const cumulativeDegradation = cumulativeSignalAlignedDegradation(entries, displayStatuses, selectedIndex);
+  const stuffPressure = cumulativeMetricConcern(entries, selectedIndex, currentStuffConcern);
+  const commandPressure = cumulativeMetricConcern(entries, selectedIndex, currentCommandConcern);
+  const decayPressure = cumulativeMetricConcern(entries, selectedIndex, currentWorkloadConcern);
+  const leveragePressure = cumulativeMetricConcern(entries, selectedIndex, currentLeverageConcern);
+  const pitcherOnlyCurrentConcern = pitcherOnlyDegradationConcern(selected);
+  const pitcherOnlyConcern = cumulativeMetricConcern(entries, selectedIndex, pitcherOnlyDegradationConcern);
   const whiffCurrentConcern = highGoodConcern(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike);
-  const pitchMixDriftCurrentConcern = scaledPercent(num(selectedState?.pitch_mix_drift_10), 1);
+  const pitchMixDriftCurrentConcern = scaledConcern(num(selectedState?.pitch_mix_drift_10), 1);
   const strikeRateCurrentConcern = highGoodConcern(selectedState?.strike_rate_10, REPLAY_RATE_BENCHMARKS.strike);
   const calledStrikeCurrentConcern = highGoodConcern(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike);
   const chaseCurrentConcern = highGoodConcern(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase);
   const hardContactCurrentConcern = lowGoodConcern(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact);
-  const zoneMissCurrentConcern = scaledPercent(num(selectedState?.zone_miss_distance_10), 0.8);
-  const commandSpreadCurrentConcern = scaledPercent(num(selectedState?.location_dispersion_10), 1.4);
+  const zoneMissCurrentConcern = scaledConcern(num(selectedState?.zone_miss_distance_10), 0.8);
+  const commandSpreadCurrentConcern = scaledConcern(num(selectedState?.location_dispersion_10), 1.4);
   const leagueContextCurrentConcern = num(selectedState?.empirical_degradation_percentile);
   const pitcherHistoryCurrentConcern = num(selectedState?.pitcher_empirical_degradation_percentile);
-  const enhancedCurrentConcern = scaledPercent(num(selectedState?.enhanced_degradation_score), 3);
-  const whiffConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike)), whiffCurrentConcern ?? 0);
-  const pitchMixDriftConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledPercent(num(replayState(entry).pitch_mix_drift_10), 1)), pitchMixDriftCurrentConcern);
-  const strikeRateConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).strike_rate_10, REPLAY_RATE_BENCHMARKS.strike)), strikeRateCurrentConcern ?? 0);
-  const calledStrikeConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike)), calledStrikeCurrentConcern ?? 0);
-  const chaseConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase)), chaseCurrentConcern ?? 0);
-  const hardContactConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => lowGoodConcern(replayState(entry).hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact)), hardContactCurrentConcern ?? 0);
-  const zoneMissConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledPercent(num(replayState(entry).zone_miss_distance_10), 0.8)), zoneMissCurrentConcern);
-  const commandSpreadConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledPercent(num(replayState(entry).location_dispersion_10), 1.4)), commandSpreadCurrentConcern);
-  const leagueContextConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => num(replayState(entry).empirical_degradation_percentile)), leagueContextCurrentConcern ?? 0);
-  const pitcherHistoryConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => num(replayState(entry).pitcher_empirical_degradation_percentile)), pitcherHistoryCurrentConcern ?? 0);
-  const enhancedConcern = normalizedConcern(cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledPercent(num(replayState(entry).enhanced_degradation_score), 3)), enhancedCurrentConcern);
+  const enhancedCurrentConcern = scaledConcern(num(selectedState?.enhanced_degradation_score), 3);
+  const whiffConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike));
+  const pitchMixDriftConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledConcern(num(replayState(entry).pitch_mix_drift_10), 1));
+  const strikeRateConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).strike_rate_10, REPLAY_RATE_BENCHMARKS.strike));
+  const calledStrikeConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike));
+  const chaseConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => highGoodConcern(replayState(entry).chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase));
+  const hardContactConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => lowGoodConcern(replayState(entry).hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact));
+  const zoneMissConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledConcern(num(replayState(entry).zone_miss_distance_10), 0.8));
+  const commandSpreadConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledConcern(num(replayState(entry).location_dispersion_10), 1.4));
+  const leagueContextConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => num(replayState(entry).empirical_degradation_percentile));
+  const pitcherHistoryConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => num(replayState(entry).pitcher_empirical_degradation_percentile));
+  const enhancedConcern = cumulativeMetricConcern(entries, selectedIndex, (entry) => scaledConcern(num(replayState(entry).enhanced_degradation_score), 3));
   const topComponents = Object.entries(selectedState?.component_contributions ?? {})
     .sort((a, b) => Math.abs(b[1] ?? 0) - Math.abs(a[1] ?? 0))
     .slice(0, 5);
@@ -3628,12 +3715,6 @@ function GameAudit({
     selectedState?.spin_mean_10,
     trendNumber(currentSpinTrend, "mean_last5") ?? selectedState?.spin_mean_5,
   ];
-  const reliefOptions = (selected?.top_candidates ?? [])
-    .slice()
-    .sort((a, b) => {
-      const availability = Number(b.available) - Number(a.available);
-      return availability || (b.net_option_score ?? 0) - (a.net_option_score ?? 0);
-    });
   const pocketHitters = upcomingPocketHitters(selected);
 
   useEffect(() => {
@@ -3815,15 +3896,15 @@ function GameAudit({
                 </div>
               </div>
 
-              <aside className="model-synthesis-card">
-                <p className="eyebrow signal-summary-eyebrow">Signal Summary</p>
-                <div className="decision-score-row">
-                  {(() => {
-                    const pct = Math.round(cumulativeDegradation * 100);
-                    const degColor = signalColor(displayStatus);
-                    const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
-                      ? "bad"
-                      : statusRank(displayStatus) >= statusRank("PREP")
+	              <aside className="model-synthesis-card">
+	                <p className="eyebrow signal-summary-eyebrow">Signal Summary</p>
+	                <div className="decision-score-row">
+	                  {(() => {
+	                    const pct = cumulativeDegradation == null ? null : Math.round(cumulativeDegradation * 100);
+	                    const degColor = signalColor(displayStatus);
+	                    const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
+	                      ? "bad"
+	                      : statusRank(displayStatus) >= statusRank("PREP")
                         ? "prep"
                         : statusRank(displayStatus) >= statusRank("WATCH")
                           ? "warn"
@@ -3831,18 +3912,18 @@ function GameAudit({
                     return (
                       <div className="decision-score-col">
                         <span className="decision-score-label">Degradation Score</span>
-                        <div
-                          className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`}
-                          style={{
-                            "--ring": `${pct}%`,
-                            "--ring-color": degColor,
-                          } as CSSProperties}
-                        >
-                          <strong>{pct}%</strong>
-                        </div>
-                        <em className="decision-score-note">Cumulative from start of outing</em>
-                      </div>
-                    );
+	                        <div
+	                          className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`}
+	                          style={{
+	                            "--ring": `${pct ?? 0}%`,
+	                            "--ring-color": degColor,
+	                          } as CSSProperties}
+	                        >
+	                          <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+	                        </div>
+	                        <em className="decision-score-note">Cumulative from start of outing</em>
+	                      </div>
+	                    );
                   })()}
                   <div className="decision-score-col">
                     <span className="decision-score-label">Preventable Runs</span>
@@ -3851,10 +3932,10 @@ function GameAudit({
                   </div>
                 </div>
                 <div className="decision-gauge-grid">
-                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail="Peak model pressure reached this outing." percent={stuffPressure} benchmarkPercent={0.5} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
-                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail="Peak model pressure reached this outing." percent={commandPressure} benchmarkPercent={0.5} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
-                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail="Peak model pressure reached this outing." percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
-                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Peak leverage pressure reached; current raw leverage shown." percent={leveragePressure} benchmarkPercent={scaledPercent(1.0, 3)} tone={concernTone(leveragePressure)} role={concernRole(leveragePressure)} />
+	                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail="Meter marks peak model pressure reached this outing." percent={stuffPressure} benchmarkPercent={0.5} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
+	                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail="Meter marks peak model pressure reached this outing." percent={commandPressure} benchmarkPercent={0.5} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
+	                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail="Meter marks peak model pressure reached this outing." percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+	                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Current raw leverage shown; meter marks peak pressure reached." percent={leveragePressure} benchmarkPercent={scaledPercent(1.0, 3)} tone={concernTone(leveragePressure)} role={concernRole(leveragePressure)} />
                 </div>
                 <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
                   <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
@@ -3948,46 +4029,46 @@ function GameAudit({
                   points={currentPitchSpinPoints}
                 />
                 {(() => {
-                  const tone = concernTone(whiffConcern);
-                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike))} Peak pressure marker; current read shown.`} percent={whiffConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.swingingStrike, REPLAY_RATE_BENCHMARKS.swingingStrike) ?? undefined} tone={tone} role={concernRole(whiffConcern)} />;
-                })()}
-                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} Peak pressure marker.`} percent={pitchMixDriftConcern} benchmarkPercent={0.2} tone={concernTone(pitchMixDriftConcern)} role={concernRole(pitchMixDriftConcern)} />
-                <StuffConditionCard body={pitcherOnlyCondition} />
+	                  const tone = concernTone(whiffConcern);
+	                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike))} Current read shown; meter marks peak pressure reached.`} percent={whiffConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.swingingStrike, REPLAY_RATE_BENCHMARKS.swingingStrike) ?? undefined} tone={tone} role={concernRole(whiffConcern)} />;
+	                })()}
+	                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} Current read shown; meter marks peak pressure reached.`} percent={pitchMixDriftConcern} benchmarkPercent={0.2} tone={concernTone(pitchMixDriftConcern)} role={concernRole(pitchMixDriftConcern)} />
+	                <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyCurrentConcern)} detail="Irrespective of leverage or relief alternatives. Meter marks peak pressure reached." percent={pitcherOnlyConcern} benchmarkPercent={0.5} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
               </section>
               <section>
                 <h4>Command and Contact</h4>
                 {(() => {
                   const tone = concernTone(strikeRateConcern);
-                  return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.strike))} Peak pressure marker.`} percent={strikeRateConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.strike, REPLAY_RATE_BENCHMARKS.strike) ?? undefined} tone={tone} role={concernRole(strikeRateConcern)} />;
+	                  return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.strike))} Current read shown; meter marks peak pressure reached.`} percent={strikeRateConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.strike, REPLAY_RATE_BENCHMARKS.strike) ?? undefined} tone={tone} role={concernRole(strikeRateConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(calledStrikeConcern);
-                  return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike))} Peak pressure marker.`} percent={calledStrikeConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.calledStrike, REPLAY_RATE_BENCHMARKS.calledStrike) ?? undefined} tone={tone} role={concernRole(calledStrikeConcern)} />;
+	                  return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike))} Current read shown; meter marks peak pressure reached.`} percent={calledStrikeConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.calledStrike, REPLAY_RATE_BENCHMARKS.calledStrike) ?? undefined} tone={tone} role={concernRole(calledStrikeConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(chaseConcern);
-                  return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`${rateDetail("League proxy", fmtRate(REPLAY_RATE_BENCHMARKS.chase))} Peak pressure marker.`} percent={chaseConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.chase, REPLAY_RATE_BENCHMARKS.chase) ?? undefined} tone={tone} role={concernRole(chaseConcern)} />;
+	                  return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`${rateDetail("League proxy", fmtRate(REPLAY_RATE_BENCHMARKS.chase))} Current read shown; meter marks peak pressure reached.`} percent={chaseConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.chase, REPLAY_RATE_BENCHMARKS.chase) ?? undefined} tone={tone} role={concernRole(chaseConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(hardContactConcern);
-                  return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.hardContact))} Peak pressure marker.`} percent={hardContactConcern} benchmarkPercent={lowGoodConcern(REPLAY_RATE_BENCHMARKS.hardContact, REPLAY_RATE_BENCHMARKS.hardContact) ?? undefined} tone={tone} role={concernRole(hardContactConcern)} />;
+	                  return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`${rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.hardContact))} Current read shown; meter marks peak pressure reached.`} percent={hardContactConcern} benchmarkPercent={lowGoodConcern(REPLAY_RATE_BENCHMARKS.hardContact, REPLAY_RATE_BENCHMARKS.hardContact) ?? undefined} tone={tone} role={concernRole(hardContactConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(zoneMissConcern);
-                  return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`${rateDetail("Replay", `${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft`)} Peak pressure marker.`} percent={zoneMissConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.zoneMiss, 0.8)} tone={tone} role={concernRole(zoneMissConcern)} />;
+	                  return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`${rateDetail("Replay", `${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft`)} Current read shown; meter marks peak pressure reached.`} percent={zoneMissConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.zoneMiss, 0.8)} tone={tone} role={concernRole(zoneMissConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(commandSpreadConcern);
-                  return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`${rateDetail("Replay", fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2))} Peak pressure marker.`} percent={commandSpreadConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.commandSpread, 1.4)} tone={tone} role={concernRole(commandSpreadConcern)} />;
+	                  return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`${rateDetail("Replay", fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2))} Current read shown; meter marks peak pressure reached.`} percent={commandSpreadConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.commandSpread, 1.4)} tone={tone} role={concernRole(commandSpreadConcern)} />;
                 })()}
               </section>
               <section>
                 <h4>Decision Context</h4>
-                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Peak leverage pressure reached; current raw leverage shown." percent={leveragePressure} benchmarkPercent={scaledPercent(1.0, 3)} tone={concernTone(leveragePressure)} role={concernRole(leveragePressure)} />
-                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} Peak pressure marker.`} percent={leagueContextConcern} benchmarkPercent={0.5} tone={concernTone(leagueContextConcern)} role={concernRole(leagueContextConcern)} />
-                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} Peak pressure marker.`} percent={pitcherHistoryConcern} benchmarkPercent={0.5} tone={concernTone(pitcherHistoryConcern)} role={concernRole(pitcherHistoryConcern)} />
-                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(enhancedCurrentConcern)} detail={`Raw enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}; meter marks peak pressure.`} percent={enhancedConcern} benchmarkPercent={0.5} tone={concernTone(enhancedConcern)} role={concernRole(enhancedConcern)} />
-                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced; meter marks peak pressure.`} percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+	                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Current raw leverage shown; meter marks peak pressure reached." percent={leveragePressure} benchmarkPercent={scaledPercent(1.0, 3)} tone={concernTone(leveragePressure)} role={concernRole(leveragePressure)} />
+	                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} Current read shown; meter marks peak pressure reached.`} percent={leagueContextConcern} benchmarkPercent={0.5} tone={concernTone(leagueContextConcern)} role={concernRole(leagueContextConcern)} />
+	                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} Current read shown; meter marks peak pressure reached.`} percent={pitcherHistoryConcern} benchmarkPercent={0.5} tone={concernTone(pitcherHistoryConcern)} role={concernRole(pitcherHistoryConcern)} />
+	                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(enhancedCurrentConcern)} detail={`Current enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}; meter marks peak pressure reached.`} percent={enhancedConcern} benchmarkPercent={0.5} tone={concernTone(enhancedConcern)} role={concernRole(enhancedConcern)} />
+	                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced; meter marks peak pressure reached.`} percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
               </section>
               {hasWatchSignal ? (
                 <section className="evidence-grid__relief">

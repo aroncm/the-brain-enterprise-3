@@ -364,6 +364,18 @@ export type PitchingReplayState = {
   rss_status?: string | null;
 };
 
+export type PitchingRelieverCandidate = {
+  player_id: string;
+  player_name: string;
+  bullpen_role?: string | null;
+  available: boolean;
+  net_option_score: number;
+  direct_matchup_fit?: number | null;
+  usage_cost?: number | null;
+  candidate_source?: string | null;
+  exclusion_reason?: string | null;
+};
+
 export type PitchingReplayEntry = {
   entry_type?: string;
   snapshot: {
@@ -425,6 +437,7 @@ export type PitchingReplayEntry = {
       max_hitter_threat?: number | null;
       handedness_pattern?: string | null;
     } | null;
+    reliever_candidates?: PitchingRelieverCandidate[];
     reliever_state?: PitchingReplayState & {
       rss_stuff?: number | null;
       rss_command?: number | null;
@@ -444,6 +457,13 @@ export type PitchingReplayEntry = {
     starter_value_next_3_hitters?: number;
     best_reliever_value_next_3_hitters?: number;
     decision_delta?: number;
+    decision_pressure_score?: number | null;
+    decision_pressure_thresholds?: {
+      watch?: number | null;
+      prep?: number | null;
+      pullNow?: number | null;
+      pull_now?: number | null;
+    } | null;
     estimated_win_probability_delta?: number;
     starter_risk_level?: string;
     independent_degradation_score?: number | null;
@@ -455,15 +475,7 @@ export type PitchingReplayEntry = {
     decision_summary?: string | null;
     top_reason_codes: string[];
   };
-  top_candidates?: Array<{
-    player_id: string;
-    player_name: string;
-    bullpen_role: string;
-    available: boolean;
-    net_option_score: number;
-    direct_matchup_fit: number;
-    usage_cost: number;
-  }>;
+  top_candidates?: PitchingRelieverCandidate[];
 };
 
 export type PitchingReplayResponse = {
