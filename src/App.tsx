@@ -743,13 +743,18 @@ function headlinePeak(
     const dps = entries[i]?.recommendation?.decision_pressure_score;
     const fallback = (entries[i]?.snapshot?.starter_state as { normalized_degradation_score?: number | null } | undefined)
       ?.normalized_degradation_score;
-    const score =
+    const raw =
       typeof dps === "number" && Number.isFinite(dps)
         ? dps
         : typeof fallback === "number" && Number.isFinite(fallback)
           ? fallback
           : undefined;
-    if (score !== undefined) {
+    if (raw !== undefined) {
+      // Floor at 0 — decision_pressure_score can go negative when friction
+      // overpowers the decision delta ("no pressure to act"). For a peak-
+      // to-date health bar, that's the equivalent of 0. Otherwise a game
+      // full of negative DPS values displays as a negative headline.
+      const score = Math.max(0, raw);
       peak = peak === undefined ? score : Math.max(peak, score);
     }
   }
@@ -4081,7 +4086,7 @@ function GameAudit({
                 <div className="decision-score-row">
                   {(() => {
                     const peak = headlineDegradationPeak;
-                    const pct = peak == null ? null : Math.round(Math.min(peak, 1) * 100);
+                    const pct = peak == null ? null : Math.round(clamp(peak) * 100);
                     const degColor = signalColor(displayStatus);
                     const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
                       ? "bad"
