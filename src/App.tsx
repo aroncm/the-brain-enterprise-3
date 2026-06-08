@@ -1422,27 +1422,53 @@ function exitAndDamageCopy(pitcher: PitchingRecapPitcher | null): string {
   return `${exit}; ${runs}.${hold}`;
 }
 
-function pullWindowMetrics(entry: PitchingReplayEntry | null): {
+function pullWindowMetrics(
+  entry: PitchingReplayEntry | null,
+  allEntries?: PitchingReplayEntry[],
+  pullIndex?: number,
+): {
   stuff: string; decay: string; degradation: string;
   stuffRaw: number | null; decayRaw: number | null; degradationRaw: number | null;
+  degradationIfLeftIn: string;
+  degradationIfLeftInRaw: number | null;
 } {
   if (!entry) {
     return {
       stuff: UNAVAILABLE, decay: UNAVAILABLE, degradation: UNAVAILABLE,
       stuffRaw: null, decayRaw: null, degradationRaw: null,
+      degradationIfLeftIn: UNAVAILABLE, degradationIfLeftInRaw: null,
     };
   }
   const state = replayState(entry);
   const stuff = stuffScore(entry);
   const decay = (state.inning_decay_factor ?? 0) + (state.tto_decay_factor ?? 0);
-  const degradation = state.enhanced_degradation_score ?? state.degradation_score ?? null;
+  const degradationAtPull = state.enhanced_degradation_score ?? state.degradation_score ?? null;
+  // Phase D.2 — drop the divide-by-3 scaling on the Degradation field
+  // (Collin: "% out of 100"). Render the raw score clamped to [0, 1].
+  const degradationNorm = degradationAtPull == null ? null : Math.max(0, Math.min(1, degradationAtPull));
+  // "If left in" — peak enhanced_degradation_score from the pull pitch to
+  // the end of the appearance. Tells the user how bad it would have gotten.
+  let peakIfLeftIn: number | null = null;
+  if (allEntries && pullIndex != null && pullIndex >= 0) {
+    for (let i = pullIndex; i < allEntries.length; i += 1) {
+      const e = allEntries[i];
+      if (!e) continue;
+      const s = replayState(e);
+      const v = s?.enhanced_degradation_score ?? s?.degradation_score ?? null;
+      if (v == null || !Number.isFinite(v)) continue;
+      if (peakIfLeftIn == null || v > peakIfLeftIn) peakIfLeftIn = v;
+    }
+  }
+  const peakNorm = peakIfLeftIn == null ? null : Math.max(0, Math.min(1, peakIfLeftIn));
   return {
     stuff: `${stuff}/100`,
     decay: fmtPct(scaledPercent(decay, 3)),
-    degradation: fmtPct(scaledPercent(degradation, 3)),
+    degradation: degradationNorm == null ? UNAVAILABLE : `${Math.round(degradationNorm * 100)}%`,
     stuffRaw: stuff,
     decayRaw: scaledPercent(decay, 3),
-    degradationRaw: scaledPercent(degradation, 3),
+    degradationRaw: degradationNorm,
+    degradationIfLeftIn: peakNorm == null ? UNAVAILABLE : `${Math.round(peakNorm * 100)}%`,
+    degradationIfLeftInRaw: peakNorm,
   };
 }
 
@@ -3958,7 +3984,7 @@ function GameAudit({
   const relieverActionIndex = displayStatuses.findIndex((status) => statusRank(status) >= statusRank("WATCH"));
   const actionIndex = selected && isRelieverReplayEntry(selected) ? relieverActionIndex : pullIndex;
   const pullEntry = pullIndex >= 0 ? entries[pullIndex] ?? null : null;
-  const pullMetrics = pullWindowMetrics(pullEntry);
+  const pullMetrics = pullWindowMetrics(pullEntry, entries, pullIndex);
   const hasWatchSignal = statusRank(displayStatus) >= statusRank("WATCH");
   const reliefOptions = reliefCandidatesThroughPitch(entries, selectedIndex, selected);
   const bestCandidate = reliefOptions.find((candidate) => candidate.available) ?? reliefOptions[0] ?? null;
@@ -4089,33 +4115,40 @@ function GameAudit({
       ) : (
         <>
           <article className="panel replay-panel">
-            <div className={`signal-banner signal-banner--3col signal-${signalClass(displayStatus)}`}>
-              <div className="signal-banner__block signal-banner__block--pitcher">
-                <p className="signal-banner__eyebrow">Starting Pitcher</p>
-                <div className="signal-banner__pitcher-row">
-                  <strong className="signal-banner__value">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
-                  {selectedGame ? (
-                    <span className="signal-banner__game-detail">
-                      {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
-                    </span>
-                  ) : null}
-                </div>
+            {/* Phase D.1a — single-row signal banner. Pitcher + date + signal
+             * pill all inline; Signal Dwell sits in a compact chip on the right
+             * so it doesn't push the layout into a 3-column grid that bloats
+             * vertical height. */}
+            <div className={`signal-banner signal-banner--inline signal-${signalClass(displayStatus)}`}>
+              <div className="signal-banner__inline-pitcher">
+                <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                {selectedGame ? (
+                  <span className="signal-banner__game-detail">
+                    {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
+                  </span>
+                ) : null}
               </div>
-              <div className="signal-banner__block signal-banner__block--signal">
-                <p className="signal-banner__eyebrow">Model Signal</p>
-                <strong className="signal-banner__value">{selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}</strong>
+              <div className="signal-banner__inline-right">
+                <strong className="signal-banner__value signal-banner__value--pill">
+                  {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
+                </strong>
+                {signalDwellSummary ? (
+                  <span
+                    className="signal-banner__dwell signal-banner__dwell--chip"
+                    title={`Signal Dwell — ${signalDwellSummary}`}
+                  >
+                    {signalDwellSummary}
+                  </span>
+                ) : null}
               </div>
-              {signalDwellSummary ? (
-                <div className="signal-banner__dwell">
-                  <span className="signal-banner__dwell-label">Signal Dwell</span>
-                  <span className="signal-banner__dwell-value">{signalDwellSummary}</span>
-                </div>
-              ) : null}
             </div>
             <div className="replay-layout">
-              <aside className="pitch-window-summary" style={{ borderTop: `3px solid ${accents.primary}` }}>
-                <p className="pws-heading">Pitch Window Summary</p>
-
+              {/* Phase D.1b — Pitch Window Summary sidebar trim. Dropped the
+               * redundant "Pitch Window Summary" heading and the "Current
+               * Pitch Window" eyebrow; the pitch-facts grid migrated into a
+               * single horizontal strip directly above the strike zone (D.1c).
+               */}
+              <aside className="pitch-window-summary pitch-window-summary--compact" style={{ borderTop: `3px solid ${accents.primary}` }}>
                 <section className="pws-section pws-pitcher-section">
                   <div className="pws-stats">
                     <div className="pws-stat">
@@ -4166,19 +4199,6 @@ function GameAudit({
                   </div>
                 </div>
 
-                <section className="pws-section pws-cpw">
-                  <p className="pws-eyebrow">Current Pitch Window</p>
-                  <div className="pws-pitch-facts">
-                    {pitchFactItems(selected.snapshot).map((item) => (
-                      <span key={item.label} className="pws-pitch-fact">
-                        <em>{item.label}</em>
-                        <strong>{item.value}</strong>
-                        {item.secondary ? <b>{item.secondary}</b> : null}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-
                 <PitchMixSnapshot entries={entries} selectedIndex={selectedIndex} />
 
                 <div className="pws-score-block">
@@ -4203,6 +4223,19 @@ function GameAudit({
               </aside>
 
               <div className="strike-zone-column">
+                {/* Phase D.1c — Current Pitch Window as a single horizontal
+                 * strip directly above the strike zone, so result + pitch +
+                 * velo + h/v movement read in one glance instead of a 2x3
+                 * grid hidden inside the left sidebar. */}
+                <div className="cpw-strip" role="group" aria-label="Current pitch window">
+                  {pitchFactItems(selected.snapshot).map((item) => (
+                    <span key={item.label} className="cpw-strip__fact">
+                      <em>{item.label}</em>
+                      <strong>{item.value}</strong>
+                      {item.secondary ? <b>{item.secondary}</b> : null}
+                    </span>
+                  ))}
+                </div>
                 <PitchPlot entries={entries} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
                 <div className="next-pocket-card">
                   <span>Next 3 Hitters</span>
@@ -4714,18 +4747,20 @@ function GameAudit({
                 <p>{actionPointCopy(keyPitcher)}</p>
                 <ul className="pull-meter-list">
                   <li>
-                    <span className="pull-meter-label">Stuff</span>
+                    <span className="pull-meter-label">Composite Health at Pull</span>
                     <div className="pull-meter-track" aria-hidden="true">
                       <i style={{ width: `${Math.max(0, Math.min(100, ((pullMetrics.stuffRaw ?? 0) / 100) * 100))}%` }} />
                     </div>
                     <b className="pull-meter-value">{pullMetrics.stuff}</b>
+                    <em className="pull-meter-tagline">100 − overall degradation at the moment of pull. Higher = better shape.</em>
                   </li>
                   <li>
-                    <span className="pull-meter-label">Workload</span>
+                    <span className="pull-meter-label">Workload at Pull</span>
                     <div className="pull-meter-track" aria-hidden="true">
                       <i style={{ width: `${Math.max(0, Math.min(100, (pullMetrics.decayRaw ?? 0) * 100))}%` }} />
                     </div>
                     <b className="pull-meter-value">{pullMetrics.decay}</b>
+                    <em className="pull-meter-tagline">Inning + times-through-order pressure stacked at the pull pitch.</em>
                   </li>
                   <li>
                     <span className="pull-meter-label">Degradation</span>
@@ -4733,6 +4768,12 @@ function GameAudit({
                       <i style={{ width: `${Math.max(0, Math.min(100, (pullMetrics.degradationRaw ?? 0) * 100))}%` }} />
                     </div>
                     <b className="pull-meter-value">{pullMetrics.degradation}</b>
+                    <em className="pull-meter-tagline">
+                      Overall degradation at the pull pitch.
+                      {pullMetrics.degradationIfLeftInRaw != null ? (
+                        <> If left in: peak by end of appearance <strong>{pullMetrics.degradationIfLeftIn}</strong>.</>
+                      ) : null}
+                    </em>
                   </li>
                 </ul>
               </div>

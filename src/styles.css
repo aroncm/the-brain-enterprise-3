@@ -16958,18 +16958,39 @@ body.audit-immersive .app-main {
 
 .theme-mobian .pull-meter-list li {
   display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) 64px;
+  /* Phase D.2 — widened label column for "Composite Health at Pull" and
+   * "Workload at Pull" + a second row that spans all columns for the
+   * plain-English tagline. */
+  grid-template-columns: 168px minmax(0, 1fr) 56px;
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
 }
 
 .theme-mobian .pull-meter-label {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.0px;
   text-transform: uppercase;
   color: #a0a0a0;
+  line-height: 1.2;
+}
+
+/* Phase D.2 — plain-English tagline under each Pull Now meter so the user
+ * doesn't have to ask "what is this?" */
+.theme-mobian .pull-meter-tagline {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #8a8a8a;
+}
+
+.theme-mobian .pull-meter-tagline strong {
+  color: #f5f5f5;
+  font-weight: 700;
 }
 
 /* Override the base .counterfactual-grid div cascade (border + padding + paper bg)
@@ -17420,6 +17441,57 @@ body.audit-immersive .app-main {
   color: #f0f0f0;
 }
 
+/* Phase D.1b — compact sidebar: dropped the "Pitch Window Summary" heading
+ * and the Current Pitch Window subsection (moved above the strike zone via
+ * D.1c). Tighter padding + gap so the visible info pulls upward. */
+.theme-mobian .pitch-window-summary--compact {
+  padding: 12px 14px 12px !important;
+  gap: 10px !important;
+}
+
+/* Phase D.1c — Current Pitch Window horizontal strip above the strike zone.
+ * Reads in one line: Result · Pitch · Velocity · H-Mov · V-Mov. */
+.theme-mobian .cpw-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: #0e0e0e;
+  border: 1px solid #1e1e1e;
+  border-radius: 6px;
+}
+
+.theme-mobian .cpw-strip__fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-mobian .cpw-strip__fact em {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.theme-mobian .cpw-strip__fact strong {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #f5f5f5;
+}
+
+.theme-mobian .cpw-strip__fact b {
+  font-weight: 600;
+  font-size: 11px;
+  color: #2ec4a0;
+}
+
 .theme-mobian .pws-heading {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 12px;
@@ -17657,6 +17729,63 @@ body.audit-immersive .app-main {
   gap: 18px;
   padding: 12px 22px;
   scroll-margin-top: 160px;
+}
+
+/* Phase D.1a — single-row inline banner. Replaces the 3-col grid so the
+ * pitch bar + game state fit on a 1440x900 viewport without scrolling. */
+.theme-mobian .signal-banner--inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 18px;
+  padding: 8px 22px !important;
+  scroll-margin-top: 120px;
+}
+
+.theme-mobian .signal-banner__inline-pitcher {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.theme-mobian .signal-banner__inline-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-mobian .signal-banner__value--inline {
+  font-size: 19px !important;
+  line-height: 1.1 !important;
+}
+
+.theme-mobian .signal-banner__value--pill {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.4px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.28) !important;
+  color: #ffffff !important;
+  white-space: nowrap !important;
+}
+
+.theme-mobian .signal-banner__dwell--chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.32) !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+  white-space: nowrap !important;
+  flex-direction: row !important;
+  cursor: help;
 }
 
 .theme-mobian .signal-banner__block {
