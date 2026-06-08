@@ -354,6 +354,7 @@ export type PitchingReplayState = {
   official_batters_faced_in_game?: number | null;
   component_contributions?: Record<string, number>;
   normalized_component_scores?: Record<string, number>;
+  normalized_weighted_components?: Record<string, number>;
   sourceStatus?: string | null;
   rss_stuff?: number | null;
   rss_command?: number | null;

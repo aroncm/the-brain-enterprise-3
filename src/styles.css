@@ -18873,6 +18873,53 @@ body.audit-immersive .theme-mobian .replay-panel {
   border-left: 3px solid #e05b4b !important;
 }
 
+/* Relief Options — sits in the right aside directly under the
+ * "Relief Edge" explanation block. Vertical stack of GaugeMetric cards
+ * (one per candidate). "Show all" toggle expands beyond the first 3.
+ */
+.theme-mobian .relief-options {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #1f1f1f;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-mobian .relief-options__heading {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #9a9a9a;
+}
+
+.theme-mobian .relief-options__empty {
+  margin: 0;
+  font-size: 12px;
+  color: #7a7a7a;
+}
+
+.theme-mobian .relief-options__more {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid #2ec4a0;
+  color: #2ec4a0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.theme-mobian .relief-options__more:hover {
+  background: rgba(46, 196, 160, 0.1);
+}
+
 @media (max-width: 1280px) {
   body.audit-immersive .top-nav__context {
     order: 0 !important;
