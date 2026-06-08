@@ -595,6 +595,29 @@ function concernRole(percent: number | null | undefined): FactorRole | null {
   return null;
 }
 
+// Plain-English tagline by band for a per-factor card. Bands mirror
+// concernRole — STAY/WATCH/PREP/PULL_NOW. Examples:
+//   bandPhrase(0.05, "stuff")   → "Stuff is holding."
+//   bandPhrase(0.55, "command") → "Command is degraded."
+function bandPhrase(percent: number | null | undefined, noun: string): string {
+  const capitalized = noun.charAt(0).toUpperCase() + noun.slice(1);
+  if (percent == null || !Number.isFinite(percent)) return `${capitalized} read unavailable.`;
+  if (percent >= 0.69) return `${capitalized} is severely degraded.`;
+  if (percent >= 0.42) return `${capitalized} is degraded.`;
+  if (percent >= 0.15) return `${capitalized} is slipping.`;
+  return `${capitalized} is holding.`;
+}
+
+// Workload uses a different verb stem because "workload is holding/slipping"
+// reads awkwardly.
+function workloadBandPhrase(percent: number | null | undefined): string {
+  if (percent == null || !Number.isFinite(percent)) return "Workload read unavailable.";
+  if (percent >= 0.69) return "Workload is critical.";
+  if (percent >= 0.42) return "Workload is high.";
+  if (percent >= 0.15) return "Workload is rising.";
+  return "Workload is low.";
+}
+
 // Cumulative max of a per-factor normalized pressure score
 // (entry.snapshot.starter_state.normalized_component_scores[key], 0..1)
 // across entries[0..selectedIndex]. Returns undefined if no entries had a
@@ -4065,7 +4088,7 @@ function GameAudit({
                         >
                           <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                         </div>
-                        <em className="decision-score-note">Peak pressure this appearance</em>
+                        <em className="decision-score-note">Peak decay this appearance</em>
                       </div>
                     );
                   })()}
@@ -4076,10 +4099,10 @@ function GameAudit({
                   </div>
                 </div>
                 <div className="decision-gauge-grid">
-                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail="Peak stuff pressure this appearance." percent={stuffPressure} benchmarkPercent={0.5} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
-                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail="Peak command pressure this appearance." percent={commandPressure} benchmarkPercent={0.5} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
-                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail="Peak workload pressure this appearance." percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
-                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Current leverage." percent={undefined} benchmarkPercent={undefined} tone="neutral" role={null} />
+                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} benchmarkPercent={0.5} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
+                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} benchmarkPercent={0.5} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
+                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Current leverage. Baseline 1.0; high-leverage threshold ≈ 1.5." percent={undefined} benchmarkPercent={undefined} tone="neutral" role={null} />
                 </div>
                 <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
                   <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
@@ -4217,37 +4240,37 @@ function GameAudit({
                   points={currentPitchSpinPoints}
                 />
                 {(() => {
-	                  const tone = concernTone(whiffConcern);
-	                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={factorMeterDetail(rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)))} percent={whiffConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.swingingStrike, REPLAY_RATE_BENCHMARKS.swingingStrike) ?? undefined} tone={tone} role={concernRole(whiffConcern)} />;
-	                })()}
-	                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={factorMeterDetail(pitchMixDriftCopy(selectedState?.pitch_mix_drift_10))} percent={pitchMixDriftConcern} benchmarkPercent={0.2} tone={concernTone(pitchMixDriftConcern)} role={concernRole(pitchMixDriftConcern)} />
-	                <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyConcern)} detail={`Current model read: ${fmtPct(pitcherOnlyCurrentConcern)}. Irrespective of leverage or relief alternatives.`} percent={pitcherOnlyConcern} benchmarkPercent={0.5} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
+                  const tone = concernTone(whiffConcern);
+                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`Current ${fmtRate(selectedState?.whiff_rate_15)}. League ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}. ${bandPhrase(whiffConcern, "whiff")}`} percent={whiffConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.swingingStrike, REPLAY_RATE_BENCHMARKS.swingingStrike) ?? undefined} tone={tone} role={concernRole(whiffConcern)} />;
+                })()}
+                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} Peak drift this appearance.`} percent={pitchMixDriftConcern} benchmarkPercent={0.2} tone={concernTone(pitchMixDriftConcern)} role={concernRole(pitchMixDriftConcern)} />
+                <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyConcern)} detail={`Current model read: ${fmtPct(pitcherOnlyCurrentConcern)}. Irrespective of Leverage or Relief Alternatives. ${bandPhrase(pitcherOnlyConcern, "pitcher")}`} percent={pitcherOnlyConcern} benchmarkPercent={0.5} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
               </section>
               <section>
                 <h4>Command and Contact</h4>
                 <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={`Current read. League ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.`} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`Current read. League ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.`} percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="Called-Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`Current read. League ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.`} percent={undefined} tone="neutral" role={null} />
                 <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`Current read. League proxy ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.`} percent={undefined} tone="neutral" role={null} />
                 {(() => {
                   const tone = concernTone(hardContactConcern);
-	                  return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={factorMeterDetail(rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)))} percent={hardContactConcern} benchmarkPercent={lowGoodConcern(REPLAY_RATE_BENCHMARKS.hardContact, REPLAY_RATE_BENCHMARKS.hardContact) ?? undefined} tone={tone} role={concernRole(hardContactConcern)} />;
+                  return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`Current ${fmtRate(selectedState?.hard_contact_rate_15)}. League ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}. ${bandPhrase(hardContactConcern, "hard-contact")}`} percent={hardContactConcern} benchmarkPercent={lowGoodConcern(REPLAY_RATE_BENCHMARKS.hardContact, REPLAY_RATE_BENCHMARKS.hardContact) ?? undefined} tone={tone} role={concernRole(hardContactConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(zoneMissConcern);
-	                  return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={factorMeterDetail(rateDetail("Replay", `${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft`))} percent={zoneMissConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.zoneMiss, 0.8)} tone={tone} role={concernRole(zoneMissConcern)} />;
+                  return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`Current ${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft. League ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft. ${bandPhrase(zoneMissConcern, "command")}`} percent={zoneMissConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.zoneMiss, 0.8)} tone={tone} role={concernRole(zoneMissConcern)} />;
                 })()}
                 {(() => {
                   const tone = concernTone(commandSpreadConcern);
-	                  return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={factorMeterDetail(rateDetail("Replay", fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)))} percent={commandSpreadConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.commandSpread, 1.4)} tone={tone} role={concernRole(commandSpreadConcern)} />;
+                  return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`Current ${fmtNumber(selectedState?.location_dispersion_10, 2)} ft. League ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)} ft. ${bandPhrase(commandSpreadConcern, "command")}`} percent={commandSpreadConcern} benchmarkPercent={scaledPercent(REPLAY_RATE_BENCHMARKS.commandSpread, 1.4)} tone={tone} role={concernRole(commandSpreadConcern)} />;
                 })()}
               </section>
               <section>
                 <h4>Decision Context</h4>
-	                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Current leverage." percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(enhancedCurrentConcern)} detail={`Current enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}.`} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced. Peak workload pressure this appearance.`} percent={workloadPeakForFactorCard ?? decayPressure} benchmarkPercent={0.5} tone={concernTone(workloadPeakForFactorCard ?? decayPressure)} role={concernRole(workloadPeakForFactorCard ?? decayPressure)} />
+	                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Baseline 1.0; high-leverage threshold ≈ 1.5; max observed ≈ 6.0." percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} Ranks this pitch vs all MLB pitches in similar situations (0 = cleanest, 100 = most degraded).`} percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} Ranks this pitch vs the pitcher's own historical windows.`} percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(enhancedCurrentConcern)} detail={`Current enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}. Adds opponent contact, arsenal decay, and inning/TTO context to the base degradation.`} percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced. ${workloadBandPhrase(workloadPeakForFactorCard ?? decayPressure)}`} percent={workloadPeakForFactorCard ?? decayPressure} benchmarkPercent={0.5} tone={concernTone(workloadPeakForFactorCard ?? decayPressure)} role={concernRole(workloadPeakForFactorCard ?? decayPressure)} />
               </section>
             </div>
             </div>
