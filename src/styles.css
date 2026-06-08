@@ -18597,6 +18597,28 @@ body.audit-immersive .app-main {
   transform: translateX(-1px) !important;
 }
 
+/* Labeled ticks (e.g. Leverage scale 1.0 / 1.5) — the small label
+ * sits below the tick using the data-label attribute so we don't have
+ * to render extra DOM nodes per benchmark.
+ */
+.theme-mobian .gauge-benchmark--labeled {
+  height: 11px !important;
+  top: -3px !important;
+}
+
+.theme-mobian .gauge-benchmark--labeled::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: #8a8a8a;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .theme-mobian .gauge-role-pill,
 .theme-mobian .gauge-role-pill--driver,
 .theme-mobian .gauge-role-pill--held-up,

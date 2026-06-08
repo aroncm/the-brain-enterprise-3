@@ -1636,6 +1636,7 @@ function GaugeMetric({
   detail,
   percent,
   benchmarkPercent,
+  benchmarks,
   tone = "neutral",
   role,
 }: {
@@ -1644,6 +1645,9 @@ function GaugeMetric({
   detail?: string;
   percent?: number;
   benchmarkPercent?: number;
+  // Multiple labeled ticks. Use when the meter has more than one
+  // meaningful threshold (e.g. Leverage: baseline 1.0 + high-leverage 1.5).
+  benchmarks?: Array<{ percent: number; label?: string }>;
   tone?: "neutral" | "good" | "warn" | "bad" | "gold" | "prep";
   role?: FactorRole | null;
 }) {
@@ -1669,7 +1673,18 @@ function GaugeMetric({
       </div>
       {percent != null ? (
         <div className="gauge-track" aria-hidden="true">
-          {benchmarkLeft != null ? <span className="gauge-benchmark" style={{ left: `${benchmarkLeft}%` }} /> : null}
+          {benchmarks
+            ? benchmarks.map((bm, i) => (
+                <span
+                  key={`${bm.label ?? i}-${bm.percent}`}
+                  className="gauge-benchmark gauge-benchmark--labeled"
+                  style={{ left: `${Math.round(clamp(bm.percent) * 100)}%` }}
+                  data-label={bm.label ?? ""}
+                />
+              ))
+            : benchmarkLeft != null
+              ? <span className="gauge-benchmark" style={{ left: `${benchmarkLeft}%` }} />
+              : null}
           <i style={fillStyle} />
         </div>
       ) : null}
@@ -3877,11 +3892,6 @@ function GameAudit({
   const hardContactConcern = componentPeak(entries, selectedIndex, "contact");
   const zoneMissConcern = componentPeak(entries, selectedIndex, "command");
   const commandSpreadConcern = componentPeak(entries, selectedIndex, "command");
-  const workloadPeakForFactorCard = weightedSumPeak(entries, selectedIndex, [
-    "inning_context",
-    "tto_context",
-    "pitch_mix",
-  ]);
   const topComponents = Object.entries(selectedState?.component_contributions ?? {})
     .sort((a, b) => Math.abs(b[1] ?? 0) - Math.abs(a[1] ?? 0))
     .slice(0, 5);
@@ -4119,10 +4129,28 @@ function GameAudit({
                   </div>
                 </div>
                 <div className="decision-gauge-grid">
-                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} benchmarkPercent={0.5} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
-                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} benchmarkPercent={0.5} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
-                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} benchmarkPercent={0.5} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
-                  <GaugeMetric label="Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Current leverage. Baseline 1.0; high-leverage threshold ≈ 1.5." percent={undefined} benchmarkPercent={undefined} tone="neutral" role={null} />
+                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
+                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
+                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+                  {(() => {
+                    // Leverage scale: 0 → 3.0+ raw; baseline=1.0, high-threshold=1.5, max-rendered=3.0.
+                    const lev = num(selected.snapshot.leverage_index);
+                    const scaledLev = lev == null ? undefined : Math.min(1, lev / 3);
+                    return (
+                      <GaugeMetric
+                        label="Leverage"
+                        value={fmtNumber(selected.snapshot.leverage_index, 2)}
+                        detail="Baseline 1.0 · High ≈ 1.5 · Scale 0–3.0."
+                        percent={scaledLev}
+                        benchmarks={[
+                          { percent: 1 / 3, label: "1.0" },
+                          { percent: 1.5 / 3, label: "1.5" },
+                        ]}
+                        tone="neutral"
+                        role={null}
+                      />
+                    );
+                  })()}
                 </div>
                 <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
                   <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
@@ -4285,12 +4313,10 @@ function GameAudit({
                 })()}
               </section>
               <section>
-                <h4>Decision Context</h4>
-	                <GaugeMetric label="Game Leverage" value={fmtNumber(selected.snapshot.leverage_index, 2)} detail="Baseline 1.0; high-leverage threshold ≈ 1.5; max observed ≈ 6.0." percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="League Context" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} Ranks this pitch vs all MLB pitches in similar situations (0 = cleanest, 100 = most degraded).`} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Pitcher History Context" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} Ranks this pitch vs the pitcher's own historical windows.`} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Context-Adjusted Degradation" value={fmtPct(enhancedCurrentConcern)} detail={`Current enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}. Adds opponent contact, arsenal decay, and inning/TTO context to the base degradation.`} percent={undefined} tone="neutral" role={null} />
-                <GaugeMetric label="Workload" value={`${fmtNumber(selectedState?.inning_decay_factor, 2)} inning · ${fmtNumber(selectedState?.tto_decay_factor, 2)} TTO`} detail={`${selectedState?.official_batters_faced_in_game ?? selectedState?.batters_faced_in_game ?? "—"} batters faced. ${workloadBandPhrase(workloadPeakForFactorCard ?? decayPressure)}`} percent={workloadPeakForFactorCard ?? decayPressure} benchmarkPercent={0.5} tone={concernTone(workloadPeakForFactorCard ?? decayPressure)} role={concernRole(workloadPeakForFactorCard ?? decayPressure)} />
+                <h4>Comparison Context</h4>
+                <GaugeMetric label="vs League Average" value={fmtRate(selectedState?.empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.empirical_degradation_percentile, "league")} Ranks this pitch vs all MLB pitches in similar situations (0 = cleanest, 100 = most degraded).`} percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="vs Career Average" value={fmtRate(selectedState?.pitcher_empirical_degradation_percentile)} detail={`${relativePercentileCopy(selectedState?.pitcher_empirical_degradation_percentile, "pitcher")} Ranks this pitch vs the pitcher's own historical windows.`} percent={undefined} tone="neutral" role={null} />
+                <GaugeMetric label="Adjusted for Game Context" value={fmtPct(enhancedCurrentConcern)} detail={`Current enhanced read ${fmtNumber(selectedState?.enhanced_degradation_score, 2)}. Adds opponent contact, arsenal decay, and inning/TTO context to the base degradation.`} percent={undefined} tone="neutral" role={null} />
               </section>
             </div>
             </div>
