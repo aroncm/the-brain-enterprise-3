@@ -18237,6 +18237,44 @@ body.audit-immersive .app-main {
   font-size: 28px !important;
 }
 
+/* Small inline ring used in the Adjusted Degradation card (Phase C.6) so
+ * the card matches the headline Degradation Score widget. */
+.theme-mobian .degradation-ring--xs {
+  width: 58px !important;
+  height: 58px !important;
+  flex: 0 0 58px;
+}
+
+.theme-mobian .degradation-ring--xs strong {
+  font-size: 15px !important;
+  letter-spacing: -0.5px !important;
+}
+
+.theme-mobian .evidence-gauge--ring-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.theme-mobian .evidence-gauge--ring-card .evidence-gauge--ring-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.theme-mobian .evidence-gauge--ring-card .evidence-gauge-labelrow span {
+  font-size: 11px !important;
+  letter-spacing: 0.4px !important;
+}
+
+.theme-mobian .evidence-gauge--ring-card em {
+  font-style: normal !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  color: #a0a0a0 !important;
+}
+
 .theme-mobian .decision-score-value {
   font-size: 30px !important;
 }
@@ -18617,6 +18655,23 @@ body.audit-immersive .app-main {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   white-space: nowrap;
   pointer-events: none;
+}
+
+/* Step 3 — visually distinguish the career tick (teal, thicker) from the
+ * league tick (white, thin) so they read as two separate references at a
+ * glance. */
+.theme-mobian .gauge-benchmark--labeled[data-label="career"] {
+  background: #2ec4a0 !important;
+  width: 3px !important;
+  height: 13px !important;
+  top: -4px !important;
+  box-shadow: 0 0 0 1px #000000 !important;
+  transform: translateX(-1.5px) !important;
+}
+
+.theme-mobian .gauge-benchmark--labeled[data-label="career"]::after {
+  color: #2ec4a0;
+  font-weight: 600;
 }
 
 /* When a gauge has labeled ticks, the ticks + ::after labels extend
