@@ -17302,6 +17302,13 @@ body.audit-immersive .app-main {
   line-height: 1.4;
 }
 
+.theme-mobian .decision-score-note--sub {
+  color: #6a6a6a;
+  font-size: 10px;
+  margin-top: 2px;
+  font-style: italic;
+}
+
 .theme-mobian .degradation-ring {
   --ring: 0%;
   --ring-color: #7a7a7a;

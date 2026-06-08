@@ -618,6 +618,20 @@ function workloadBandPhrase(percent: number | null | undefined): string {
   return "Workload is low.";
 }
 
+// Action-pressure phrasing for the headline Degradation Score ring.
+// This is the composite decision_pressure_score — NOT pure pitcher decay
+// (which the Pitcher-Only Degradation card covers separately). It blends
+// pitcher decay + game leverage + relief edge + opponent context, so the
+// phrasing here is operational (what should you do?) not diagnostic
+// (what's the pitcher's state?).
+function decisionPressurePhrase(percent: number | null | undefined): string {
+  if (percent == null || !Number.isFinite(percent)) return "Signal read unavailable.";
+  if (percent >= 0.69) return "Pull now — change is overdue.";
+  if (percent >= 0.42) return "Prep — get someone throwing.";
+  if (percent >= 0.15) return "Watch — start tracking bullpen options.";
+  return "Holding. No change indicated.";
+}
+
 // Cumulative max of a per-factor normalized pressure score
 // (entry.snapshot.starter_state.normalized_component_scores[key], 0..1)
 // across entries[0..selectedIndex]. Returns undefined if no entries had a
@@ -4088,7 +4102,8 @@ function GameAudit({
                         >
                           <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                         </div>
-                        <em className="decision-score-note">Peak decay this appearance</em>
+                        <em className="decision-score-note">{decisionPressurePhrase(peak)}</em>
+                        <em className="decision-score-note decision-score-note--sub">Composite: pitcher decay × game leverage × relief edge × opponent context.</em>
                       </div>
                     );
                   })()}
