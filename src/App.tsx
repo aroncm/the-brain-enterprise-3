@@ -554,8 +554,7 @@ function trendBucketForCurrentPitch(
   state: PitchingReplayState | null,
   snapshot: PitchingReplayEntry["snapshot"],
   kind: "velocity" | "spin",
-  fallbackPitchName?: string | null,
-): { bucket: Record<string, number | string | null | undefined>; matchedKey: string } | null {
+): Record<string, number | string | null | undefined> | null {
   if (!state) return null;
   const trends = kind === "velocity" ? state.pitch_type_velocity_trends : state.pitch_type_spin_trends;
   if (!trends) return null;
@@ -563,22 +562,9 @@ function trendBucketForCurrentPitch(
     normalizedPitchKey(snapshot.pitch_name),
     normalizedPitchKey(snapshot.pitch_type),
     normalizedPitchKey(currentPitchName(snapshot)),
-    normalizedPitchKey(fallbackPitchName),
   ].filter(Boolean);
   for (const [key, bucket] of Object.entries(trends)) {
-    if (targetKeys.includes(normalizedPitchKey(key))) return { bucket, matchedKey: key };
-  }
-  return null;
-}
-
-// Walk backwards from selectedIndex to find the most recent entry with a
-// known pitch_name / pitch_type. Used as fallback when the current snapshot
-// lacks pitch identification so the sparkline doesn't blank out.
-function lastKnownPitchName(entries: PitchingReplayEntry[], selectedIndex: number): string | null {
-  for (let i = selectedIndex - 1; i >= 0; i -= 1) {
-    const snap = entries[i]?.snapshot;
-    const name = snap?.pitch_name ?? snap?.pitch_type;
-    if (name) return name;
+    if (targetKeys.includes(normalizedPitchKey(key))) return bucket;
   }
   return null;
 }
@@ -700,39 +686,6 @@ function factorVsLeagueTone(
   if (cmp.role === "good") return "good";
   if (cmp.role === "warn") return "gold";
   return "bad";
-}
-
-// Step 3 — dual tick helper for diagnostic factor cards. Always returns the
-// league tick at the 0.1 at-reference position; appends a career tick when
-// the backend has surfaced a pitcher_norm value with enough sample.
-function dualTicks(
-  pitcherNorm: number | null | undefined,
-  leagueRef: number,
-  direction: "high-good" | "low-good",
-): Array<{ percent: number; label?: string }> {
-  const ticks: Array<{ percent: number; label?: string }> = [{ percent: 0.1, label: "league" }];
-  const careerCmp = factorVsLeague(pitcherNorm, leagueRef, direction);
-  if (careerCmp != null) {
-    ticks.push({ percent: careerCmp.scaledPercent, label: "career" });
-  }
-  return ticks;
-}
-
-// One-line plain-English career baseline comparison, e.g.
-// "Career baseline 13% (above league avg 11%)." Returns "" when norm is
-// unavailable so callers can append unconditionally.
-function careerVsLeaguePhrase(
-  pitcherNorm: number | null | undefined,
-  leagueRef: number,
-  formatter: (value: number) => string,
-): string {
-  const n = num(pitcherNorm);
-  if (n == null) return "";
-  const formattedNorm = formatter(n);
-  const formattedLeague = formatter(leagueRef);
-  if (n > leagueRef * 1.02) return ` Career baseline ${formattedNorm} (above league avg ${formattedLeague}).`;
-  if (n < leagueRef * 0.98) return ` Career baseline ${formattedNorm} (below league avg ${formattedLeague}).`;
-  return ` Career baseline ${formattedNorm} (matches league avg).`;
 }
 
 // Cumulative max of a per-factor normalized pressure score
@@ -1024,9 +977,9 @@ function relativePercentileCopy(value: number | null | undefined, scope: "league
 
 function pitchMixDriftCopy(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "Expected mix comparison unavailable.";
-  if (value < 0.3) return "Mix is aligned with expected.";
-  if (value < 0.6) return "Mix is somewhat aligned.";
-  return "Mix is drifting from expected.";
+  if (value < 0.25) return "Pitch mix aligned with expected game mix.";
+  if (value < 0.55) return "Pitch mix somewhat shifted from expected game mix.";
+  return "Pitch mix drifting from expected game mix.";
 }
 
 function rateDetail(label: string, average: string): string {
@@ -1766,14 +1719,8 @@ function GaugeMetric({
     width: `${width}%`,
     "--gauge-fill": fillColor,
   } as CSSProperties;
-  // When labeled ticks render, their height + ::after labels exceed the
-  // 3px bar — without overflow:visible they get clipped and the user sees
-  // nothing. Reserve a row below the bar for the labels.
-  const hasLabels = Array.isArray(benchmarks) && benchmarks.length > 0;
-  const trackClass = `gauge-track${hasLabels ? " gauge-track--has-labels" : ""}`;
-  const cardClassFinal = hasLabels ? `${cardClass} evidence-gauge--labeled` : cardClass;
   return (
-    <div className={cardClassFinal}>
+    <div className={cardClass}>
       <div className="evidence-gauge-head">
         <div className="evidence-gauge-labelrow">
           <span>{label}</span>
@@ -1782,7 +1729,7 @@ function GaugeMetric({
         <strong>{value}</strong>
       </div>
       {percent != null ? (
-        <div className={trackClass} aria-hidden="true">
+        <div className="gauge-track" aria-hidden="true">
           {benchmarks
             ? benchmarks.map((bm, i) => (
                 <span
@@ -4005,40 +3952,20 @@ function GameAudit({
   const topComponents = Object.entries(selectedState?.component_contributions ?? {})
     .sort((a, b) => Math.abs(b[1] ?? 0) - Math.abs(a[1] ?? 0))
     .slice(0, 5);
-  // Sparkline pitch resolution: prefer the current snapshot's pitch, fall
-  // back to the most recent prior entry's pitch when the snapshot lacks
-  // pitch_name/pitch_type. Without the fallback the trend bucket goes null
-  // and the sparkline shows generic data (Collin reported this as "stuck
-  // on fastball").
-  const sparklineFallbackPitchName = selected ? lastKnownPitchName(entries, selectedIndex) : null;
-  const currentVelocityTrend = selected
-    ? trendBucketForCurrentPitch(selectedState, selected.snapshot, "velocity", sparklineFallbackPitchName)
-    : null;
-  const currentSpinTrend = selected
-    ? trendBucketForCurrentPitch(selectedState, selected.snapshot, "spin", sparklineFallbackPitchName)
-    : null;
-  const matchedVelocityPitchLabel = currentVelocityTrend
-    ? pitchName(currentVelocityTrend.matchedKey)
-    : selected
-      ? currentPitchName(selected.snapshot)
-      : "Velocity";
-  const matchedSpinPitchLabel = currentSpinTrend
-    ? pitchName(currentSpinTrend.matchedKey)
-    : selected
-      ? currentPitchName(selected.snapshot)
-      : "Spin";
+  const currentVelocityTrend = selected ? trendBucketForCurrentPitch(selectedState, selected.snapshot, "velocity") : null;
+  const currentSpinTrend = selected ? trendBucketForCurrentPitch(selectedState, selected.snapshot, "spin") : null;
   const currentPitchVeloPoints = [
-    trendNumber(currentVelocityTrend?.bucket ?? null, "baseline"),
+    trendNumber(currentVelocityTrend, "baseline"),
     selectedState?.velo_mean_15,
     selectedState?.velo_mean_10,
-    trendNumber(currentVelocityTrend?.bucket ?? null, "mean_last5") ?? selectedState?.velo_mean_5,
+    trendNumber(currentVelocityTrend, "mean_last5") ?? selectedState?.velo_mean_5,
     selected?.snapshot.release_speed,
   ];
   const currentPitchSpinPoints = [
-    trendNumber(currentSpinTrend?.bucket ?? null, "baseline"),
+    trendNumber(currentSpinTrend, "baseline"),
     selectedState?.spin_mean_15,
     selectedState?.spin_mean_10,
-    trendNumber(currentSpinTrend?.bucket ?? null, "mean_last5") ?? selectedState?.spin_mean_5,
+    trendNumber(currentSpinTrend, "mean_last5") ?? selectedState?.spin_mean_5,
   ];
   const pocketHitters = upcomingPocketHitters(selected);
 
@@ -4406,17 +4333,28 @@ function GameAudit({
               <section>
                 <h4>Stuff</h4>
                 <TrendSparkline
-                  label={`${matchedVelocityPitchLabel} Velocity`}
-                  value={`${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "mean_last5") ?? selected.snapshot.release_speed ?? selectedState?.velo_mean_5, 1)} mph`}
-                  detail={`Pitch-type baseline ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_velo_baseline, 1)} · drop ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "drop"), 1)} mph`}
+                  label={`${currentPitchName(selected.snapshot)} Velocity`}
+                  value={`${fmtNumber(trendNumber(currentVelocityTrend, "mean_last5") ?? selected.snapshot.release_speed ?? selectedState?.velo_mean_5, 1)} mph`}
+                  detail={`Pitch-type baseline ${fmtNumber(trendNumber(currentVelocityTrend, "baseline") ?? selectedState?.seasonal_velo_baseline, 1)} · drop ${fmtNumber(trendNumber(currentVelocityTrend, "drop"), 1)} mph`}
                   points={currentPitchVeloPoints}
                 />
                 <TrendSparkline
-                  label={`${matchedSpinPitchLabel} Spin`}
-                  value={`${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "mean_last5") ?? selectedState?.spin_mean_5, 0)} rpm`}
-                  detail={`Pitch-type baseline ${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_spin_baseline, 0)} · trend ${fmtSigned(trendNumber(currentSpinTrend?.bucket ?? null, "slope") ?? selectedState?.spin_slope_5, 0)} rpm`}
+                  label={`${currentPitchName(selected.snapshot)} Spin`}
+                  value={`${fmtNumber(trendNumber(currentSpinTrend, "mean_last5") ?? selectedState?.spin_mean_5, 0)} rpm`}
+                  detail={`Pitch-type baseline ${fmtNumber(trendNumber(currentSpinTrend, "baseline") ?? selectedState?.seasonal_spin_baseline, 0)} · trend ${fmtSigned(trendNumber(currentSpinTrend, "slope") ?? selectedState?.spin_slope_5, 0)} rpm`}
                   points={currentPitchSpinPoints}
                 />
+                {(() => {
+                  const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
+                  return <GaugeMetric
+                    label="Swinging-Strike Rate"
+                    value={fmtRate(selectedState?.whiff_rate_15)}
+                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}. ${cmp?.label ?? "League comparison unavailable."}`}
+                    percent={cmp?.scaledPercent}
+                    tone={factorVsLeagueTone(cmp)}
+                    role={null}
+                  />;
+                })()}
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
                   return <GaugeMetric
@@ -4424,142 +4362,77 @@ function GameAudit({
                     value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
                     detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} (Lower = more aligned with expected mix.)`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyConcern)} detail={`Current model read: ${fmtPct(pitcherOnlyCurrentConcern)}. Irrespective of Leverage or Relief Alternatives. ${bandPhrase(pitcherOnlyConcern, "pitcher")}`} percent={pitcherOnlyConcern} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
-                {(() => {
-                  // Enhanced degradation = base degradation plus game-context layers
-                  // (opponent contact, arsenal decay, inning/TTO). Same operational
-                  // scale as the headline ring, so render with the same ring widget
-                  // (Collin: "should match the main Degradation Score").
-                  const v = num(selectedState?.enhanced_degradation_score);
-                  const clamped = v == null ? null : Math.max(0, Math.min(1, v));
-                  const pct = clamped == null ? null : Math.round(clamped * 100);
-                  const role = concernRole(clamped);
-                  const tier = role === "PULL_NOW"
-                    ? "bad"
-                    : role === "PREP"
-                      ? "prep"
-                      : role === "WATCH"
-                        ? "warn"
-                        : "good";
-                  const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
-                  return (
-                    <div className="evidence-gauge evidence-gauge--ring-card">
-                      <div
-                        className={`degradation-ring degradation-ring--xs degradation-ring--${tier}`}
-                        style={{
-                          "--ring": `${pct ?? 0}%`,
-                          "--ring-color": ringColor,
-                        } as CSSProperties}
-                      >
-                        <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                      </div>
-                      <div className="evidence-gauge--ring-card__body">
-                        <div className="evidence-gauge-labelrow">
-                          <span>Adjusted Degradation</span>
-                        </div>
-                        <em>Base degradation + opponent contact suppression + arsenal velo/spin decay + inning/TTO load. Same scale as the headline Degradation Score.</em>
-                      </div>
-                    </div>
-                  );
-                })()}
               </section>
               <section>
                 <h4>Command and Contact</h4>
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.strike_rate_10, REPLAY_RATE_BENCHMARKS.strike, "high-good");
                   const actualPct = Math.round((selectedState?.strike_rate_10 ?? 0) * 10);
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, fmtRate);
                   return <GaugeMetric
                     label="Strike Rate (last 10 pitches)"
                     value={fmtRate(selectedState?.strike_rate_10)}
-                    detail={`${actualPct} of the last 10 pitches were strikes. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
+                    detail={`${actualPct} of the last 10 pitches were strikes. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, "high-good")}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good");
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, fmtRate);
                   return <GaugeMetric
                     label="Called-Strike Rate (last 10 pitches)"
                     value={fmtRate(selectedState?.called_strike_rate_15)}
-                    detail={`Running rate. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
+                    detail={`Running rate. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, fmtRate);
-                  return <GaugeMetric
-                    label="Swinging-Strike Rate"
-                    value={fmtRate(selectedState?.whiff_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good");
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
                   return <GaugeMetric
                     label="Chase Rate Proxy"
                     value={fmtRate(selectedState?.chase_proxy_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
+                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact, "low-good");
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, fmtRate);
                   return <GaugeMetric
                     label="Hard Contact"
                     value={fmtRate(selectedState?.hard_contact_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
+                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, "low-good")}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good");
-                  const zoneFmt = (v: number) => `${fmtNumber(v, 2)} ft`;
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, zoneFmt);
                   return <GaugeMetric
                     label="Zone Miss (last 10 pitches)"
                     value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`}
-                    detail={`Average miss distance from zone edge. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
+                    detail={`Average miss distance from zone edge. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good")}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 {(() => {
                   const cmp = factorVsLeague(selectedState?.location_dispersion_10, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good");
-                  const dispFmt = (v: number) => fmtNumber(v, 2);
-                  const careerPhrase = careerVsLeaguePhrase(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, dispFmt);
                   return <GaugeMetric
                     label="Command Spread (last 10 pitches)"
                     value={fmtNumber(selectedState?.location_dispersion_10, 2)}
-                    detail={`Pitch-to-pitch location variance. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}.${careerPhrase} ${cmp?.label ?? "League comparison unavailable."}`}
+                    detail={`Pitch-to-pitch location variance. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good")}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4568,34 +4441,23 @@ function GameAudit({
               <section>
                 <h4>Comparison Context</h4>
                 {(() => {
-                  // Phase C.7 — express the league percentile as signed +/- vs
-                  // league average instead of raw 0..100. p < 0.5 means lower
-                  // decay than league (good); p > 0.5 means higher (bad).
-                  // X = round((0.5 - p) * 200) → 0pp at 0.5, +100pp at 0.0.
+                  // Percentile is 0..1 where 0 = cleanest. Render as a left-to-right
+                  // bar where the fill IS the percentile (0% fill = best, 100% = worst).
+                  // Tone follows: <30% good, 30-70 warn, >70 bad.
                   const p = num(selectedState?.empirical_degradation_percentile);
                   const pct = p ?? 0;
                   const tone: "good" | "gold" | "bad" | "neutral" =
                     p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
-                  const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
-                  const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
-                  const valueLabel = p == null
-                    ? UNAVAILABLE
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher`
-                        : "League-avg";
-                  const summaryPhrase = p == null
+                  const cleanerPct = p == null ? null : Math.round((1 - pct) * 100);
+                  const labelPhrase = p == null
                     ? "Unavailable for this pitch."
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower decay than league avg.`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher decay than league avg.`
-                        : "League-average decay.";
+                    : pct < 0.5
+                      ? `Cleaner than ${cleanerPct}% of comparable MLB windows.`
+                      : `Higher decay than ${Math.round(pct * 100)}% of comparable MLB windows.`;
                   return <GaugeMetric
                     label="vs League Average"
-                    value={valueLabel}
-                    detail={`${summaryPhrase} Where this pitch ranks vs all MLB pitchers in the same situation. 0 = cleanest, 100 = most degraded.`}
+                    value={p == null ? UNAVAILABLE : `${Math.round(pct * 100)}%`}
+                    detail={`${labelPhrase} 0 = cleanest, 100 = worst decay among similar MLB pitch windows.`}
                     percent={p ?? undefined}
                     benchmarks={[{ percent: 0.5, label: "league avg" }]}
                     tone={tone}
@@ -4607,30 +4469,34 @@ function GameAudit({
                   const pct = p ?? 0;
                   const tone: "good" | "gold" | "bad" | "neutral" =
                     p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
-                  const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
-                  const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
-                  const valueLabel = p == null
-                    ? UNAVAILABLE
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher`
-                        : "Career-avg";
-                  const summaryPhrase = p == null
+                  const cleanerPct = p == null ? null : Math.round((1 - pct) * 100);
+                  const labelPhrase = p == null
                     ? "Unavailable for this pitch."
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower decay than career avg.`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher decay than career avg.`
-                        : "Career-average decay.";
+                    : pct < 0.5
+                      ? `Cleaner than ${cleanerPct}% of this pitcher's career windows.`
+                      : `Higher decay than ${Math.round(pct * 100)}% of this pitcher's career windows.`;
                   return <GaugeMetric
                     label="vs Career Average"
-                    value={valueLabel}
-                    detail={`${summaryPhrase} Where this pitch ranks vs this pitcher's own history. 0 = cleanest, 100 = most degraded.`}
+                    value={p == null ? UNAVAILABLE : `${Math.round(pct * 100)}%`}
+                    detail={`${labelPhrase} 0 = cleanest, 100 = worst decay in this pitcher's own season-to-date windows.`}
                     percent={p ?? undefined}
                     benchmarks={[{ percent: 0.5, label: "career avg" }]}
                     tone={tone}
                     role={null}
+                  />;
+                })()}
+                {(() => {
+                  // Enhanced degradation = base degradation plus game-context layers
+                  // (opponent contact, arsenal decay, inning/TTO). Use the same
+                  // operational scale as the headline ring.
+                  const v = num(selectedState?.enhanced_degradation_score);
+                  return <GaugeMetric
+                    label="Adjusted for Game Context"
+                    value={v == null ? UNAVAILABLE : `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`}
+                    detail={`Base degradation + opponent contact suppression + arsenal velo/spin decay + inning/TTO load. Same scale as the headline Degradation Score.`}
+                    percent={v == null ? undefined : Math.max(0, Math.min(1, v))}
+                    tone={concernTone(v)}
+                    role={concernRole(v)}
                   />;
                 })()}
               </section>

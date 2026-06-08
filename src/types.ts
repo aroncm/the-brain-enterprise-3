@@ -363,16 +363,6 @@ export type PitchingReplayState = {
   rss_usage_fatigue?: number | null;
   rss_score?: number | null;
   rss_status?: string | null;
-  // Step 2 — per-pitcher season-to-date norms for diagnostic factor card
-  // "career" ticks. Null until the pitcher has 100+ pitches season-to-date.
-  pitcher_norm_whiff_rate?: number | null;
-  pitcher_norm_strike_rate?: number | null;
-  pitcher_norm_called_strike_rate?: number | null;
-  pitcher_norm_chase_proxy_rate?: number | null;
-  pitcher_norm_hard_contact_rate?: number | null;
-  pitcher_norm_zone_miss_distance?: number | null;
-  pitcher_norm_location_dispersion?: number | null;
-  pitcher_norm_sample_pitches?: number | null;
 };
 
 export type PitchingRelieverCandidate = {
