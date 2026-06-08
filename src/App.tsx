@@ -582,13 +582,16 @@ function concernTone(percent: number | null | undefined): "neutral" | "good" | "
   return "bad";
 }
 
-type FactorRole = "CONCERN" | "HOLDING" | "WARNING";
+// FactorRole mirrors the operational signal bands so per-card badges and
+// meter colors line up with the headline ring + SignalTimeline pitch bar.
+// Below WATCH there's no badge — pitcher is in STAY band on this dimension.
+type FactorRole = "WATCH" | "PREP" | "PULL_NOW";
 
 function concernRole(percent: number | null | undefined): FactorRole | null {
   if (percent == null || !Number.isFinite(percent)) return null;
-  if (percent >= 0.69) return "CONCERN";
-  if (percent >= 0.42) return "WARNING";
-  if (percent >= 0.15) return "HOLDING";
+  if (percent >= 0.69) return "PULL_NOW";
+  if (percent >= 0.42) return "PREP";
+  if (percent >= 0.15) return "WATCH";
   return null;
 }
 
@@ -615,14 +618,38 @@ function componentPeak(
   return peak;
 }
 
-// Cumulative max of a subset of normalized_weighted_components keys (already
-// in concern-units, summed per entry, peak across entries). Used for Signal
-// Summary "Stuff Decay" / "Command Decay" / "Workload" composites.
+// Backend per-component weights, mirrored from
+// abs_stress_test/pitching_change.py NORMALIZED_DEGRADATION_COMPONENT_WEIGHTS.
+// Used to normalize a subset-sum back to a 0..1 health-bar value.
+const NORMALIZED_DEGRADATION_COMPONENT_WEIGHTS: Record<string, number> = {
+  velocity: 0.13,
+  pitch_type_velocity: 0.06,
+  spin: 0.14,
+  pitch_type_spin: 0.08,
+  command: 0.12,
+  zone_control: 0.12,
+  whiff: 0.12,
+  contact: 0.10,
+  pitch_mix: 0.05,
+  inning_context: 0.05,
+  tto_context: 0.03,
+};
+
+// Cumulative max of a subset of normalized_weighted_components, normalized
+// by the subset's total weight so the result reads as a 0..1 health-bar
+// value (rather than the tiny weighted sum which compressed everything to
+// 0.20..0.35 across an entire appearance). Used for the Signal Summary
+// Stuff Decay / Command Decay / Workload composites.
 function weightedSumPeak(
   entries: PitchingReplayEntry[],
   selectedIndex: number,
   keys: string[],
 ): number | undefined {
+  const totalWeight = keys.reduce(
+    (acc, k) => acc + (NORMALIZED_DEGRADATION_COMPONENT_WEIGHTS[k] ?? 0),
+    0,
+  );
+  if (totalWeight <= 0) return undefined;
   let peak: number | undefined;
   const cap = Math.min(selectedIndex + 1, entries.length);
   for (let i = 0; i < cap; i++) {
@@ -639,7 +666,10 @@ function weightedSumPeak(
         any = true;
       }
     }
-    if (any) peak = peak === undefined ? sum : Math.max(peak, sum);
+    if (any) {
+      const normalized = sum / totalWeight;
+      peak = peak === undefined ? normalized : Math.max(peak, normalized);
+    }
   }
   return peak;
 }
@@ -892,9 +922,9 @@ function roleFromTone(tone: "neutral" | "good" | "gold" | "prep" | "bad"): Facto
 }
 
 function factorRoleColor(role: FactorRole | null): string | null {
-  if (role === "CONCERN") return "#e05b4b";
-  if (role === "WARNING") return "#fce066";
-  if (role === "HOLDING") return "#2ec4a0";
+  if (role === "PULL_NOW") return "#e05b4b";
+  if (role === "PREP") return "#f5a03b";
+  if (role === "WATCH") return "#fce066";
   return null;
 }
 
@@ -907,9 +937,9 @@ function factorToneColor(tone: "neutral" | "good" | "warn" | "bad" | "gold" | "p
 }
 
 function factorRoleLabel(role: FactorRole): string {
-  if (role === "CONCERN") return "Concern";
-  if (role === "WARNING") return "Warning";
-  return "Holding";
+  if (role === "PULL_NOW") return "Pull Now";
+  if (role === "PREP") return "Prep";
+  return "Watch";
 }
 
 function upcomingPocketHitters(entry: PitchingReplayEntry | null) {
@@ -1578,7 +1608,7 @@ function GaugeMetric({
   const width = percent == null ? 0 : Math.round(clamp(percent) * 100);
   const benchmarkLeft = benchmarkPercent == null ? null : Math.round(clamp(benchmarkPercent) * 100);
   const resolvedRole = role ?? null;
-  const roleSlug = resolvedRole ? resolvedRole.toLowerCase().replace(" ", "-") : null;
+  const roleSlug = resolvedRole ? resolvedRole.toLowerCase().replace(/[_\s]+/g, "-") : null;
   const roleClass = roleSlug ? `gauge-role-pill gauge-role-pill--${roleSlug}` : null;
   const cardClass = `evidence-gauge evidence-gauge--${tone}${roleSlug ? ` evidence-gauge--role-${roleSlug}` : ""}`;
   const fillColor = factorRoleColor(resolvedRole) ?? factorToneColor(tone);
@@ -4191,7 +4221,7 @@ function GameAudit({
 	                  return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={factorMeterDetail(rateDetail("League", fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)))} percent={whiffConcern} benchmarkPercent={highGoodConcern(REPLAY_RATE_BENCHMARKS.swingingStrike, REPLAY_RATE_BENCHMARKS.swingingStrike) ?? undefined} tone={tone} role={concernRole(whiffConcern)} />;
 	                })()}
 	                <GaugeMetric label="Pitch Mix Drift" value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)} detail={factorMeterDetail(pitchMixDriftCopy(selectedState?.pitch_mix_drift_10))} percent={pitchMixDriftConcern} benchmarkPercent={0.2} tone={concernTone(pitchMixDriftConcern)} role={concernRole(pitchMixDriftConcern)} />
-	                <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyCurrentConcern)} detail={`Irrespective of leverage or relief alternatives. Peak this appearance ${fmtPct(pitcherOnlyConcern)}.`} percent={pitcherOnlyConcern} benchmarkPercent={0.5} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
+	                <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyConcern)} detail={`Current model read: ${fmtPct(pitcherOnlyCurrentConcern)}. Irrespective of leverage or relief alternatives.`} percent={pitcherOnlyConcern} benchmarkPercent={0.5} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
               </section>
               <section>
                 <h4>Command and Contact</h4>
