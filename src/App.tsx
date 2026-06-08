@@ -1719,8 +1719,14 @@ function GaugeMetric({
     width: `${width}%`,
     "--gauge-fill": fillColor,
   } as CSSProperties;
+  // When labeled ticks render, their height + ::after labels exceed the
+  // 3px bar — without overflow:visible they get clipped and the user sees
+  // nothing. Reserve a row below the bar for the labels.
+  const hasLabels = Array.isArray(benchmarks) && benchmarks.length > 0;
+  const trackClass = `gauge-track${hasLabels ? " gauge-track--has-labels" : ""}`;
+  const cardClassFinal = hasLabels ? `${cardClass} evidence-gauge--labeled` : cardClass;
   return (
-    <div className={cardClass}>
+    <div className={cardClassFinal}>
       <div className="evidence-gauge-head">
         <div className="evidence-gauge-labelrow">
           <span>{label}</span>
@@ -1729,7 +1735,7 @@ function GaugeMetric({
         <strong>{value}</strong>
       </div>
       {percent != null ? (
-        <div className="gauge-track" aria-hidden="true">
+        <div className={trackClass} aria-hidden="true">
           {benchmarks
             ? benchmarks.map((bm, i) => (
                 <span
@@ -4345,28 +4351,33 @@ function GameAudit({
                   points={currentPitchSpinPoints}
                 />
                 {(() => {
-                  const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
-                  return <GaugeMetric
-                    label="Swinging-Strike Rate"
-                    value={fmtRate(selectedState?.whiff_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}. ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
                   const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
                   return <GaugeMetric
                     label="Pitch Mix Drift"
                     value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
                     detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} (Lower = more aligned with expected mix.)`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
                 })()}
                 <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyConcern)} detail={`Current model read: ${fmtPct(pitcherOnlyCurrentConcern)}. Irrespective of Leverage or Relief Alternatives. ${bandPhrase(pitcherOnlyConcern, "pitcher")}`} percent={pitcherOnlyConcern} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
+                {(() => {
+                  // Enhanced degradation = base degradation plus game-context layers
+                  // (opponent contact, arsenal decay, inning/TTO). Same operational
+                  // scale as the headline ring. Pairs naturally with Pitcher-Only
+                  // Degradation above as the "+ context" variant.
+                  const v = num(selectedState?.enhanced_degradation_score);
+                  return <GaugeMetric
+                    label="Adjusted Degradation"
+                    value={v == null ? UNAVAILABLE : `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`}
+                    detail={`Base degradation + opponent contact suppression + arsenal velo/spin decay + inning/TTO load. Same scale as the headline Degradation Score.`}
+                    percent={v == null ? undefined : Math.max(0, Math.min(1, v))}
+                    tone={concernTone(v)}
+                    role={concernRole(v)}
+                  />;
+                })()}
               </section>
               <section>
                 <h4>Command and Contact</h4>
@@ -4378,6 +4389,7 @@ function GameAudit({
                     value={fmtRate(selectedState?.strike_rate_10)}
                     detail={`${actualPct} of the last 10 pitches were strikes. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4389,6 +4401,19 @@ function GameAudit({
                     value={fmtRate(selectedState?.called_strike_rate_15)}
                     detail={`Running rate. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
+                    tone={factorVsLeagueTone(cmp)}
+                    role={null}
+                  />;
+                })()}
+                {(() => {
+                  const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
+                  return <GaugeMetric
+                    label="Swinging-Strike Rate"
+                    value={fmtRate(selectedState?.whiff_rate_15)}
+                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}. ${cmp?.label ?? "League comparison unavailable."}`}
+                    percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4400,6 +4425,7 @@ function GameAudit({
                     value={fmtRate(selectedState?.chase_proxy_rate_15)}
                     detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4411,6 +4437,7 @@ function GameAudit({
                     value={fmtRate(selectedState?.hard_contact_rate_15)}
                     detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4422,6 +4449,7 @@ function GameAudit({
                     value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`}
                     detail={`Average miss distance from zone edge. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4433,6 +4461,7 @@ function GameAudit({
                     value={fmtNumber(selectedState?.location_dispersion_10, 2)}
                     detail={`Pitch-to-pitch location variance. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}. ${cmp?.label ?? "League comparison unavailable."}`}
                     percent={cmp?.scaledPercent}
+                    benchmarks={[{ percent: 0.1, label: "league" }]}
                     tone={factorVsLeagueTone(cmp)}
                     role={null}
                   />;
@@ -4483,20 +4512,6 @@ function GameAudit({
                     benchmarks={[{ percent: 0.5, label: "career avg" }]}
                     tone={tone}
                     role={null}
-                  />;
-                })()}
-                {(() => {
-                  // Enhanced degradation = base degradation plus game-context layers
-                  // (opponent contact, arsenal decay, inning/TTO). Use the same
-                  // operational scale as the headline ring.
-                  const v = num(selectedState?.enhanced_degradation_score);
-                  return <GaugeMetric
-                    label="Adjusted for Game Context"
-                    value={v == null ? UNAVAILABLE : `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`}
-                    detail={`Base degradation + opponent contact suppression + arsenal velo/spin decay + inning/TTO load. Same scale as the headline Degradation Score.`}
-                    percent={v == null ? undefined : Math.max(0, Math.min(1, v))}
-                    tone={concernTone(v)}
-                    role={concernRole(v)}
                   />;
                 })()}
               </section>

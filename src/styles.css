@@ -18619,6 +18619,27 @@ body.audit-immersive .app-main {
   pointer-events: none;
 }
 
+/* When a gauge has labeled ticks, the ticks + ::after labels extend
+ * above and below the 3px bar — without overflow:visible AND a bottom
+ * row reserved on the parent card, the labels get clipped or overlap
+ * the description text below.
+ */
+.gauge-track--has-labels {
+  overflow: visible !important;
+}
+
+.theme-mobian .gauge-track--has-labels {
+  overflow: visible !important;
+}
+
+.theme-mobian .evidence-gauge--labeled {
+  padding-bottom: 22px !important;
+}
+
+.theme-mobian .evidence-gauge--labeled .gauge-track {
+  margin-bottom: 18px !important;
+}
+
 .theme-mobian .gauge-role-pill,
 .theme-mobian .gauge-role-pill--driver,
 .theme-mobian .gauge-role-pill--held-up,
