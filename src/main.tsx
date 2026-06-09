@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { AuthProvider } from "./context/AuthContext";
+import { ProtectedApp } from "./components/ProtectedApp";
 import "./styles.css";
 
 type RootErrorBoundaryState = {
@@ -44,7 +46,11 @@ if (!root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <RootErrorBoundary>
-        <App />
+        <AuthProvider>
+          <ProtectedApp>
+            <App />
+          </ProtectedApp>
+        </AuthProvider>
       </RootErrorBoundary>
     </React.StrictMode>,
   );
