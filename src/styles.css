@@ -19510,3 +19510,155 @@ body.audit-immersive .theme-mobian.workflow-audit {
     justify-self: stretch !important;
   }
 }
+
+/* ---------- Login screen ----------
+ *
+ * Login.tsx classes (login-shell, login-card, login-brand*, login-heading,
+ * login-form, login-field*, login-error, login-footnote, login-submit)
+ * were missing from styles.css — the page rendered as unstyled HTML on
+ * the default browser background. Restoring the dark-card layout used
+ * elsewhere in the app. login-subhead / login-info / login-link are
+ * defined inline in Login.tsx and don't need rules here.
+ */
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background: #000000;
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.login-card {
+  width: min(100%, 420px);
+  padding: 32px 28px 28px;
+  background: #0a0a0a;
+  border: 1px solid #1e1e1e;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.login-brand__svg {
+  width: 260px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.login-brand__tagline {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+  text-align: center;
+}
+
+.login-heading {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  text-align: center;
+  color: #ffffff;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-field__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.login-field__input {
+  appearance: none;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #050505;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.login-field__input::placeholder {
+  color: #5a5a5a;
+}
+
+.login-field__input:focus {
+  outline: none;
+  border-color: #2ec4a0;
+  box-shadow: 0 0 0 3px rgba(46, 196, 160, 0.18);
+}
+
+.login-error {
+  padding: 10px 12px;
+  background: rgba(224, 91, 75, 0.10);
+  border: 1px solid rgba(224, 91, 75, 0.45);
+  border-radius: 8px;
+  color: #f3a59c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.login-submit {
+  appearance: none;
+  margin-top: 4px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #2ec4a0;
+  color: #06231d;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+
+.login-submit:hover {
+  background: #3fd6b2;
+}
+
+.login-submit:disabled {
+  background: #1f5a4e;
+  color: #6b8e85;
+  cursor: not-allowed;
+}
+
+.login-footnote {
+  margin: 4px 0 0;
+  text-align: center;
+  color: #8a8a8a;
+  font-size: 12px;
+  line-height: 1.4;
+}
