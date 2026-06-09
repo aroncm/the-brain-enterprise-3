@@ -18786,10 +18786,12 @@ body.audit-immersive .app-main {
   pointer-events: none;
 }
 
-/* Step 3 — visually distinguish the career tick (teal, thicker) from the
- * league tick (white, thin) so they read as two separate references at a
- * glance. */
-.theme-mobian .gauge-benchmark--labeled[data-label="career"] {
+/* Step 3 / Phase F — visually distinguish the baseline tick (teal, thicker)
+ * from the league tick (white, thin) so they read as two separate
+ * references at a glance. Renamed from "career" → "baseline" in Phase F
+ * because the underlying pitcher_norm aggregator covers a rolling
+ * multi-month window, not the pitcher's full career. */
+.theme-mobian .gauge-benchmark--labeled[data-label="baseline"] {
   background: #2ec4a0 !important;
   width: 3px !important;
   height: 13px !important;
@@ -18798,9 +18800,25 @@ body.audit-immersive .app-main {
   transform: translateX(-1.5px) !important;
 }
 
-.theme-mobian .gauge-benchmark--labeled[data-label="career"]::after {
+.theme-mobian .gauge-benchmark--labeled[data-label="baseline"]::after {
   color: #2ec4a0;
   font-weight: 600;
+}
+
+/* Phase F.3 — edge-anchor labels near the bar extremes so the ::after
+ * doesn't clip when a tick lands within 8% of either end. Replaces the
+ * default translateX(-50%) centering for those edge cases. */
+.theme-mobian .gauge-benchmark--labeled[data-edge="left"]::after {
+  left: 0 !important;
+  transform: none !important;
+  text-align: left !important;
+}
+
+.theme-mobian .gauge-benchmark--labeled[data-edge="right"]::after {
+  left: auto !important;
+  right: 0 !important;
+  transform: none !important;
+  text-align: right !important;
 }
 
 /* When a gauge has labeled ticks, the ticks + ::after labels extend
