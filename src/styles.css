@@ -18560,32 +18560,49 @@ body.audit-immersive .app-main {
   padding: 0 !important;
 }
 
+/* Phase I.1 — taller header so the brand mark + team mark have room to
+ * breathe. The bigger top/bottom padding lets the sticky Model Signal
+ * Bar (workflow-sticky-top, z-index 50) sit flush against the bottom of
+ * the nav with no gap. I.6 also adds a stacking context here so the
+ * profile dropdown sits above the sticky banner. */
 .top-nav {
-  padding: 10px 28px 8px !important;
+  position: relative !important;
+  z-index: 60 !important;
+  padding: 20px 36px 18px !important;
 }
 
-/* Phase H.4 — single-row layout. Everything vertically centered. */
+/* Phase H.4 + I.3 — single inline row, everything vertically centered.
+ * nowrap so the team context can't slip under the brand block on
+ * narrow-but-still-desktop viewports. */
 .top-nav__row--primary {
   align-items: center !important;
+  flex-wrap: nowrap !important;
   gap: 18px !important;
 }
 
+/* Phase I.3 — flip the brand block from a stacked column (SVG on top,
+ * tagline below) to an inline row so its centerline matches the team
+ * mark's centerline. The two blocks are now structurally parallel and
+ * the parent's align-items: center does the right thing. */
 .top-nav__brand {
   flex: 0 0 auto !important;
+  flex-direction: row !important;
   align-items: center !important;
+  gap: 14px !important;
 }
 
-/* Phase H.3 — bump the brand SVG so the logo + tagline reads at the same
- * optical size as the team logo + team name. */
+/* Phase I.2 — bigger brand SVG so it reads at the same optical size as
+ * the team logo + team name. */
 .top-nav__brain-svg {
-  width: 340px !important;
-  max-width: 32vw !important;
+  width: 420px !important;
+  max-width: 40vw !important;
 }
 
 .top-nav__tagline {
-  font-size: 13px !important;
-  letter-spacing: 3.5px !important;
-  margin-top: 8px !important;
+  margin-top: 0 !important;
+  font-size: 14px !important;
+  letter-spacing: 4px !important;
+  text-align: left !important;
 }
 
 .top-nav__tabs {
@@ -18672,12 +18689,15 @@ body.audit-immersive .app-main {
   min-width: 240px !important;
 }
 
-/* Phase H.5 — profile menu. Avatar becomes a clickable button; menu
- * drops down below, anchored right so it doesn't overflow the viewport. */
+/* Phase H.5 + I.5 — profile menu. Avatar is a clickable button; menu
+ * drops down below, anchored right so it doesn't overflow the viewport.
+ * I.5 adds left-margin so the avatar pulls visually away from the Data
+ * Ready pill and has clear breathing room from the page edge. */
 .top-nav__profile-wrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
+  margin-left: 16px;
 }
 
 .top-nav__profile {
@@ -18704,7 +18724,10 @@ body.audit-immersive .app-main {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 60;
+  /* Phase I.6 — must sit above the Phase G.1 sticky banner (z-index 50)
+   * and the I.6 .top-nav stacking context (z-index 60). The dropdown
+   * itself is at 70 within the elevated nav stacking context. */
+  z-index: 70;
   min-width: 220px;
   padding: 6px;
   background: #0a0a0a;

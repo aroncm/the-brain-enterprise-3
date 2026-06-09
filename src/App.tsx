@@ -2203,17 +2203,23 @@ function TopNav({
                 </div>
               </>
             ) : null}
-            <CustomSelect
-              ariaLabel="Select club"
-              placeholder="Select Club"
-              minWidth={200}
-              value={team?.abbr ?? ""}
-              options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
-              onChange={(next) => {
-                const team = MLB_TEAMS.find((item) => item.abbr === next);
-                if (team) onTeamChange(team);
-              }}
-            />
+            {/* Phase I.4 — wrap the Team selector in the same labelled
+              * structure as Season + Game so all three triggers sit on a
+              * matching baseline with a TEAM eyebrow above. */}
+            <div className="audit-filter audit-filter--team audit-filter--inline">
+              <span>Team</span>
+              <CustomSelect
+                ariaLabel="Select club"
+                placeholder="Select Club"
+                minWidth={200}
+                value={team?.abbr ?? ""}
+                options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
+                onChange={(next) => {
+                  const team = MLB_TEAMS.find((item) => item.abbr === next);
+                  if (team) onTeamChange(team);
+                }}
+              />
+            </div>
             <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
               {loadState === "loading" ? "Loading Data" :
                loadState === "ready" ? "Data Ready" :
