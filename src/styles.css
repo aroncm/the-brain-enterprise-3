@@ -19852,3 +19852,87 @@ body.audit-immersive .theme-mobian.workflow-audit {
   padding-top: 0 !important;
   margin-top: 0 !important;
 }
+
+/* ---------- Phase L — Game Replays header round 3 ----------
+ *
+ * User feedback after Phase K:
+ *   (1) Tagline ended up larger than the SVG (the inline row gave the
+ *       tagline horizontal room to grow). Move it BACK UNDER the logo
+ *       (column stack) so the SVG gets all the horizontal real estate
+ *       and the rest of the row (tabs, team mark, dropdowns) has room
+ *       to breathe.
+ *   (2) Team logo + team name were rendering oversized and overlapping
+ *       the dropdowns. Drop back to ~56 px logo and a tighter
+ *       team-name clamp so the team block fits its lane.
+ *   (3) Signal banner still not flush — the visible "gap" is the
+ *       nav's 18 px bottom padding. Cut it to 4 px so the yellow
+ *       sticky banner sits directly below the nav content.
+ *
+ * Last-in-cascade equal-specificity overrides via body.audit-immersive
+ * (same pattern as Phase K). */
+
+/* (3) Tighten the nav's bottom padding so the sticky signal banner
+ * sits flush against the nav content. Top padding stays generous. */
+body.audit-immersive .top-nav {
+  padding: 18px 36px 4px !important;
+}
+
+/* (1) Tagline back UNDER the SVG: brand block flips to column flex
+ * with align-items: center. The SVG no longer has to share horizontal
+ * room with the tagline, so the brand block occupies a single narrow
+ * column on the left of the row. */
+body.audit-immersive .top-nav__brand {
+  flex: 0 0 auto !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+/* SVG bumped to dominate the column. Caps at 36vw so it never
+ * crowds the team mark + dropdowns on a narrower desktop viewport. */
+body.audit-immersive .top-nav__brain-svg {
+  width: 380px !important;
+  max-width: 36vw !important;
+}
+
+/* Small tagline directly under the SVG (no max-width gate now — the
+ * brand column controls width via the SVG above). */
+body.audit-immersive .top-nav__tagline {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 10px !important;
+  letter-spacing: 2.8px !important;
+  line-height: 1.2 !important;
+  text-align: center !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+}
+
+/* (2) Team mark sized to fit its lane between tabs and dropdowns. */
+body.audit-immersive .top-nav__context .top-nav__team-logo {
+  width: 56px !important;
+  height: 56px !important;
+  align-self: center !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-name {
+  margin: 0 !important;
+  white-space: nowrap !important;
+  font-size: clamp(22px, 2.2vw, 32px) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__sep {
+  font-size: 26px !important;
+}
+
+/* The brand block's centerline (column with SVG on top, tagline below)
+ * is naturally above the centerline of inline-row siblings. Align the
+ * row to "end" so the bottom of the SVG (and tagline) sit on the same
+ * baseline as the team mark + dropdown triggers. */
+body.audit-immersive .top-nav__row--primary {
+  align-items: flex-end !important;
+}
