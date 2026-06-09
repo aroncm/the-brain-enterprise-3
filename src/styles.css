@@ -16121,6 +16121,59 @@ body {
   accent-color: #2ec4a0;
 }
 
+/* Phase G.1 — sticky chrome. The signal banner (top) and the timeline +
+ * playback controls cluster (bottom) become fixed bars that pin to the
+ * viewport edges as the user scrolls through factor cards. The middle of
+ * the .replay-panel article scrolls between them and never loses
+ * navigation context.
+ *
+ * Override the base .replay-panel { overflow: hidden } so the sticky
+ * children pin against the viewport instead of the article's bounds. */
+.theme-mobian .replay-panel {
+  overflow: visible !important;
+}
+
+.theme-mobian .workflow-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #0a0a0a;
+  border-bottom: 1px solid #1e1e1e;
+  margin: -1px -1px 0;
+}
+
+.theme-mobian .workflow-sticky-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
+  background: #0a0a0a;
+  border-top: 1px solid #1e1e1e;
+  padding: 6px 12px 8px;
+  margin: 0 -1px -1px;
+}
+
+.theme-mobian .workflow-sticky-bottom .appearance-switcher,
+.theme-mobian .workflow-sticky-bottom .signal-timeline,
+.theme-mobian .workflow-sticky-bottom .pitch-controls {
+  margin: 0;
+}
+
+/* Inline pitch counter chip in the sticky top — sits next to the signal
+ * pill so the user always sees "where am I" (e.g. 21 / 68). */
+.theme-mobian .signal-banner__pitch-counter {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #ffffff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
 /* ---------- Cards / panels ---------- */
 .theme-mobian .replay-panel,
 .theme-mobian .evidence-panel,

@@ -4134,31 +4134,37 @@ function GameAudit({
       ) : (
         <>
           <article className="panel replay-panel">
-            {/* Phase D.1a — single-row signal banner. Pitcher + date + signal
-             * pill all inline; Signal Dwell sits in a compact chip on the right
-             * so it doesn't push the layout into a 3-column grid that bloats
-             * vertical height. */}
-            <div className={`signal-banner signal-banner--inline signal-${signalClass(displayStatus)}`}>
-              <div className="signal-banner__inline-pitcher">
-                <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
-                {selectedGame ? (
-                  <span className="signal-banner__game-detail">
-                    {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
+            {/* Phase G.1 — sticky top chrome. The Phase D.1a inline signal
+             * banner is now wrapped in a sticky container that pins to the
+             * top of the viewport as the user scrolls through factor cards,
+             * so the pitcher + signal pill + pitch counter never disappear.
+             */}
+            <div className="workflow-sticky-top">
+              <div className={`signal-banner signal-banner--inline signal-banner--sticky signal-${signalClass(displayStatus)}`}>
+                <div className="signal-banner__inline-pitcher">
+                  <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                  {selectedGame ? (
+                    <span className="signal-banner__game-detail">
+                      {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="signal-banner__inline-right">
+                  <span className="signal-banner__pitch-counter" aria-label="Pitch counter">
+                    {selectedIndex + 1} / {entries.length}
                   </span>
-                ) : null}
-              </div>
-              <div className="signal-banner__inline-right">
-                <strong className="signal-banner__value signal-banner__value--pill">
-                  {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
-                </strong>
-                {signalDwellSummary ? (
-                  <span
-                    className="signal-banner__dwell signal-banner__dwell--chip"
-                    title={`Signal Dwell — ${signalDwellSummary}`}
-                  >
-                    {signalDwellSummary}
-                  </span>
-                ) : null}
+                  <strong className="signal-banner__value signal-banner__value--pill">
+                    {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
+                  </strong>
+                  {signalDwellSummary ? (
+                    <span
+                      className="signal-banner__dwell signal-banner__dwell--chip"
+                      title={`Signal Dwell — ${signalDwellSummary}`}
+                    >
+                      {signalDwellSummary}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
             <div className="replay-layout">
@@ -4396,39 +4402,46 @@ function GameAudit({
               </aside>
             </div>
 
-            {appearances.length > 1 ? (
-              <div className="appearance-switcher">
-                {appearances.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    className={item.key === selectedAppearanceKey ? "active" : ""}
-                    onClick={() => setAppearance(item.key)}
-                  >
-                    {item.label}
-                    <span>{item.count} pitches</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            {/* Phase G.1 — sticky bottom chrome. The pitcher appearance
+             * switcher, signal timeline (pitch bar), and playback controls
+             * are pinned to the bottom of the viewport so the user never
+             * loses navigation context while scrolling through factor
+             * cards. */}
+            <div className="workflow-sticky-bottom">
+              {appearances.length > 1 ? (
+                <div className="appearance-switcher">
+                  {appearances.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      className={item.key === selectedAppearanceKey ? "active" : ""}
+                      onClick={() => setAppearance(item.key)}
+                    >
+                      {item.label}
+                      <span>{item.count} pitches</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
-            <SignalTimeline entries={entries} statuses={displayStatuses} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
-            <div className="pitch-controls">
-              <button type="button" onClick={() => setPitchIndex(Math.max(0, pitchIndex - 1))}>Previous</button>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(0, entries.length - 1)}
-                value={Math.min(pitchIndex, Math.max(0, entries.length - 1))}
-                onChange={(event) => setPitchIndex(Number(event.target.value))}
-              />
-              <button type="button" className={autoplay ? "active" : ""} onClick={() => setAutoplay((current) => !current)}>
-                {autoplay ? "Pause" : "Autoplay"}
-              </button>
-              <button type="button" onClick={() => setPitchIndex(Math.min(entries.length - 1, pitchIndex + 1))}>Next</button>
-              <button type="button" disabled={actionIndex < 0} onClick={() => setPitchIndex(actionIndex >= 0 ? actionIndex : pitchIndex)}>
-                {selectedIsReliever ? "Jump to RSS Signal" : "Jump to Pull Now"}
-              </button>
+              <SignalTimeline entries={entries} statuses={displayStatuses} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
+              <div className="pitch-controls">
+                <button type="button" onClick={() => setPitchIndex(Math.max(0, pitchIndex - 1))}>Previous</button>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, entries.length - 1)}
+                  value={Math.min(pitchIndex, Math.max(0, entries.length - 1))}
+                  onChange={(event) => setPitchIndex(Number(event.target.value))}
+                />
+                <button type="button" className={autoplay ? "active" : ""} onClick={() => setAutoplay((current) => !current)}>
+                  {autoplay ? "Pause" : "Autoplay"}
+                </button>
+                <button type="button" onClick={() => setPitchIndex(Math.min(entries.length - 1, pitchIndex + 1))}>Next</button>
+                <button type="button" disabled={actionIndex < 0} onClick={() => setPitchIndex(actionIndex >= 0 ? actionIndex : pitchIndex)}>
+                  {selectedIsReliever ? "Jump to RSS Signal" : "Jump to Pull Now"}
+                </button>
+              </div>
             </div>
           </article>
 
