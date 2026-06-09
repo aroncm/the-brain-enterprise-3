@@ -54,6 +54,7 @@ import type {
   TripleAConversionCandidate,
 } from "./types";
 import { teamAccents } from "./teamAccents";
+import { useAuth } from "./context/AuthContext";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
 type Workflow = "audit" | "briefings";
@@ -1999,12 +2000,6 @@ function SignalTimeline({
   );
 }
 
-function pageHeadingForWorkflow(workflow: Workflow): string {
-  if (workflow === "audit") return "GAME REPLAYS";
-  if (workflow === "briefings") return "GAME BRIEFINGS";
-  return "";
-}
-
 function CustomSelect({
   value,
   onChange,
@@ -2082,12 +2077,10 @@ function TopNav({
   games,
   selectedGameId,
   season,
-  auditFiltersOpen,
   onTeamChange,
   onWorkflowChange,
   onGameChange,
   onSeasonChange,
-  onAuditFiltersOpenChange,
 }: {
   team: Team | null;
   workflow: Workflow;
@@ -2095,17 +2088,52 @@ function TopNav({
   games: EnterpriseGameSummary[];
   selectedGameId: string | null;
   season: string;
-  auditFiltersOpen: boolean;
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
   onGameChange: (id: string) => void;
   onSeasonChange: (season: string) => void;
-  onAuditFiltersOpenChange: (open: boolean) => void;
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.primary ?? "#ffffff";
+  const { user, signOut } = useAuth();
+  // Phase H.5 — profile dropdown state. Closes on outside-click / Escape.
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileWrapperRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!profileWrapperRef.current) return;
+      if (event.target instanceof Node && !profileWrapperRef.current.contains(event.target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [profileMenuOpen]);
+  const handleLogout = async () => {
+    setProfileMenuOpen(false);
+    try {
+      await signOut();
+    } catch (err) {
+      // Surface to console; AuthProvider will reset and the login screen
+      // takes over on the next render either way.
+      // eslint-disable-next-line no-console
+      console.warn("[top-nav] signOut failed", err);
+    }
+  };
+  // Phase H.2 — expose the team accent as a CSS variable so the active-tab
+  // underline (and any other dynamic theming) can resolve it without
+  // inline-styling each consumer.
+  const headerStyle = { "--team-accent": teamColor } as CSSProperties;
   return (
-    <header className="top-nav">
+    <header className="top-nav" style={headerStyle}>
       <div className="top-nav__row top-nav__row--primary">
         <a className="top-nav__brand" href="/" aria-label="Baseball brAIn">
           <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
@@ -2136,16 +2164,45 @@ function TopNav({
         </nav>
 
         {team ? (
+          // Phase H.1 — dropped the redundant <h2> page heading. The active
+          // tab + underline already communicate which workflow is on.
           <div className="top-nav__context">
             <span className="top-nav__team-logo"><TeamLogo abbr={team.abbr} /></span>
             <h1 className="top-nav__team-name" style={{ color: teamColor }}>{team.name.toUpperCase()}</h1>
             <span className="top-nav__sep" aria-hidden="true">+</span>
-            <h2 className="top-nav__page">{pageHeadingForWorkflow(workflow)}</h2>
           </div>
         ) : null}
 
         <div className="top-nav__actions">
           <div className="top-nav__actions-primary">
+            {/* Phase H.1 — Season + Game dropdowns relocated from the
+              * deleted second row into the primary actions cluster,
+              * immediately LEFT of the team selector. Only render when
+              * the active workflow uses them (audit/Game Replays). */}
+            {workflow === "audit" ? (
+              <>
+                <div className="audit-filter audit-filter--season audit-filter--inline">
+                  <span>Season</span>
+                  <CustomSelect
+                    ariaLabel="Select season"
+                    minWidth={108}
+                    value={season}
+                    options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
+                    onChange={onSeasonChange}
+                  />
+                </div>
+                <div className="audit-filter audit-filter--game audit-filter--inline">
+                  <span>Game</span>
+                  <CustomSelect
+                    ariaLabel="Select game"
+                    minWidth={240}
+                    value={selectedGameId ?? ""}
+                    options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+                    onChange={onGameChange}
+                  />
+                </div>
+              </>
+            ) : null}
             <CustomSelect
               ariaLabel="Select club"
               placeholder="Select Club"
@@ -2163,46 +2220,37 @@ function TopNav({
                loadState === "missing-config" ? "Setup Required" :
                "Connection Error"}
             </span>
-            <div className="top-nav__profile" aria-label="Admin profile">A</div>
-          </div>
-          {workflow === "audit" ? (
-            <div className={`top-nav__audit-controls${auditFiltersOpen ? "" : " top-nav__audit-controls--collapsed"}`}>
+            {/* Phase H.5 — clickable avatar opens a dropdown menu with the
+              * signed-in user's email and a Logout button. Previously the
+              * avatar was a static <div> with no way to sign out. */}
+            <div className="top-nav__profile-wrapper" ref={profileWrapperRef}>
               <button
                 type="button"
-                className="audit-header__toggle top-nav__filters-toggle"
-                aria-label={auditFiltersOpen ? "Hide Season and Game filters" : "Show Season and Game filters"}
-                aria-expanded={auditFiltersOpen}
-                onClick={() => onAuditFiltersOpenChange(!auditFiltersOpen)}
+                className="top-nav__profile"
+                aria-label="Account menu"
+                aria-haspopup="menu"
+                aria-expanded={profileMenuOpen}
+                onClick={() => setProfileMenuOpen((open) => !open)}
               >
-                {auditFiltersOpen ? <Minus size={14} /> : <Plus size={14} />}
-                <span>{auditFiltersOpen ? "Hide Filters" : "Show Filters"}</span>
+                A
               </button>
-              {auditFiltersOpen ? (
-                <>
-                  <div className="audit-filter audit-filter--season">
-                    <span>Season</span>
-                    <CustomSelect
-                      ariaLabel="Select season"
-                      minWidth={118}
-                      value={season}
-                      options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
-                      onChange={onSeasonChange}
-                    />
+              {profileMenuOpen ? (
+                <div className="top-nav__profile-menu" role="menu">
+                  <div className="top-nav__profile-menu__email" role="presentation">
+                    {user?.email ?? "Signed in"}
                   </div>
-                  <div className="audit-filter audit-filter--game">
-                    <span>Game</span>
-                    <CustomSelect
-                      ariaLabel="Select game"
-                      minWidth={260}
-                      value={selectedGameId ?? ""}
-                      options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
-                      onChange={onGameChange}
-                    />
-                  </div>
-                </>
+                  <button
+                    type="button"
+                    className="top-nav__profile-menu__item"
+                    role="menuitem"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </button>
+                </div>
               ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
       </div>
     </header>
@@ -5409,7 +5457,6 @@ export default function App() {
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflowFromSearch);
   const [season, setSeason] = useState("2026");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(initialGameIdFromSearch);
-  const [auditFiltersOpen, setAuditFiltersOpen] = useState(true);
   const [games, setGames] = useState<EnterpriseGameSummary[]>([]);
   const [profilesPayload, setProfilesPayload] = useState<PitcherProfilesPayload | null>(null);
   const [auditSummary, setAuditSummary] = useState<PitchingAuditSummaryPayload | null>(null);
@@ -5557,14 +5604,12 @@ export default function App() {
         games={games}
         selectedGameId={selectedGameId}
         season={season}
-        auditFiltersOpen={auditFiltersOpen}
         onTeamChange={(team) => {
           setSelectedTeamAbbr(team.abbr);
         }}
         onWorkflowChange={setWorkflow}
         onGameChange={setSelectedGameId}
         onSeasonChange={setSeason}
-        onAuditFiltersOpenChange={setAuditFiltersOpen}
       />
 
       <div className="app-main">
