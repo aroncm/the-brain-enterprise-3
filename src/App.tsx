@@ -55,9 +55,10 @@ import type {
 } from "./types";
 import { teamAccents } from "./teamAccents";
 import { useAuth } from "./context/AuthContext";
+import { AdminPage } from "./pages/AdminPage";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
-type Workflow = "audit" | "briefings";
+type Workflow = "audit" | "briefings" | "admin";
 type Team = { abbr: string; name: string; club: string; division: string };
 type MatrixCell = "standard" | "tandem" | "push" | "workload";
 
@@ -139,6 +140,10 @@ const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
   audit: MagnifyingGlass,
   briefings: PresentationChart,
+  // Admin is reached via the profile-menu, not the nav tab row — but the
+  // Record type requires every Workflow value, so use the Users icon as
+  // a default in case the workflow ever needs a tab.
+  admin: Users,
 };
 
 function appSearchParams(): URLSearchParams {
@@ -2095,7 +2100,7 @@ function TopNav({
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.primary ?? "#ffffff";
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   // Phase H.5 — profile dropdown state. Closes on outside-click / Escape.
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -2245,6 +2250,19 @@ function TopNav({
                   <div className="top-nav__profile-menu__email" role="presentation">
                     {user?.email ?? "Signed in"}
                   </div>
+                  {profile?.role === "admin" ? (
+                    <button
+                      type="button"
+                      className="top-nav__profile-menu__item"
+                      role="menuitem"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        onWorkflowChange("admin");
+                      }}
+                    >
+                      Admin
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="top-nav__profile-menu__item"
@@ -5646,6 +5664,10 @@ export default function App() {
             status={recapSettingsStatus}
             onSave={handleSaveRecapSettings}
           />
+        )}
+
+        {workflow === "admin" && (
+          <AdminPage allTeams={MLB_TEAMS} />
         )}
       </div>
 
