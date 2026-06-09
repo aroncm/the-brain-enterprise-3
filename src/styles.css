@@ -18591,18 +18591,24 @@ body.audit-immersive .app-main {
   gap: 14px !important;
 }
 
-/* Phase I.2 — bigger brand SVG so it reads at the same optical size as
- * the team logo + team name. */
+/* Phase J.2 — bigger brand SVG so it reads at the same optical size as
+ * the team logo + team name. Bumped again from Phase I (420/40vw). */
 .top-nav__brain-svg {
-  width: 420px !important;
-  max-width: 40vw !important;
+  width: 500px !important;
+  max-width: 46vw !important;
 }
 
+/* Phase J.2 — tagline centered so when "Advanced Baseball Intelligence"
+ * wraps to two lines, "Intelligence" sits centered under "Advanced
+ * Baseball". The max-width forces wrap at a deterministic point rather
+ * than depending on browser layout decisions. */
 .top-nav__tagline {
   margin-top: 0 !important;
   font-size: 14px !important;
   letter-spacing: 4px !important;
-  text-align: left !important;
+  text-align: center !important;
+  max-width: 200px !important;
+  line-height: 1.25 !important;
 }
 
 .top-nav__tabs {
@@ -18610,21 +18616,40 @@ body.audit-immersive .app-main {
   align-self: center !important;
 }
 
-/* Phase H.3 — team context block sized to match the brand block; extra
- * gap so the team logo doesn't crowd the team name. */
+/* Phase H.3 + J.1 — team context block sized to match the brand block.
+ * J.1 drops the grey border-left separator (the line user found visually
+ * tied to the team logo crop problem) and trims padding-left to a soft
+ * margin-left. The team mark stands on its own next to the brand block;
+ * no explicit separator needed. */
 .top-nav__context {
   display: flex !important;
   align-items: center !important;
   min-width: 0 !important;
   gap: 18px !important;
-  margin-left: 8px !important;
-  padding-left: 18px !important;
-  border-left: 1px solid #222222 !important;
+  margin-left: 18px !important;
+  padding-left: 0 !important;
+  border-left: 0 !important;
 }
 
 .top-nav__context .top-nav__team-logo {
   width: 72px !important;
   height: 72px !important;
+  align-self: center !important;
+}
+
+/* Phase J.1 — inner .team-logo + img were stuck at 56×56 (the base
+ * rules from line 143-154) inside the 72×72 wrapper, so the visible
+ * logo sat in a 56-px box centered in a 72-px space — looked cropped
+ * and visually offset. Force the inner div + img to fill the wrapper. */
+.top-nav__context .top-nav__team-logo .team-logo {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.top-nav__context .top-nav__team-logo .team-logo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
 }
 
 .top-nav__context .top-nav__team-name {
@@ -18656,12 +18681,25 @@ body.audit-immersive .app-main {
   min-width: 0 !important;
 }
 
+/* Phase J.4 — align-items: flex-end so the Data Ready pill and the
+ * profile avatar sit on the SAME BASELINE as the dropdown trigger
+ * boxes. The dropdowns are wrapped in .audit-filter--inline (label on
+ * top, trigger below) — center-alignment would put the pill + avatar
+ * centerlines next to the wrapper centerline, visually floating ABOVE
+ * the triggers. flex-end aligns the bottom edges. */
 .top-nav__actions-primary {
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-end !important;
   justify-content: flex-end !important;
   gap: 12px !important;
   flex-wrap: nowrap !important;
+}
+
+/* Phase J.3 — extra breathing room between the team dropdown trigger
+ * and the Data Ready pill. The 12 px global gap stays for the three
+ * dropdowns; this targeted margin only opens up the pill boundary. */
+.top-nav__actions-primary .top-nav__status-pill {
+  margin-left: 18px !important;
 }
 
 /* Phase H.1 — Season + Game filter selects rendered inline in the actions
