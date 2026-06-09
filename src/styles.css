@@ -19723,3 +19723,132 @@ body.audit-immersive .theme-mobian.workflow-audit {
   font-size: 12px;
   line-height: 1.4;
 }
+
+/* ---------- Phase K — Game Replays nav header parity ----------
+ *
+ * The `body.audit-immersive` class (added when viewing Game Replays)
+ * was running an earlier set of nav overrides at lines 19144+, 19429+
+ * that pre-dated the Phase H/I/J header redesign. Those rules shrink
+ * the brand SVG to 198–224 px, drop the team logo to 30–38 px, switch
+ * align-items to flex-start, and squeeze padding down to 6 px — all
+ * of which fight the new design and produce the screenshot symptoms:
+ * tiny logo, top-aligned team mark, gap above the yellow signal
+ * banner, excessive horizontal space between SVG and tagline.
+ *
+ * Rather than delete those rules in place (risk of unrelated audit-
+ * page regressions), this trailing block re-asserts the Phase J
+ * values with the same specificity but LATER in the cascade — last
+ * !important wins for equal-specificity selectors. */
+
+body.audit-immersive .top-nav {
+  padding: 20px 36px 18px !important;
+}
+
+body.audit-immersive .top-nav__row--primary {
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  gap: 18px !important;
+}
+
+body.audit-immersive .top-nav__brand {
+  flex: 0 0 auto !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+body.audit-immersive .top-nav__brain-svg {
+  width: 500px !important;
+  max-width: 46vw !important;
+}
+
+body.audit-immersive .top-nav__tagline {
+  margin-top: 0 !important;
+  font-size: 14px !important;
+  letter-spacing: 4px !important;
+  text-align: center !important;
+  max-width: 200px !important;
+  line-height: 1.25 !important;
+}
+
+body.audit-immersive .top-nav__tabs {
+  flex: 0 0 auto !important;
+  align-self: center !important;
+  padding-top: 0 !important;
+  gap: 28px !important;
+}
+
+body.audit-immersive .top-nav__context {
+  display: flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  gap: 18px !important;
+  margin-left: 18px !important;
+  padding-left: 0 !important;
+  border-left: 0 !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-logo {
+  width: 72px !important;
+  height: 72px !important;
+  align-self: center !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-logo .team-logo {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-logo .team-logo img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-name {
+  margin: 0 !important;
+  white-space: nowrap !important;
+  font-size: clamp(28px, 3vw, 44px) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__sep {
+  color: var(--team-accent, #4a4a4a) !important;
+  font-size: 32px !important;
+  font-weight: 800 !important;
+}
+
+body.audit-immersive .top-nav__actions {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+}
+
+body.audit-immersive .top-nav__actions-primary {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Signal banner flushness — Phase G.1 already wraps the inline banner in
+ * .workflow-sticky-top with margin: -1px -1px 0 so it bleeds against the
+ * article border. The remaining visible gap above the yellow strip is
+ * the .theme-mobian.workflow-audit padding-top resolving above 0 because
+ * of a body-level margin. Force the audit page top padding to 0 so the
+ * sticky banner sits flush against the bottom of the nav. */
+body.audit-immersive.theme-mobian.workflow-audit,
+body.audit-immersive .theme-mobian.workflow-audit {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
