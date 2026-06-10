@@ -4198,8 +4198,16 @@ function GameAudit({
   } as CSSProperties;
   return (
     <section className="workflow theme-mobian workflow-audit" style={themeStyle}>
-      {!selectedGameId || !replay || !selected ? (
+      {!selectedGameId ? (
         <EmptyState title="No replay loaded" detail="Select a completed game with finalized pitch-level replay detail." />
+      ) : !replay || !selected ? (
+        // Phase R.5 — when a game IS selected but the replay payload
+        // is still in flight, show a "loading" state instead of the
+        // "no replay loaded" empty state. With Phase R.2's faster
+        // mount (audit page renders as soon as games list arrives),
+        // this transient state is visible for the duration of the
+        // per-game replay fetch on first load.
+        <EmptyState title="Loading replay…" detail="Fetching pitch-by-pitch data for the selected game." />
       ) : (
         <>
           <article className="panel replay-panel">
