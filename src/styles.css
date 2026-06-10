@@ -20019,3 +20019,93 @@ body.audit-immersive .top-nav {
 body.audit-immersive .workflow-sticky-top {
   margin-top: -4px !important;
 }
+
+/* ---------- Phase N — Filters moved to signal banner ---------- */
+
+/* (1) Brand block — force the tagline to sit DIRECTLY below the SVG.
+ * Earlier overrides were getting trapped by an implicit `height: 100%`
+ * from somewhere in the audit-immersive grid; lock the brand block to
+ * its natural height and stack the column at flex-start. */
+body.audit-immersive .top-nav__brand {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  height: auto !important;
+  align-self: center !important;
+  gap: 2px !important;
+}
+
+body.audit-immersive .top-nav__brain-svg {
+  display: block !important;
+  width: 360px !important;
+  max-width: 32vw !important;
+  margin: 0 !important;
+}
+
+body.audit-immersive .top-nav__tagline {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 10px !important;
+  letter-spacing: 2.6px !important;
+  line-height: 1.15 !important;
+  text-align: center !important;
+  max-width: none !important;
+  white-space: nowrap !important;
+}
+
+/* (2) Breathing room between the brand block and the tab links. */
+body.audit-immersive .top-nav__tabs {
+  margin-left: 28px !important;
+  gap: 28px !important;
+}
+
+/* (3) Phase N — Season + Game filters rendered inside the signal banner.
+ * Compact pill-style controls between the pitcher info and the signal
+ * pill. */
+.signal-banner__filters {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 20px;
+}
+
+.signal-banner__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.signal-banner__filter > span {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+}
+
+/* Compact CustomSelect trigger appearance inside the yellow signal
+ * banner — dark pill on the colored background. */
+.signal-banner__filter .custom-select__trigger {
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border-color: rgba(0, 0, 0, 0.0) !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+.signal-banner__filter .custom-select__trigger:hover {
+  border-color: rgba(0, 0, 0, 0.0) !important;
+  background: rgba(0, 0, 0, 0.55) !important;
+}
+
+.signal-banner__filter .custom-select__label {
+  color: #ffffff !important;
+}

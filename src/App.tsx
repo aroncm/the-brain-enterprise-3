@@ -2180,37 +2180,11 @@ function TopNav({
 
         <div className="top-nav__actions">
           <div className="top-nav__actions-primary">
-            {/* Phase H.1 — Season + Game dropdowns relocated from the
-              * deleted second row into the primary actions cluster,
-              * immediately LEFT of the team selector. Only render when
-              * the active workflow uses them (audit/Game Replays). */}
-            {workflow === "audit" ? (
-              <>
-                <div className="audit-filter audit-filter--season audit-filter--inline">
-                  <span>Season</span>
-                  <CustomSelect
-                    ariaLabel="Select season"
-                    minWidth={108}
-                    value={season}
-                    options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
-                    onChange={onSeasonChange}
-                  />
-                </div>
-                <div className="audit-filter audit-filter--game audit-filter--inline">
-                  <span>Game</span>
-                  <CustomSelect
-                    ariaLabel="Select game"
-                    minWidth={240}
-                    value={selectedGameId ?? ""}
-                    options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
-                    onChange={onGameChange}
-                  />
-                </div>
-              </>
-            ) : null}
-            {/* Phase I.4 — wrap the Team selector in the same labelled
-              * structure as Season + Game so all three triggers sit on a
-              * matching baseline with a TEAM eyebrow above. */}
+            {/* Phase N — Season + Game dropdowns moved to the signal
+              * banner (inside GameAudit). The nav now only carries the
+              * Team selector, which frees horizontal room and stops the
+              * team-name overlap that's been on the screenshot list
+              * since Phase L. */}
             <div className="audit-filter audit-filter--team audit-filter--inline">
               <span>Team</span>
               <CustomSelect
@@ -4002,6 +3976,9 @@ function GameAudit({
   team,
   games,
   selectedGameId,
+  season,
+  onSeasonChange,
+  onGameChange,
   replay,
   recap,
   preventableRows,
@@ -4009,6 +3986,9 @@ function GameAudit({
   team: Team;
   games: EnterpriseGameSummary[];
   selectedGameId: string | null;
+  season: string;
+  onSeasonChange: (season: string) => void;
+  onGameChange: (id: string) => void;
   replay: PitchingReplayResponse | null;
   recap: PitchingGameRecap | null;
   preventableRows: PreventableRunsOpportunityRow[];
@@ -4220,6 +4200,32 @@ function GameAudit({
                       {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
                     </span>
                   ) : null}
+                </div>
+                {/* Phase N — Season + Game dropdowns moved out of the
+                  * top-nav and rendered here inline with the signal
+                  * banner. The "Game" eyebrow label is intentionally
+                  * dropped per user request — the selected game label
+                  * inside the dropdown already names the game. */}
+                <div className="signal-banner__filters">
+                  <div className="signal-banner__filter signal-banner__filter--season">
+                    <span>Season</span>
+                    <CustomSelect
+                      ariaLabel="Select season"
+                      minWidth={96}
+                      value={season}
+                      options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
+                      onChange={onSeasonChange}
+                    />
+                  </div>
+                  <div className="signal-banner__filter signal-banner__filter--game">
+                    <CustomSelect
+                      ariaLabel="Select game"
+                      minWidth={240}
+                      value={selectedGameId ?? ""}
+                      options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+                      onChange={onGameChange}
+                    />
+                  </div>
                 </div>
                 <div className="signal-banner__inline-right">
                   <span className="signal-banner__pitch-counter" aria-label="Pitch counter">
@@ -5646,6 +5652,9 @@ export default function App() {
             team={selectedTeam}
             games={games}
             selectedGameId={selectedGameId}
+            season={season}
+            onSeasonChange={setSeason}
+            onGameChange={setSelectedGameId}
             replay={replay}
             recap={recap}
             preventableRows={auditPreventableRuns?.rows ?? []}
