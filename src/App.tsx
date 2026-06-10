@@ -263,6 +263,16 @@ function formatGameDate(iso: string | null | undefined): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+// Long form for the Game-dropdown labels: e.g. "June 7, 2026" — spelled
+// out month, 4-digit year, per user request.
+function formatGameDateLong(iso: string | null | undefined): string {
+  const token = String(iso || "").trim();
+  if (!token) return "";
+  const d = new Date(token);
+  if (Number.isNaN(d.getTime())) return token;
+  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
 function batterDisplayName(snapshot: PitchingReplayEntry["snapshot"]): string {
   const raw = String(snapshot.batter_name ?? "").trim();
   const id = String(snapshot.batter_id ?? "").trim();
@@ -1662,7 +1672,7 @@ function primaryMatrixCellForGame(windows: PitchingAuditWindow[]): MatrixCell {
 
 function gameLabel(game: EnterpriseGameSummary | null): string {
   if (!game) return "Select game";
-  return `${game.away_team} @ ${game.home_team} · ${game.date}`;
+  return `${game.away_team} @ ${game.home_team} · ${formatGameDateLong(game.date)}`;
 }
 
 function selectedTeamPitchers(recap: PitchingGameRecap | null, team: Team) {
