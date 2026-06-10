@@ -19936,3 +19936,86 @@ body.audit-immersive .top-nav__context .top-nav__sep {
 body.audit-immersive .top-nav__row--primary {
   align-items: flex-end !important;
 }
+
+/* ---------- Phase M — Header round 4 ----------
+ *
+ * Three independent issues remained after Phase L. Each has a
+ * different root cause, fixed independently here.
+ *
+ *   M.1 Phase L's align-items: flex-end made the tagline + dropdowns +
+ *       pill + avatar all hug the bottom edge of the nav. Switch back
+ *       to center so they sit on the row's vertical centerline.
+ *
+ *   M.2 Phase L's team-logo 56 px + team-name clamp(22, 2.2vw, 32) was
+ *       still wide enough on a desktop viewport to bleed into the
+ *       SEASON dropdown lane. Smaller logo (42), tighter name clamp
+ *       (18–24), tighter "+" sep, and a max-width safety net on the
+ *       context block.
+ *
+ *   M.3 The "signal banner not flush" gap has THREE residual sources,
+ *       not one. The base .top-nav { border-bottom: 1px solid #1e1e1e }
+ *       at styles.css:97 puts a visible 1-px line in the way. The
+ *       browser default body { margin: 8px } was never reset in this
+ *       codebase. And any sub-pixel rounding / baseline strut between
+ *       elements adds a fractional gap. Triple-belt fix: drop the
+ *       border on the audit page, force body+html margin/padding 0,
+ *       AND negative-margin the sticky banner up by 4 px so it
+ *       overlaps any residual gap regardless of source.
+ */
+
+/* M.1 — vertical centering */
+body.audit-immersive .top-nav__row--primary {
+  align-items: center !important;
+}
+
+/* M.2 — smaller team mark, contained */
+body.audit-immersive .top-nav__context {
+  max-width: 320px !important;
+  overflow: hidden !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-logo {
+  width: 42px !important;
+  height: 42px !important;
+  align-self: center !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-name {
+  margin: 0 !important;
+  white-space: nowrap !important;
+  font-size: clamp(18px, 1.7vw, 24px) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.02em !important;
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__sep {
+  font-size: 22px !important;
+}
+
+/* M.3 — triple-belt signal-banner flush */
+
+/* (a) Reset the browser default body { margin: 8px } that adds spacing
+ * around every element. Never reset in this codebase. */
+html,
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* (b) Drop the 1-px border on the audit-page nav so there's no visible
+ * line above the yellow banner. Also bring padding-bottom to 0 so the
+ * last row of nav content sits at the very bottom edge. */
+body.audit-immersive .top-nav {
+  border-bottom: 0 !important;
+  padding: 18px 36px 0 !important;
+}
+
+/* (c) Negative top margin on the sticky banner to OVERLAP any residual
+ * sub-pixel gap. With (a) and (b) the actual gap should be 0; the -4 px
+ * here is insurance against rounding errors and any intermediate
+ * container padding I haven't identified. */
+body.audit-immersive .workflow-sticky-top {
+  margin-top: -4px !important;
+}
