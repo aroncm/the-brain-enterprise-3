@@ -20264,3 +20264,29 @@ body.audit-immersive .workflow-sticky-top {
 .signal-banner--3zone .signal-banner__zone--left {
   padding-right: 12px !important;
 }
+
+/* ---------- Phase Q — label baseline + brand block lift ---------- */
+
+/* (1) Left-zone fields aligned to the TOP so the STARTING PITCHER /
+ * SEASON / GAME eyebrow labels all sit on the same horizontal baseline.
+ * Without this the zone was align-items: center (inherited), and the
+ * pitcher-name field (just one text row) ended up with its centerline
+ * higher than the dropdown fields, so its eyebrow drifted up. */
+.signal-banner--3zone .signal-banner__zone--left {
+  align-items: flex-start !important;
+}
+
+/* (2) Brand block — pull the tagline TIGHT against the logo and lift
+ * the whole brand block up in the nav row so it doesn't crowd the
+ * signal banner below. The 565×115 brand SVG has ~18 px of empty
+ * space inside its viewBox below the actual letter strokes, so the
+ * tagline needs a chunky negative margin-top to actually visually
+ * hug the logo. */
+body.audit-immersive .top-nav__brand {
+  align-self: flex-start !important;
+  margin-top: -6px !important;
+}
+
+body.audit-immersive .top-nav__tagline {
+  margin-top: -16px !important;
+}
