@@ -4192,23 +4192,20 @@ function GameAudit({
              * so the pitcher + signal pill + pitch counter never disappear.
              */}
             <div className="workflow-sticky-top">
-              <div className={`signal-banner signal-banner--inline signal-banner--sticky signal-${signalClass(displayStatus)}`}>
-                <div className="signal-banner__inline-pitcher">
-                  <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
-                  {selectedGame ? (
-                    <span className="signal-banner__game-detail">
-                      {formatGameDate(selectedGame.date)} {team.abbr === selectedGame.home_team ? "vs" : "@"} {team.abbr === selectedGame.home_team ? selectedGame.away_team : selectedGame.home_team}
-                    </span>
-                  ) : null}
-                </div>
-                {/* Phase N — Season + Game dropdowns moved out of the
-                  * top-nav and rendered here inline with the signal
-                  * banner. The "Game" eyebrow label is intentionally
-                  * dropped per user request — the selected game label
-                  * inside the dropdown already names the game. */}
-                <div className="signal-banner__filters">
-                  <div className="signal-banner__filter signal-banner__filter--season">
-                    <span>Season</span>
+              {/* Phase O — three-zone signal banner. Left: pitcher info
+                * with STARTING PITCHER eyebrow + inline SEASON / GAME
+                * dropdowns. Center: signal pill (WATCH / PREP / PULL
+                * NOW). Right: signal-dwell chip. The game-detail badge
+                * ("Jun 6 vs PIT") and the pitch counter ("1 / 68") were
+                * removed per user request. */}
+              <div className={`signal-banner signal-banner--inline signal-banner--sticky signal-banner--3zone signal-${signalClass(displayStatus)}`}>
+                <div className="signal-banner__zone signal-banner__zone--left">
+                  <div className="signal-banner__field signal-banner__field--pitcher">
+                    <span className="signal-banner__eyebrow">Starting Pitcher</span>
+                    <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                  </div>
+                  <div className="signal-banner__field signal-banner__field--season">
+                    <span className="signal-banner__eyebrow">Season</span>
                     <CustomSelect
                       ariaLabel="Select season"
                       minWidth={96}
@@ -4217,7 +4214,8 @@ function GameAudit({
                       onChange={onSeasonChange}
                     />
                   </div>
-                  <div className="signal-banner__filter signal-banner__filter--game">
+                  <div className="signal-banner__field signal-banner__field--game">
+                    <span className="signal-banner__eyebrow">Game</span>
                     <CustomSelect
                       ariaLabel="Select game"
                       minWidth={240}
@@ -4227,13 +4225,12 @@ function GameAudit({
                     />
                   </div>
                 </div>
-                <div className="signal-banner__inline-right">
-                  <span className="signal-banner__pitch-counter" aria-label="Pitch counter">
-                    {selectedIndex + 1} / {entries.length}
-                  </span>
+                <div className="signal-banner__zone signal-banner__zone--center">
                   <strong className="signal-banner__value signal-banner__value--pill">
                     {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
                   </strong>
+                </div>
+                <div className="signal-banner__zone signal-banner__zone--right">
                   {signalDwellSummary ? (
                     <span
                       className="signal-banner__dwell signal-banner__dwell--chip"

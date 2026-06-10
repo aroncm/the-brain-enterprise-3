@@ -20109,3 +20109,115 @@ body.audit-immersive .top-nav__tabs {
 .signal-banner__filter .custom-select__label {
   color: #ffffff !important;
 }
+
+/* ---------- Phase O — signal banner 3-zone + nav polish ---------- */
+
+/* (1) Brand block — pull the tagline UP so it sits directly below the
+ * SVG with minimal padding. Earlier `gap: 2px` was still leaving too
+ * much air; collapse the gap entirely and pull the tagline up via a
+ * small negative margin-top against the SVG baseline. */
+body.audit-immersive .top-nav__brand {
+  gap: 0 !important;
+}
+
+body.audit-immersive .top-nav__tagline {
+  margin-top: -4px !important;
+}
+
+/* (2) Profile avatar — bigger AND positioned higher on the page so it
+ * looks like a separate UI element from the rest of the nav row. */
+body.audit-immersive .top-nav__profile-wrapper {
+  align-self: flex-start !important;
+  margin-top: -8px !important;
+  margin-left: 16px !important;
+}
+
+body.audit-immersive .top-nav__profile {
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 16px !important;
+}
+
+/* (3) Signal banner — push it down a bit since perfect flushness keeps
+ * slipping. 8 px gap reads as intentional separation rather than a
+ * sub-pixel rounding artifact. Overrides the Phase M -4 px overlap. */
+body.audit-immersive .workflow-sticky-top {
+  margin-top: 8px !important;
+}
+
+/* (4) Three-zone layout — grid with left / center / right tracks so
+ * the center signal pill is always horizontally centered regardless
+ * of how wide the left or right zone gets. */
+.signal-banner--3zone {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 10px 22px !important;
+}
+
+.signal-banner__zone {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.signal-banner__zone--left {
+  justify-content: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.signal-banner__zone--center {
+  justify-content: center;
+}
+
+.signal-banner__zone--right {
+  justify-content: flex-end;
+}
+
+/* Each labelled field in the left zone — eyebrow above the value. */
+.signal-banner__field {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.signal-banner__eyebrow {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+}
+
+/* Pitcher name — same visual weight as the dropdown triggers so the
+ * left zone reads as a parallel labelled cluster. */
+.signal-banner__field--pitcher .signal-banner__value--inline {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  line-height: 1.1;
+  color: inherit;
+}
+
+/* The signal pill in the center zone — keep the existing pill shape
+ * but ensure it's the focal point. */
+.signal-banner__zone--center .signal-banner__value--pill {
+  font-size: 16px !important;
+  padding: 6px 18px !important;
+}
+
+/* (5) signal-banner--3zone wins over the older signal-banner--inline
+ * which had a different flex layout from Phase D / Phase G.1. The
+ * 3-zone grid is the authoritative layout when both classes are
+ * present. */
+.signal-banner.signal-banner--3zone {
+  flex-direction: row !important;
+  justify-content: stretch !important;
+}
