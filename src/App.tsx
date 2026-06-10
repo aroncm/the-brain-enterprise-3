@@ -56,6 +56,12 @@ import type {
 import { teamAccents } from "./teamAccents";
 import { useAuth } from "./context/AuthContext";
 import { AdminPage } from "./pages/AdminPage";
+import {
+  getCachedReplay,
+  setCachedReplay,
+  getCachedRecap,
+  setCachedRecap,
+} from "./cache";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
 type Workflow = "audit" | "briefings" | "admin";
@@ -4153,12 +4159,9 @@ function GameAudit({
   ];
   const pocketHitters = upcomingPocketHitters(selected);
 
-  useEffect(() => {
-    document.body.classList.add("audit-immersive");
-    return () => {
-      document.body.classList.remove("audit-immersive");
-    };
-  }, []);
+  // Phase R.1 — audit-immersive class is now added in App's
+  // top-level useEffect (gated on `workflow === "audit"`) so the new
+  // nav chrome applies during loadState === "loading" as well.
 
   useEffect(() => {
     setPitchIndex(0);
@@ -5595,22 +5598,55 @@ export default function App() {
     };
   }, [selectedTeam.abbr, season]);
 
+  // Phase R.1 — audit-immersive class application moved from
+  // GameAudit's mount-effect to App level so the new Phase H–Q nav
+  // chrome applies during loading + error states (not only when
+  // GameAudit has rendered with loadState === "ready"). Gated on
+  // workflow === "audit" so it doesn't leak onto other workflows.
+  useEffect(() => {
+    if (workflow !== "audit") return;
+    document.body.classList.add("audit-immersive");
+    return () => {
+      document.body.classList.remove("audit-immersive");
+    };
+  }, [workflow]);
+
+  // Phase R.3 — replay + recap fetch now checks the in-memory cache
+  // FIRST. Cache hits (from Phase R.4 prefetch or a prior visit to
+  // the same game in this session) become synchronous state updates;
+  // misses fall through to the network with the same payloads landing
+  // in the cache for next time.
   useEffect(() => {
     if (!selectedGameId) {
       setReplay(null);
       setRecap(null);
       return;
     }
+    const cachedReplay = getCachedReplay(selectedGameId);
+    const cachedRecap = getCachedRecap(selectedGameId);
+    if (cachedReplay && cachedRecap) {
+      setReplay(cachedReplay);
+      setRecap(cachedRecap);
+      return;
+    }
     let cancelled = false;
     async function loadGameContext() {
       try {
+        const replayPromise = cachedReplay
+          ? Promise.resolve(cachedReplay)
+          : fetchPitchingReplay(selectedGameId as string, "mlb");
+        const recapPromise = cachedRecap
+          ? Promise.resolve(cachedRecap)
+          : fetchPitchingRecap(selectedGameId as string, "mlb");
         const [replayPayload, recapPayload] = await Promise.all([
-          fetchPitchingReplay(selectedGameId, "mlb"),
-          fetchPitchingRecap(selectedGameId, "mlb"),
+          replayPromise,
+          recapPromise,
         ]);
         if (cancelled) return;
         setReplay(replayPayload);
         setRecap(recapPayload);
+        if (!cachedReplay) setCachedReplay(selectedGameId as string, replayPayload);
+        if (!cachedRecap) setCachedRecap(selectedGameId as string, recapPayload);
       } catch {
         if (!cancelled) {
           setReplay(null);
@@ -5623,6 +5659,37 @@ export default function App() {
       cancelled = true;
     };
   }, [selectedGameId]);
+
+  // Phase R.4 — background pre-fetch the most-recent game's replay +
+  // recap as soon as the games list arrives, so when the dropdown
+  // initializes and `selectedGameId` resolves to games[0].game_id the
+  // on-demand effect above is already a cache hit. Pre-fetch only the
+  // game NOT currently selected (skip if user already picked it) and
+  // only if the cache doesn't already have it.
+  useEffect(() => {
+    if (games.length === 0) return;
+    const prefetchId = games[0]?.game_id;
+    if (!prefetchId) return;
+    if (prefetchId === selectedGameId) return;
+    if (getCachedReplay(prefetchId) && getCachedRecap(prefetchId)) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [replayPayload, recapPayload] = await Promise.all([
+          fetchPitchingReplay(prefetchId, "mlb"),
+          fetchPitchingRecap(prefetchId, "mlb"),
+        ]);
+        if (cancelled) return;
+        setCachedReplay(prefetchId, replayPayload);
+        setCachedRecap(prefetchId, recapPayload);
+      } catch {
+        // best-effort prefetch — swallow errors
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [games]);
 
   const profiles = profilesPayload?.profiles ?? [];
   const bullpenOptions = payload?.bullpenOptions ?? [];
@@ -5654,11 +5721,19 @@ export default function App() {
       />
 
       <div className="app-main">
-        {loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />}
+        {/* Phase R.2 — the audit (Game Replays) workflow no longer waits
+          * for the slow fetchRunSavingBoard call to finish. As soon as
+          * the games list arrives from fetchEnterpriseGames, render
+          * GameAudit. Other workflows + the Data Ready pill still
+          * follow the original loadState semantics. */}
+        {workflow === "audit" && games.length === 0 && loadState === "loading" && (
+          <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />
+        )}
+        {workflow !== "audit" && loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />}
         {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Contact your Baseball brAIn admin to enable this workspace." />}
         {loadState === "error" && <EmptyState title="API source unavailable" detail="The Baseball brAIn API did not respond. Try again in a moment." />}
 
-        {loadState === "ready" && workflow === "audit" && (
+        {workflow === "audit" && games.length > 0 && (
           <GameAudit
             team={selectedTeam}
             games={games}
