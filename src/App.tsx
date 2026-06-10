@@ -1567,7 +1567,11 @@ function replaySignalDwellSummary(entries: PitchingReplayEntry[], statuses: stri
     const pitchesInZone = Math.max(0, currentPitch - firstPitch);
     parts.push(`${label} since pitch ${firstPitch}${pitchesInZone > 0 ? ` (${pitchesInZone} pitches)` : ""}`);
   }
-  return parts.length ? parts.join(" · ") : "No action signal reached yet.";
+  // Return empty when no action signal has been reached yet so the
+  // sticky-banner dwell chip renders nothing instead of the verbose
+  // placeholder. The `signalDwellSummary` check at the call site
+  // gates the chip on truthiness.
+  return parts.length ? parts.join(" · ") : "";
 }
 
 function relieverRssLabel(pitcher: PitchingRecapPitcher): string {

@@ -20221,3 +20221,46 @@ body.audit-immersive .workflow-sticky-top {
   flex-direction: row !important;
   justify-content: stretch !important;
 }
+
+/* ---------- Phase P — eyebrow contrast + bigger signal pill ---------- */
+
+/* (1) Eyebrows (STARTING PITCHER / SEASON / GAME) inherit the banner's
+ * text color so they're readable on any signal background. The Phase O
+ * default of rgba(0, 0, 0, 0.65) only had contrast on light banners
+ * like signal-watch (yellow); on signal-stay (dark navy/blue) the dark
+ * text vanished. Forcing currentColor lets each signal class drive
+ * eyebrow color via its own text color. */
+.signal-banner--3zone .signal-banner__eyebrow {
+  color: currentColor !important;
+  opacity: 0.72;
+}
+
+/* The existing .signal-banner--3col rule whitens eyebrows on dark
+ * signals — apply the same to .signal-banner--3zone so both layouts
+ * stay legible on signal-stay / signal-pull_now / signal-distress. */
+.theme-mobian .signal-banner--3zone.signal-stay .signal-banner__eyebrow,
+.theme-mobian .signal-banner--3zone.signal-pull_now .signal-banner__eyebrow,
+.theme-mobian .signal-banner--3zone.signal-distress .signal-banner__eyebrow {
+  color: rgba(255, 255, 255, 0.85) !important;
+  opacity: 1;
+}
+
+/* (2) Bigger signal pill. The center zone's WATCH / PREP / PULL NOW
+ * pill is the page's primary status indicator — give it real weight. */
+.signal-banner--3zone .signal-banner__zone--center .signal-banner__value--pill {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.6px !important;
+  padding: 10px 26px !important;
+  border-radius: 999px !important;
+}
+
+/* More space between the GAME dropdown (last item in the left zone)
+ * and the signal pill in the center. */
+.signal-banner--3zone {
+  gap: 28px !important;
+}
+
+.signal-banner--3zone .signal-banner__zone--left {
+  padding-right: 12px !important;
+}
