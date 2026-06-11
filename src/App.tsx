@@ -866,6 +866,29 @@ function pitcherOnlyPeak(
   return peak;
 }
 
+// Phase W.1 — Cumulative peak of `read(entry)` scoped to the SAME
+// appearance as entries[selectedIndex]. Used for the reliever rings so
+// the cumulative max only includes pitches by the same reliever (not
+// the starter's earlier pitches in the same entries timeline).
+function appearanceScopedPeak(
+  entries: PitchingReplayEntry[],
+  selectedIndex: number,
+  read: (entry: PitchingReplayEntry) => number | null | undefined,
+): number | undefined {
+  const target = entries[selectedIndex];
+  if (!target) return undefined;
+  const targetKey = appearanceKey(target);
+  let peak: number | undefined;
+  const cap = Math.min(selectedIndex + 1, entries.length);
+  for (let i = 0; i < cap; i++) {
+    if (appearanceKey(entries[i]) !== targetKey) continue;
+    const v = read(entries[i]);
+    if (v == null || !Number.isFinite(v)) continue;
+    peak = peak === undefined ? v : Math.max(peak, v);
+  }
+  return peak;
+}
+
 // Cumulative max of the headline decision_pressure_score across entries.
 // Falls back to starter_state.normalized_degradation_score when the
 // recommendation field is missing on older artifacts.
@@ -4017,7 +4040,6 @@ function GameAudit({
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
   const [autoplay, setAutoplay] = useState(false);
-  const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
   // Phase S — right-panel tab state. The Model Signal Factors section
   // is removed and its cards relocated either into the left sidebar or
@@ -4038,7 +4060,7 @@ function GameAudit({
     [replay, team.abbr],
   );
   const appearances = useMemo(() => {
-    const grouped = new Map<string, { key: string; label: string; role: string; count: number; firstPitch: number }>();
+    const grouped = new Map<string, { key: string; label: string; role: string; count: number; firstPitch: number; pitcherId: string }>();
     for (const entry of teamReplayEntries) {
       const key = appearanceKey(entry);
       const role = isRelieverReplayEntry(entry) ? "Reliever" : "Starter";
@@ -4054,6 +4076,7 @@ function GameAudit({
         label: `${entry.snapshot.pitcher_name} · ${role}`,
         count: 1,
         firstPitch: pitchCount(entry),
+        pitcherId: String(entry.snapshot.pitcher_id ?? ""),
       });
     }
     return Array.from(grouped.values()).sort((a, b) => {
@@ -4088,6 +4111,42 @@ function GameAudit({
   const bestCandidate = reliefOptions.find((candidate) => candidate.available) ?? reliefOptions[0] ?? null;
   const selectedState = selected ? replayState(selected) : null;
   const selectedIsReliever = isRelieverReplayEntry(selected);
+  // Phase W.3 — recap-side pitcher for the currently selected reliever
+  // entry. Drives the Outcome tab body.
+  const selectedReliever = selectedIsReliever
+    ? teamRelievers.find((pitcher) => String(pitcher.pitcher_id ?? "") === String(selected?.snapshot?.pitcher_id ?? "")) ?? null
+    : null;
+  // Phase W.10 — pitcher_id of the reliever who closed the game (last
+  // in teamRelievers). Drives the "Finished Game" pill in the
+  // appearance switcher.
+  const closerPitcherId = teamRelievers.length > 0
+    ? String(teamRelievers[teamRelievers.length - 1].pitcher_id ?? "")
+    : null;
+  // Phase W.2 — cumulative-peak RSS components scoped to the selected
+  // reliever's appearance only (not the starter's earlier pitches).
+  const rssScorePeak = selectedIsReliever
+    ? appearanceScopedPeak(entries, selectedIndex, (entry) => num(replayState(entry)?.rss_score))
+    : undefined;
+  const rssStuffPeak = selectedIsReliever
+    ? appearanceScopedPeak(entries, selectedIndex, (entry) => {
+        const s = replayState(entry) as { rss_stuff?: number | null } | null;
+        return num(s?.rss_stuff);
+      })
+    : undefined;
+  const rssCommandPeak = selectedIsReliever
+    ? appearanceScopedPeak(entries, selectedIndex, (entry) => {
+        const s = replayState(entry) as { rss_command?: number | null } | null;
+        return num(s?.rss_command);
+      })
+    : undefined;
+  const rssOutcomePeak = selectedIsReliever
+    ? appearanceScopedPeak(entries, selectedIndex, (entry) => {
+        const s = replayState(entry) as { rss_outcome?: number | null } | null;
+        return num(s?.rss_outcome);
+      })
+    : undefined;
+  // Per-appearance constants — read from the selected reliever state.
+  const rssState = selectedIsReliever ? (selectedState as { rss_handoff_risk?: number | null; rss_usage_fatigue?: number | null; rss_status?: string | null } | null) : null;
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
@@ -4477,118 +4536,246 @@ function GameAudit({
                 <div className="replay-tabs" role="tablist" aria-label="Replay detail tabs">
                   <button type="button" role="tab" aria-selected={rightTab === "signal"} className={`replay-tab${rightTab === "signal" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("signal")}>Signal Summary</button>
                   <button type="button" role="tab" aria-selected={rightTab === "model"} className={`replay-tab${rightTab === "model" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("model")}>Model Detail</button>
-                  <button type="button" role="tab" aria-selected={rightTab === "relief"} className={`replay-tab${rightTab === "relief" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("relief")}>Relief Edge</button>
+                  <button type="button" role="tab" aria-selected={rightTab === "relief"} className={`replay-tab${rightTab === "relief" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("relief")}>{selectedIsReliever ? "Outcome" : "Relief Edge"}</button>
                   <button type="button" role="tab" aria-selected={rightTab === "comparison"} className={`replay-tab${rightTab === "comparison" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("comparison")}>Comparison</button>
                 </div>
 
                 {rightTab === "signal" ? (
                   <div className="replay-tab-panel">
-                    {/* Phase V.8 — 4-cell row: Hook Score (large) +
-                      * Degradation Score (small) + Adjusted Degradation
-                      * Score (small) + Preventable Runs. Each cell wraps
-                      * in a ring-tip-host so the description text moves
-                      * into a hover/focus tooltip and the visible block
-                      * stays compact. */}
-                    <div className="signal-summary-rings">
-                      {(() => {
-                        const peak = headlineDegradationPeak;
-                        const pct = peak == null ? null : Math.round(clamp(peak) * 100);
-                        const degColor = signalColor(displayStatus);
-                        const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
-                          ? "bad"
-                          : statusRank(displayStatus) >= statusRank("PREP")
-                            ? "prep"
-                            : statusRank(displayStatus) >= statusRank("WATCH")
-                              ? "warn"
-                              : "good";
-                        return (
-                          <div className="signal-summary-ring signal-summary-ring--lg ring-tip-host" tabIndex={0}>
-                            <span className="signal-summary-ring__label">Hook Score</span>
-                            <div className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": degColor } as CSSProperties}>
-                              <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                            </div>
-                            <div className="ring-tip-bubble" role="tooltip">
-                              <strong>Hook Score.</strong> {decisionPressurePhrase(peak)} Composite: pitcher decay × game leverage × relief edge × opponent context.
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      {(() => {
-                        const v = pitcherOnlyConcern;
-                        const clamped = v == null ? null : Math.max(0, Math.min(1, v));
-                        const pct = clamped == null ? null : Math.round(clamped * 100);
-                        const role = concernRole(clamped);
-                        const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
-                        const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
-                        return (
-                          <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
-                            <span className="signal-summary-ring__label">Degradation Score</span>
-                            <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
-                              <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                            </div>
-                            <div className="ring-tip-bubble" role="tooltip">
-                              <strong>Degradation Score.</strong> Pitcher's own decay only — ignores leverage and relief alternatives.
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      {(() => {
-                        // Phase V.10 — cumulative peak (monotonic) in 0–1
-                        // ring space; matches Hook Score + Degradation
-                        // Score behavior so the three rings move together.
-                        const v = enhancedConcern;
-                        const clamped = v == null ? null : Math.max(0, Math.min(1, v));
-                        const pct = clamped == null ? null : Math.round(clamped * 100);
-                        const role = concernRole(clamped);
-                        const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
-                        const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
-                        return (
-                          <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
-                            <span className="signal-summary-ring__label">Adjusted Degradation Score</span>
-                            <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
-                              <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                            </div>
-                            <div className="ring-tip-bubble" role="tooltip">
-                              <strong>Adjusted Degradation Score.</strong> Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load).
-                            </div>
-                          </div>
-                        );
-                      })()}
-                      {/* Phase V.8 — Preventable Runs moves INSIDE the
-                        * rings row as cell 4. Same hover-tooltip pattern. */}
-                      <div className="signal-summary-preventable ring-tip-host" tabIndex={0}>
-                        <span className="signal-summary-ring__label">Preventable Runs</span>
-                        <strong className="decision-score-value decision-score-value--amber">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
-                        <div className="ring-tip-bubble" role="tooltip">
-                          <strong>Preventable Runs.</strong> {selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Estimated runs saved by pulling at this pitch versus letting the appearance continue." : "Not attached to this pitch window."}
+                    {/* Phase V.8 — 4-cell rings row + 2x2 below.
+                      * Phase W.2 — when the selected entry is a reliever
+                      * the same chrome renders RSS-specific data. */}
+                    {selectedIsReliever ? (
+                      <>
+                        <div className="signal-summary-rings">
+                          {(() => {
+                            // RSS Score — cumulative peak scoped to this reliever's appearance.
+                            const peak = rssScorePeak;
+                            const pct = peak == null ? null : Math.round(Math.max(0, Math.min(1, peak)) * 100);
+                            const tier = peak == null ? "good" : peak >= 0.50 ? "bad" : peak >= 0.25 ? "warn" : "good";
+                            const ringColor = peak == null ? "#2ec4a0" : peak >= 0.50 ? "#e05b4b" : peak >= 0.25 ? "#fce066" : "#2ec4a0";
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--lg ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">RSS Score</span>
+                                <div className={`degradation-ring degradation-ring--lg degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>RSS Score.</strong> Reliever Stress Signal — composite of stuff, command, outcome, handoff, and usage signals after this reliever entered the game.
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const peak = rssStuffPeak;
+                            const pct = peak == null ? null : Math.round(Math.max(0, Math.min(1, peak)) * 100);
+                            const tier = peak == null ? "good" : peak >= 0.50 ? "bad" : peak >= 0.25 ? "warn" : "good";
+                            const ringColor = peak == null ? "#2ec4a0" : peak >= 0.50 ? "#e05b4b" : peak >= 0.25 ? "#fce066" : "#2ec4a0";
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">RSS Stuff</span>
+                                <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>RSS Stuff.</strong> Velocity drop, spin drop, and pitch-mix drift while this reliever has been in.
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const peak = rssCommandPeak;
+                            const pct = peak == null ? null : Math.round(Math.max(0, Math.min(1, peak)) * 100);
+                            const tier = peak == null ? "good" : peak >= 0.50 ? "bad" : peak >= 0.25 ? "warn" : "good";
+                            const ringColor = peak == null ? "#2ec4a0" : peak >= 0.50 ? "#e05b4b" : peak >= 0.25 ? "#fce066" : "#2ec4a0";
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">RSS Command</span>
+                                <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>RSS Command.</strong> Location spread, zone miss, and ball rate vs this reliever's baseline.
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const peak = rssOutcomePeak;
+                            const pct = peak == null ? null : Math.round(Math.max(0, Math.min(1, peak)) * 100);
+                            const tier = peak == null ? "good" : peak >= 0.50 ? "bad" : peak >= 0.25 ? "warn" : "good";
+                            const ringColor = peak == null ? "#2ec4a0" : peak >= 0.50 ? "#e05b4b" : peak >= 0.25 ? "#fce066" : "#2ec4a0";
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">RSS Outcome</span>
+                                <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>RSS Outcome.</strong> Hard contact, swinging-strike drop, and called-strike drop in this appearance.
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
-                      </div>
-                    </div>
 
-                    {/* S.4 — 4-card 2x2 grid (Stuff/Command/Workload/Leverage). Unchanged content. */}
-                    <div className="decision-gauge-grid">
-                      <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
-                      <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
-                      <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
-                      {(() => {
-                        const lev = num(selected.snapshot.leverage_index);
-                        const scaledLev = lev == null ? undefined : Math.min(1, lev / 3);
-                        return (
-                          <GaugeMetric
-                            label="Leverage"
-                            value={fmtNumber(selected.snapshot.leverage_index, 2)}
-                            detail="Baseline 1.0 · High ≈ 1.5 · Scale 0–3.0."
-                            percent={scaledLev}
-                            benchmarks={[
-                              { percent: 1 / 3, label: "1.0" },
-                              { percent: 1.5 / 3, label: "1.5" },
-                            ]}
-                            tone="neutral"
-                            role={null}
-                          />
-                        );
-                      })()}
-                    </div>
+                        {/* Phase W.2 — 2x2 below: Handoff Risk · Usage Fatigue · Leverage · Status. */}
+                        <div className="decision-gauge-grid">
+                          {(() => {
+                            const v = num(rssState?.rss_handoff_risk);
+                            return (
+                              <GaugeMetric
+                                label="Handoff Risk"
+                                value={v == null ? UNAVAILABLE : fmtNumber(v, 2)}
+                                detail="Inherited situation difficulty when this reliever entered."
+                                percent={v == null ? undefined : Math.max(0, Math.min(1, v))}
+                                tone={v == null ? "neutral" : v >= 0.50 ? "bad" : v >= 0.25 ? "warn" : "good"}
+                                role={null}
+                              />
+                            );
+                          })()}
+                          {(() => {
+                            const v = num(rssState?.rss_usage_fatigue);
+                            return (
+                              <GaugeMetric
+                                label="Usage Fatigue"
+                                value={v == null ? UNAVAILABLE : fmtNumber(v, 2)}
+                                detail="Workload pressure from recent appearances and back-to-back use."
+                                percent={v == null ? undefined : Math.max(0, Math.min(1, v))}
+                                tone={v == null ? "neutral" : v >= 0.50 ? "bad" : v >= 0.25 ? "warn" : "good"}
+                                role={null}
+                              />
+                            );
+                          })()}
+                          {(() => {
+                            const lev = num(selected.snapshot.leverage_index);
+                            const scaledLev = lev == null ? undefined : Math.min(1, lev / 3);
+                            return (
+                              <GaugeMetric
+                                label="Leverage"
+                                value={fmtNumber(selected.snapshot.leverage_index, 2)}
+                                detail="Baseline 1.0 · High ≈ 1.5 · Scale 0–3.0."
+                                percent={scaledLev}
+                                benchmarks={[
+                                  { percent: 1 / 3, label: "1.0" },
+                                  { percent: 1.5 / 3, label: "1.5" },
+                                ]}
+                                tone="neutral"
+                                role={null}
+                              />
+                            );
+                          })()}
+                          {(() => {
+                            const status = (rssState?.rss_status ?? "OK").toUpperCase();
+                            const tone = status === "DISTRESS" ? "bad" : status === "WATCH" ? "warn" : "good";
+                            return (
+                              <div className={`rss-status-card rss-status-card--${tone}`}>
+                                <span className="rss-status-card__label">Status</span>
+                                <strong className="rss-status-card__pill">{status}</strong>
+                                <em className="rss-status-card__note">Backend RSS tier (OK · WATCH · DISTRESS).</em>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="signal-summary-rings">
+                          {(() => {
+                            const peak = headlineDegradationPeak;
+                            const pct = peak == null ? null : Math.round(clamp(peak) * 100);
+                            const degColor = signalColor(displayStatus);
+                            const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
+                              ? "bad"
+                              : statusRank(displayStatus) >= statusRank("PREP")
+                                ? "prep"
+                                : statusRank(displayStatus) >= statusRank("WATCH")
+                                  ? "warn"
+                                  : "good";
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--lg ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">Hook Score</span>
+                                <div className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": degColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>Hook Score.</strong> {decisionPressurePhrase(peak)} Composite: pitcher decay × game leverage × relief edge × opponent context.
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const v = pitcherOnlyConcern;
+                            const clamped = v == null ? null : Math.max(0, Math.min(1, v));
+                            const pct = clamped == null ? null : Math.round(clamped * 100);
+                            const role = concernRole(clamped);
+                            const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
+                            const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">Degradation Score</span>
+                                <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>Degradation Score.</strong> Pitcher's own decay only — ignores leverage and relief alternatives.
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {(() => {
+                            const v = enhancedConcern;
+                            const clamped = v == null ? null : Math.max(0, Math.min(1, v));
+                            const pct = clamped == null ? null : Math.round(clamped * 100);
+                            const role = concernRole(clamped);
+                            const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
+                            const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
+                            return (
+                              <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
+                                <span className="signal-summary-ring__label">Adjusted Degradation Score</span>
+                                <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                                </div>
+                                <div className="ring-tip-bubble" role="tooltip">
+                                  <strong>Adjusted Degradation Score.</strong> Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load).
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          <div className="signal-summary-preventable ring-tip-host" tabIndex={0}>
+                            <span className="signal-summary-ring__label">Preventable Runs</span>
+                            <strong className="decision-score-value decision-score-value--amber">{fmtRuns(selectedPreventableRuns)}</strong>
+                            <div className="ring-tip-bubble" role="tooltip">
+                              <strong>Preventable Runs.</strong> {selectedOpportunity ? "Estimated runs saved by pulling at this pitch versus letting the appearance continue." : "Not attached to this pitch window."}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="decision-gauge-grid">
+                          <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
+                          <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
+                          <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+                          {(() => {
+                            const lev = num(selected.snapshot.leverage_index);
+                            const scaledLev = lev == null ? undefined : Math.min(1, lev / 3);
+                            return (
+                              <GaugeMetric
+                                label="Leverage"
+                                value={fmtNumber(selected.snapshot.leverage_index, 2)}
+                                detail="Baseline 1.0 · High ≈ 1.5 · Scale 0–3.0."
+                                percent={scaledLev}
+                                benchmarks={[
+                                  { percent: 1 / 3, label: "1.0" },
+                                  { percent: 1.5 / 3, label: "1.5" },
+                                ]}
+                                tone="neutral"
+                                role={null}
+                              />
+                            );
+                          })()}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ) : null}
 
@@ -4647,68 +4834,112 @@ function GameAudit({
 
                 {rightTab === "relief" ? (
                   <div className="replay-tab-panel">
-                    {/* S.6 — Relief Edge banner at top, then full
-                      * (uncapped) Relief Options list below. */}
-                    <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
-                      <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
-                      {selectedIsReliever ? (
-                        <p>
-                          This bullpen view tracks the reliever's own RSS: stuff, command, outcome, handoff, and workload pressure after entering the game.
-                        </p>
-                      ) : hasWatchSignal ? (
-                        <p>
-                          {bestCandidate?.player_name || "Best alternative"} changes the next-batter pocket by{" "}
-                          <b>{fmtSigned(selected.recommendation.decision_delta, 2)}</b> runs versus staying with the starter.
-                        </p>
-                      ) : (
-                        <p>Before WATCH, the replay stays focused on pitcher evidence. Bullpen alternatives are shown once the first action signal appears.</p>
-                      )}
-                    </div>
-                    {hasWatchSignal && !selectedIsReliever ? (
-                      <section className="relief-options">
-                        <h5 className="relief-options__heading">Relief Options</h5>
-                        {reliefOptions.length === 0 ? (
-                          <p className="relief-options__empty">No relief alternatives were attached to this pitch window.</p>
-                        ) : (
-                          (() => {
-                            // Phase T.10 — show 3 by default; expand on click.
-                            const visible = showAllRelief ? reliefOptions : reliefOptions.slice(0, 3);
-                            const hidden = Math.max(0, reliefOptions.length - visible.length);
-                            return (
-                              <>
-                                {visible.map((candidate) => (
-                                  <GaugeMetric
-                                    key={candidate.player_id}
-                                    label={candidate.player_name}
-                                    value={candidate.available ? "Available" : "Not available"}
-                                    detail={`Net option ${fmtNumber(candidate.net_option_score, 2)} · usage cost ${fmtNumber(candidate.usage_cost, 2)} · matchup ${fmtNumber(candidate.direct_matchup_fit, 2)}`}
-                                    percent={scaledPercent(candidate.net_option_score, 1)}
-                                    tone={candidate.available ? "good" : "neutral"}
-                                  />
-                                ))}
-                                {hidden > 0 ? (
-                                  <button
-                                    type="button"
-                                    className="relief-options__more"
-                                    onClick={() => setShowAllRelief(true)}
-                                  >
-                                    Show all ({reliefOptions.length})
-                                  </button>
-                                ) : showAllRelief && reliefOptions.length > 3 ? (
-                                  <button
-                                    type="button"
-                                    className="relief-options__more"
-                                    onClick={() => setShowAllRelief(false)}
-                                  >
-                                    Show fewer
-                                  </button>
-                                ) : null}
-                              </>
-                            );
-                          })()
-                        )}
-                      </section>
-                    ) : null}
+                    {selectedIsReliever ? (
+                      <>
+                        {/* Phase W.3 — Reliever Outcome banner + 2x2
+                          * postgame summary cards. The recap-side
+                          * pitcher record drives all four cards; if
+                          * not yet finished, "Active" / dashes show. */}
+                        <div className="decision-delta decision-delta--active">
+                          <strong>Reliever Outcome</strong>
+                          <p>
+                            {selectedReliever
+                              ? relieverOutcomeCopy(selectedReliever)
+                              : "Outcome will populate after the game completes."}
+                          </p>
+                        </div>
+                        <div className="decision-gauge-grid">
+                          <div className="reliever-outcome-card">
+                            <span className="reliever-outcome-card__label">Innings Pitched</span>
+                            <strong className="reliever-outcome-card__value">
+                              {selectedReliever?.innings_pitched != null ? `${fmtNumber(selectedReliever.innings_pitched, 1)} IP` : "Active"}
+                            </strong>
+                          </div>
+                          <div className="reliever-outcome-card">
+                            <span className="reliever-outcome-card__label">Pitches Thrown</span>
+                            <strong className="reliever-outcome-card__value">
+                              {selectedReliever?.pitch_count ?? "—"}
+                            </strong>
+                          </div>
+                          <div className="reliever-outcome-card">
+                            <span className="reliever-outcome-card__label">Runs Allowed</span>
+                            <strong className="reliever-outcome-card__value">
+                              {selectedReliever?.runs_allowed_total ?? "—"}
+                            </strong>
+                            <em className="reliever-outcome-card__note">
+                              {selectedReliever?.runs_allowed_after_signal != null ? `${selectedReliever.runs_allowed_after_signal} after RSS trigger` : "After-RSS unavailable"}
+                            </em>
+                          </div>
+                          <div className="reliever-outcome-card">
+                            <span className="reliever-outcome-card__label">Exit Inning</span>
+                            <strong className="reliever-outcome-card__value">
+                              {selectedReliever?.actual_exit_inning ?? "Active"}
+                            </strong>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* S.6 — Relief Edge banner at top, then full
+                          * (uncapped) Relief Options list below. */}
+                        <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
+                          <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
+                          {hasWatchSignal ? (
+                            <p>
+                              {bestCandidate?.player_name || "Best alternative"} changes the next-batter pocket by{" "}
+                              <b>{fmtSigned(selected.recommendation.decision_delta, 2)}</b> runs versus staying with the starter.
+                            </p>
+                          ) : (
+                            <p>Before WATCH, the replay stays focused on pitcher evidence. Bullpen alternatives are shown once the first action signal appears.</p>
+                          )}
+                        </div>
+                        {hasWatchSignal ? (
+                          <section className="relief-options">
+                            <h5 className="relief-options__heading">Relief Options</h5>
+                            {reliefOptions.length === 0 ? (
+                              <p className="relief-options__empty">No relief alternatives were attached to this pitch window.</p>
+                            ) : (
+                              (() => {
+                                // Phase T.10 — show 3 by default; expand on click.
+                                const visible = showAllRelief ? reliefOptions : reliefOptions.slice(0, 3);
+                                const hidden = Math.max(0, reliefOptions.length - visible.length);
+                                return (
+                                  <>
+                                    {visible.map((candidate) => (
+                                      <GaugeMetric
+                                        key={candidate.player_id}
+                                        label={candidate.player_name}
+                                        value={candidate.available ? "Available" : "Not available"}
+                                        detail={`Net option ${fmtNumber(candidate.net_option_score, 2)} · usage cost ${fmtNumber(candidate.usage_cost, 2)} · matchup ${fmtNumber(candidate.direct_matchup_fit, 2)}`}
+                                        percent={scaledPercent(candidate.net_option_score, 1)}
+                                        tone={candidate.available ? "good" : "neutral"}
+                                      />
+                                    ))}
+                                    {hidden > 0 ? (
+                                      <button
+                                        type="button"
+                                        className="relief-options__more"
+                                        onClick={() => setShowAllRelief(true)}
+                                      >
+                                        Show all ({reliefOptions.length})
+                                      </button>
+                                    ) : showAllRelief && reliefOptions.length > 3 ? (
+                                      <button
+                                        type="button"
+                                        className="relief-options__more"
+                                        onClick={() => setShowAllRelief(false)}
+                                      >
+                                        Show fewer
+                                      </button>
+                                    ) : null}
+                                  </>
+                                );
+                              })()
+                            )}
+                          </section>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 ) : null}
 
@@ -4757,6 +4988,10 @@ function GameAudit({
                     >
                       {item.label}
                       <span>{item.count} pitches</span>
+                      {/* Phase W.10 — pill on the reliever who closed the game. */}
+                      {closerPitcherId && item.pitcherId === closerPitcherId ? (
+                        <span className="appearance-pill appearance-pill--finished">Finished Game</span>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -4784,58 +5019,10 @@ function GameAudit({
           </article>
 
 
-          {teamRelievers.length > 0 ? (
-            <article className={`panel rss-panel${rssOpen ? "" : " panel--collapsed"}`}>
-              <div className="panel__header">
-                <p className="eyebrow model-signal-eyebrow">
-                  <span className="model-signal-dot model-signal-dot--rss" aria-hidden="true" />
-                  Reliever Stress Signal
-                </p>
-                <button
-                  type="button"
-                  className="panel__toggle panel__toggle--rss"
-                  aria-label={rssOpen ? "Collapse Reliever Stress Signal" : "Expand Reliever Stress Signal"}
-                  aria-expanded={rssOpen}
-                  onClick={() => setRssOpen((o) => !o)}
-                >
-                  {rssOpen ? <Minus size={16} /> : <Plus size={16} />}
-                </button>
-              </div>
-              <div className="panel__body">
-              <div className="rss-table">
-                {teamRelievers.map((pitcher, index) => (
-                  <div key={pitcher.pitcher_id || pitcher.pitcher_name} className="rss-row">
-                    <div>
-                      <div className="rss-row__name">
-                        <strong>{pitcher.pitcher_name}</strong>
-                        {index === teamRelievers.length - 1 ? (
-                          <span className="rss-finished-pill">Finished Game</span>
-                        ) : null}
-                      </div>
-                      <span>{fmtNumber(pitcher.innings_pitched, 1)} IP · {pitcher.pitch_count ?? "—"} pitches · {pitcher.runs_allowed_total ?? "—"} R</span>
-                    </div>
-                    <div>
-                      <strong>{relieverRssLabel(pitcher)}</strong>
-                      <span>{relieverRssTimingCopy(pitcher)}</span>
-                      <div className="rss-component-grid">
-                        {relieverRssComponents(pitcher).map((component) => (
-                          <span key={component.label} className="rss-component">
-                            <em>{component.label}</em>
-                            <b>{component.value == null ? UNAVAILABLE : fmtNumber(component.value, 2)}</b>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <strong>Outcome</strong>
-                      <span>{relieverOutcomeCopy(pitcher)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              </div>
-            </article>
-          ) : null}
+          {/* Phase W.5 — Reliever Stress Signal panel removed. Its
+            * data now renders inside the reliever-variant Signal
+            * Summary tab (RSS Score + components + handoff/usage) and
+            * Outcome tab (postgame IP / pitches / runs / exit inning). */}
 
           <article className={`panel counterfactual-panel${outcomeOpen ? "" : " panel--collapsed"}`}>
             <div className="panel__header">

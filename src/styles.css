@@ -21012,3 +21012,124 @@ body.audit-immersive .relief-options__more {
 body.audit-immersive .relief-options__more:hover {
   background: rgba(46, 196, 160, 0.25) !important;
 }
+
+/* ==========================================================================
+ * Phase W — Reliever screen variant.
+ * Right-panel tabs (Signal Summary + Outcome) swap to reliever-specific
+ * data when selectedIsReliever. CSS adds: a Status card for the 4th cell
+ * of the reliever rings 2x2, the Outcome tab card chrome, and a
+ * "Finished Game" pill inside the appearance switcher.
+ * ========================================================================== */
+
+/* W.2 — Status card (4th cell of the reliever 2x2 grid). Renders as a
+ * compact panel with a colored pill matching the backend RSS tier. */
+body.audit-immersive .rss-status-card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  background: var(--mobian-panel-bg, #141414) !important;
+  border: 1px solid var(--mobian-line, #1f1f1f) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  text-align: center !important;
+}
+
+body.audit-immersive .rss-status-card__label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+}
+
+body.audit-immersive .rss-status-card__pill {
+  display: inline-block !important;
+  padding: 6px 14px !important;
+  border-radius: 999px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  background: rgba(46, 196, 160, 0.18) !important;
+  color: #2ec4a0 !important;
+  border: 1px solid #2ec4a0 !important;
+}
+
+body.audit-immersive .rss-status-card--warn .rss-status-card__pill {
+  background: rgba(252, 224, 102, 0.18) !important;
+  color: #fce066 !important;
+  border-color: #fce066 !important;
+}
+
+body.audit-immersive .rss-status-card--bad .rss-status-card__pill {
+  background: rgba(224, 91, 75, 0.18) !important;
+  color: #e05b4b !important;
+  border-color: #e05b4b !important;
+}
+
+body.audit-immersive .rss-status-card__note {
+  font-size: 10px !important;
+  font-style: normal !important;
+  color: #6a6a6a !important;
+  letter-spacing: 0.2px !important;
+}
+
+/* W.3 — Reliever Outcome tab cards (Innings Pitched / Pitches / Runs
+ * Allowed / Exit Inning). Same panel chrome as the Signal Summary 2x2
+ * so the tabs read consistently. */
+body.audit-immersive .reliever-outcome-card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  background: var(--mobian-panel-bg, #141414) !important;
+  border: 1px solid var(--mobian-line, #1f1f1f) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+body.audit-immersive .reliever-outcome-card__label {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+}
+
+body.audit-immersive .reliever-outcome-card__value {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #f5f5f5 !important;
+  line-height: 1.1 !important;
+}
+
+body.audit-immersive .reliever-outcome-card__note {
+  font-size: 11px !important;
+  font-style: normal !important;
+  color: #6a6a6a !important;
+  letter-spacing: 0.2px !important;
+}
+
+/* W.10 — "Finished Game" pill inside the appearance-switcher button.
+ * Mirrors the prior .rss-finished-pill styling so the user sees the
+ * same chip in its new home. */
+body.audit-immersive .appearance-pill {
+  display: inline-block !important;
+  margin-left: 8px !important;
+  padding: 2px 8px !important;
+  border-radius: 999px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+  vertical-align: middle !important;
+}
+
+body.audit-immersive .appearance-pill--finished {
+  background: rgba(46, 196, 160, 0.18) !important;
+  color: #2ec4a0 !important;
+  border: 1px solid #2ec4a0 !important;
+}
