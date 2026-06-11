@@ -20726,3 +20726,103 @@ body.audit-immersive .signal-summary-rings {
 .theme-mobian .model-detail-col {
   align-self: start !important;
 }
+
+/* ==========================================================================
+ * Phase U — Single-screen polish round 2.
+ * Forensic-CSS pass. Earlier rounds chased the wrong selectors; this block
+ * overrides the actual culprits last in the cascade so the fixes stick.
+ * ========================================================================== */
+
+/* U.1 — Brand block centered on the nav row.
+ * Real culprit: body.audit-immersive .top-nav__row--primary {
+ *   align-items: flex-start !important
+ * } at the Phase T region. Past phases targeted .top-nav__brand directly,
+ * which doesn't override the row's flex layout. Re-anchor the row to
+ * center its children. */
+body.audit-immersive .top-nav .top-nav__row--primary {
+  align-items: center !important;
+}
+
+/* U.2 — Yellow signal banner flush against the top of the 3-column body.
+ * Real culprit: .replay-layout { padding: 22px } at styles.css:980. The
+ * 22 px top padding pushes the body panels down, creating the gap. Also
+ * trim the banner's bottom padding so the body buts directly against it. */
+body.audit-immersive .replay-layout {
+  padding-top: 0 !important;
+}
+
+body.audit-immersive .signal-banner--3zone {
+  padding-bottom: 6px !important;
+}
+
+/* U.4 — Pitch Mix Drift renders as a Signal-Summary-card-style standalone.
+ * Mirrors the Stuff Decay / Command Decay / Workload / Leverage chrome on
+ * the right panel so the sidebar gauge reads as the same kind of indicator. */
+body.audit-immersive .pws-mix-drift-card {
+  background: var(--mobian-panel-bg, #141414) !important;
+  border: 1px solid var(--mobian-line, #1f1f1f) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  margin: 0 !important;
+}
+
+body.audit-immersive .pws-mix-drift-card .evidence-gauge {
+  margin: 0 !important;
+}
+
+/* U.3 — Pitch Mix Snapshot below the strike zone, centered, compact chrome. */
+body.audit-immersive .strike-zone-mix-snapshot {
+  margin-top: 12px !important;
+  display: flex !important;
+  justify-content: center !important;
+}
+
+body.audit-immersive .strike-zone-mix-snapshot > * {
+  width: 100% !important;
+  max-width: 360px !important;
+}
+
+/* U.5 — Strike zone sits directly below the pitch detail cards. Drop the
+ * vertical gap so cards + zone read as one visual stack. */
+body.audit-immersive .strike-zone-wrap {
+  margin-top: 0 !important;
+}
+
+body.audit-immersive .cpw-strip--two-row {
+  margin-bottom: 6px !important;
+}
+
+/* U.7 + U.8 + U.10 — Three-row grid inside each ring so the rings, labels,
+ * and descriptions line up across the three columns regardless of ring size.
+ *   Row 1 (auto): label — sized to the tallest label (2-line Adjusted)
+ *   Row 2 (152px): ring — small rings center vertically; centerlines align
+ *   Row 3 (1fr): description — tops align across all three columns */
+body.audit-immersive .signal-summary-rings {
+  align-items: stretch !important;
+}
+
+body.audit-immersive .signal-summary-ring {
+  display: grid !important;
+  grid-template-rows: auto 152px 1fr !important;
+  justify-items: center !important;
+  align-items: center !important;
+  row-gap: 8px !important;
+}
+
+/* U.10 — Adjusted Degradation Score label wraps to 2 lines and centers
+ * vertically + horizontally inside the auto-sized label row, so the
+ * single-line Hook Score + Degradation Score labels sit center-aligned
+ * to the 2-line label's row height. */
+body.audit-immersive .signal-summary-ring__label {
+  text-align: center !important;
+  align-self: center !important;
+}
+
+/* U.11 — Preventable Runs description constrained to ~2 lines, centered. */
+body.audit-immersive .signal-summary-preventable .signal-summary-ring__note,
+body.audit-immersive .signal-summary-preventable .signal-summary-ring__note--sub {
+  max-width: 240px !important;
+  text-align: center !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}

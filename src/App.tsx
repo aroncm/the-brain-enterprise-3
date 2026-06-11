@@ -488,8 +488,9 @@ function pitchFactItems(snapshot: PitchingReplayEntry["snapshot"]): Array<{ labe
   const result = officialScoringLabel(snapshot) || pitchOutcomeLabel(snapshot) || "Pitch";
   const hitClass = hitClassificationLabel(snapshot);
   return [
-    { label: "Result", value: result, secondary: hitClass && hitClass !== result ? hitClass : null },
-    { label: "Pitch", value: currentPitchName(snapshot) },
+    // Phase U.6 — renamed from "Result" → "Pitch Result" and "Pitch" → "Pitch Type".
+    { label: "Pitch Result", value: result, secondary: hitClass && hitClass !== result ? hitClass : null },
+    { label: "Pitch Type", value: currentPitchName(snapshot) },
     { label: "Velocity", value: snapshot.release_speed == null ? "Unavailable" : `${fmtNumber(snapshot.release_speed, 1)} mph` },
     { label: "H-Mov", value: horizontal ?? "Unavailable" },
     { label: "V-Mov", value: vertical ?? "Unavailable" },
@@ -4120,6 +4121,16 @@ function GameAudit({
   const pitcherOnlyCurrentConcern = pitcherOnlyDegradationConcern(selected);
   const pitcherOnlyConcern = pitcherOnlyPeak(entries, selectedIndex);
   const enhancedCurrentConcern = scaledConcern(num(selectedState?.enhanced_degradation_score), 3);
+  // Phase U.12 — cumulative-peak enhanced_degradation_score across
+  // entries[0..selectedIndex]. The Adjusted Degradation Score ring used
+  // to bind to the per-pitch raw value (non-monotonic). This peak is
+  // what Hook Score + Degradation Score have always used and what the
+  // user expects from the right-panel rings.
+  const enhancedConcern = cumulativeIndexedMetricConcern(
+    entries,
+    selectedIndex,
+    (entry) => num(replayState(entry)?.enhanced_degradation_score),
+  );
   const whiffConcern = componentPeak(entries, selectedIndex, "whiff");
   const pitchMixDriftConcern = componentPeak(entries, selectedIndex, "pitch_mix");
   const hardContactConcern = componentPeak(entries, selectedIndex, "contact");
@@ -4349,25 +4360,23 @@ function GameAudit({
                   )}
                 </section>
 
-                {/* Phase S.2 — Pitch Mix Snapshot stays in place; Pitch
-                  * Mix Drift card from the (removed) Model Signal
-                  * Factors section now renders inline to the right. */}
-                <div className="pws-mix-row">
-                  <PitchMixSnapshot entries={entries} selectedIndex={selectedIndex} />
-                  <div className="pws-mix-drift">
-                    {(() => {
-                      const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
-                      return <GaugeMetric
-                        label="Pitch Mix Drift"
-                        value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
-                        detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)}`}
-                        percent={cmp?.scaledPercent}
-                        benchmarks={[{ percent: 0.1, label: "league" }]}
-                        tone={factorVsLeagueTone(cmp)}
-                        role={null}
-                      />;
-                    })()}
-                  </div>
+                {/* Phase U.3/U.4 — Pitch Mix Snapshot relocated to the
+                  * strike-zone column below the strike zone. Pitch Mix
+                  * Drift remains here, wrapped in a Signal-Summary-card
+                  * chrome so it matches the right-panel gauge cards. */}
+                <div className="pws-mix-drift-card">
+                  {(() => {
+                    const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
+                    return <GaugeMetric
+                      label="Pitch Mix Drift"
+                      value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
+                      detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)}`}
+                      percent={cmp?.scaledPercent}
+                      benchmarks={[{ percent: 0.1, label: "league" }]}
+                      tone={factorVsLeagueTone(cmp)}
+                      role={null}
+                    />;
+                  })()}
                 </div>
 
                 {/* Phase S.2 — Velocity + Spin trendlines moved from
@@ -4446,6 +4455,12 @@ function GameAudit({
                 <div className="strike-zone-wrap">
                   <PitchPlot entries={entries} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
                 </div>
+                {/* Phase U.3 — Pitch Mix Snapshot moved here from the
+                  * left sidebar so it pairs with the pitch visualization
+                  * in the center column. */}
+                <div className="strike-zone-mix-snapshot">
+                  <PitchMixSnapshot entries={entries} selectedIndex={selectedIndex} />
+                </div>
               </div>
 
               {/* Phase S.3 — right panel is now tabbed. Four tabs:
@@ -4508,7 +4523,11 @@ function GameAudit({
                         );
                       })()}
                       {(() => {
-                        const v = num(selectedState?.enhanced_degradation_score);
+                        // Phase U.12 — cumulative peak (monotonic) instead of
+                        // per-pitch raw. Mirrors Hook Score + Degradation Score
+                        // behavior so the three rings move together as the
+                        // appearance progresses.
+                        const v = enhancedConcern;
                         const clamped = v == null ? null : Math.max(0, Math.min(1, v));
                         const pct = clamped == null ? null : Math.round(clamped * 100);
                         const role = concernRole(clamped);
