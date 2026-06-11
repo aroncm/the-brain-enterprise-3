@@ -20826,3 +20826,189 @@ body.audit-immersive .signal-summary-preventable .signal-summary-ring__note--sub
   margin-left: auto !important;
   margin-right: auto !important;
 }
+
+/* ==========================================================================
+ * Phase V — Single-screen polish round 3.
+ * Header centering + team-name truncation + signal-banner width + sidebar
+ * scroll + strike-zone gap + pitch-card sizing + 4-cell rings row with
+ * hover tooltips + Model Detail re-order + Show All button.
+ * ========================================================================== */
+
+/* V.1 — Brand block visually centered. Grow the nav vertical padding so the
+ * centered row has breathing room above + below. (.top-nav__row--primary
+ * already has align-items: center from U.1.) */
+body.audit-immersive .top-nav {
+  padding-top: 18px !important;
+  padding-bottom: 12px !important;
+}
+
+/* V.1 — Team name no longer truncates. The overflow: hidden + nowrap +
+ * text-overflow: ellipsis from earlier phases produced "Arizona Diamondba…".
+ * Allow wrap; the grid cell sizes to content. */
+body.audit-immersive .top-nav__context {
+  max-width: none !important;
+  overflow: visible !important;
+}
+
+body.audit-immersive .top-nav__context .top-nav__team-name,
+body.audit-immersive .top-nav__context .top-nav__page {
+  overflow: visible !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+  line-height: 1.05 !important;
+}
+
+/* V.2 — Signal banner left + right edges line up with the body panels.
+ * 22 px matches .replay-layout's side padding. */
+body.audit-immersive .signal-banner--3zone {
+  margin-left: 22px !important;
+  margin-right: 22px !important;
+  border-radius: 6px !important;
+}
+
+/* V.3 — Next 3 Hitters (vertical list) + Pitch Mix Drift card sit
+ * side-by-side in a 2-column row so the sparklines below pull up and
+ * the sidebar fits without internal scroll. */
+body.audit-immersive .pws-pocket-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 8px !important;
+  align-items: start !important;
+}
+
+body.audit-immersive .pws-pocket-row .pws-next-hitters {
+  margin: 0 !important;
+}
+
+body.audit-immersive .pws-pocket-row .pws-next-hitters__list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+/* V.4 — Pitch Mix Drift card tighter padding to read as a Signal-Summary
+ * peer at sidebar column-2 width. */
+body.audit-immersive .pws-pocket-row .pws-mix-drift-card {
+  padding: 8px 10px !important;
+  margin: 0 !important;
+}
+
+/* V.6 — Strike zone directly below the pitch detail cards. The base
+ * .strike-zone-column grid reserves 320 px for row 1; let each row
+ * size to its content. (.strike-zone-card keeps its own min-height
+ * so the zone itself doesn't shrink.) */
+body.audit-immersive .strike-zone-column {
+  grid-template-rows: auto auto auto !important;
+}
+
+/* V.7 — Pitch detail cards fixed width regardless of value length.
+ * 110 px width + single-line ellipsis on the value so "4-Seam Fastball"
+ * truncates to "4-Seam Fast…" instead of wrapping to 2 lines (which
+ * grew the card height). */
+body.audit-immersive .cpw-strip__row--top .cpw-strip__fact {
+  width: 110px !important;
+  flex: 0 0 110px !important;
+  overflow: hidden !important;
+}
+
+body.audit-immersive .cpw-strip__row--top .cpw-strip__fact strong {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+  display: block !important;
+}
+
+/* V.8 — Signal Summary tab: 4-cell row (Hook · Degradation · Adjusted ·
+ * Preventable Runs). Drop the description row from each ring's inner
+ * grid since the copy now lives in a hover tooltip. */
+body.audit-immersive .signal-summary-rings {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+body.audit-immersive .signal-summary-ring {
+  grid-template-rows: auto 152px !important;
+}
+
+/* Preventable Runs cell stacks label + amber value vertically and centers
+ * inside the 152 px ring row so its baseline matches the rings. */
+body.audit-immersive .signal-summary-preventable {
+  display: grid !important;
+  grid-template-rows: auto 152px !important;
+  justify-items: center !important;
+  align-items: center !important;
+  row-gap: 8px !important;
+}
+
+body.audit-immersive .signal-summary-preventable .decision-score-value {
+  align-self: center !important;
+  font-size: 28px !important;
+  text-align: center !important;
+}
+
+/* V.8 — Hover/focus tooltip. Bubble is hidden until the host receives
+ * :hover or :focus-within. Positioned below the host with an arrow-like
+ * border accent. */
+body.audit-immersive .ring-tip-host {
+  position: relative !important;
+  cursor: help !important;
+  outline: none !important;
+}
+
+body.audit-immersive .ring-tip-bubble {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  min-width: 220px !important;
+  max-width: 280px !important;
+  padding: 10px 12px !important;
+  background: #0a0a0a !important;
+  border: 1px solid var(--team-accent, #2ec4a0) !important;
+  border-radius: 8px !important;
+  color: #f5f5f5 !important;
+  font-size: 11px !important;
+  font-style: normal !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.2px !important;
+  text-align: left !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.15s ease !important;
+  z-index: 70 !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.audit-immersive .ring-tip-bubble strong {
+  display: block !important;
+  margin-bottom: 4px !important;
+  color: var(--team-accent, #2ec4a0) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.8px !important;
+  text-transform: uppercase !important;
+}
+
+body.audit-immersive .ring-tip-host:hover .ring-tip-bubble,
+body.audit-immersive .ring-tip-host:focus-within .ring-tip-bubble {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* V.12 — Show All button: full-width fill below the 3 reliever cards
+ * so it reads as the obvious next action. */
+body.audit-immersive .relief-options__more {
+  width: 100% !important;
+  padding: 10px 14px !important;
+  font-size: 12px !important;
+  background: rgba(46, 196, 160, 0.15) !important;
+  border: 1px solid #2ec4a0 !important;
+  color: #2ec4a0 !important;
+  margin-top: 8px !important;
+  align-self: stretch !important;
+}
+
+body.audit-immersive .relief-options__more:hover {
+  background: rgba(46, 196, 160, 0.25) !important;
+}

@@ -4121,16 +4121,22 @@ function GameAudit({
   const pitcherOnlyCurrentConcern = pitcherOnlyDegradationConcern(selected);
   const pitcherOnlyConcern = pitcherOnlyPeak(entries, selectedIndex);
   const enhancedCurrentConcern = scaledConcern(num(selectedState?.enhanced_degradation_score), 3);
-  // Phase U.12 — cumulative-peak enhanced_degradation_score across
-  // entries[0..selectedIndex]. The Adjusted Degradation Score ring used
-  // to bind to the per-pitch raw value (non-monotonic). This peak is
-  // what Hook Score + Degradation Score have always used and what the
-  // user expects from the right-panel rings.
-  const enhancedConcern = cumulativeIndexedMetricConcern(
-    entries,
-    selectedIndex,
-    (entry) => num(replayState(entry)?.enhanced_degradation_score),
-  );
+  // Phase V.10 — simple cumulative peak in 0–1 ring space; matches
+  // pitcherOnlyPeak's shape. The previous helper baseline-normalized
+  // against (1 - baseline) which is meaningless for an unbenchmarked
+  // 0–3 score and can divide-by-near-zero into NaN. The per-pitch
+  // read at line above already uses scale=3, so /3 here matches.
+  const enhancedConcern = (() => {
+    let peak: number | undefined;
+    const cap = Math.min(selectedIndex + 1, entries.length);
+    for (let i = 0; i < cap; i++) {
+      const raw = num(replayState(entries[i])?.enhanced_degradation_score);
+      if (raw == null) continue;
+      const scaled = Math.max(0, Math.min(1, raw / 3));
+      peak = peak === undefined ? scaled : Math.max(peak, scaled);
+    }
+    return peak;
+  })();
   const whiffConcern = componentPeak(entries, selectedIndex, "whiff");
   const pitchMixDriftConcern = componentPeak(entries, selectedIndex, "pitch_mix");
   const hardContactConcern = componentPeak(entries, selectedIndex, "contact");
@@ -4341,42 +4347,41 @@ function GameAudit({
                   </div>
                 </div>
 
-                {/* Phase S.2 — Next 3 Hitters moved up from the
-                  * strike-zone column into the sidebar so the strike
-                  * zone gets the vertical real estate. */}
-                <section className="pws-section pws-next-hitters">
-                  <p className="pws-eyebrow">Next 3 Hitters</p>
-                  {pocketHitters.length ? (
-                    <ol className="pws-next-hitters__list">
-                      {pocketHitters.map((hitter, index) => (
-                        <li key={`${hitter.name}-${index}`}>
-                          <strong>{hitter.name}</strong>
-                          <em>{hitter.hand}</em>
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="pws-next-hitters__empty">Pocket unavailable</p>
-                  )}
-                </section>
+                {/* Phase V.3 — Next 3 Hitters (vertical list, col 1) +
+                  * Pitch Mix Drift card (col 2) sit side-by-side in a
+                  * 2-column row so the sparklines below pull up and fit
+                  * the viewport with no internal scroll. */}
+                <div className="pws-pocket-row">
+                  <section className="pws-section pws-next-hitters">
+                    <p className="pws-eyebrow">Next 3 Hitters</p>
+                    {pocketHitters.length ? (
+                      <ol className="pws-next-hitters__list">
+                        {pocketHitters.map((hitter, index) => (
+                          <li key={`${hitter.name}-${index}`}>
+                            <strong>{hitter.name}</strong>
+                            <em>{hitter.hand}</em>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="pws-next-hitters__empty">Pocket unavailable</p>
+                    )}
+                  </section>
 
-                {/* Phase U.3/U.4 — Pitch Mix Snapshot relocated to the
-                  * strike-zone column below the strike zone. Pitch Mix
-                  * Drift remains here, wrapped in a Signal-Summary-card
-                  * chrome so it matches the right-panel gauge cards. */}
-                <div className="pws-mix-drift-card">
-                  {(() => {
-                    const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
-                    return <GaugeMetric
-                      label="Pitch Mix Drift"
-                      value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
-                      detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)}`}
-                      percent={cmp?.scaledPercent}
-                      benchmarks={[{ percent: 0.1, label: "league" }]}
-                      tone={factorVsLeagueTone(cmp)}
-                      role={null}
-                    />;
-                  })()}
+                  <div className="pws-mix-drift-card">
+                    {(() => {
+                      const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
+                      return <GaugeMetric
+                        label="Pitch Mix Drift"
+                        value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
+                        detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)}`}
+                        percent={cmp?.scaledPercent}
+                        benchmarks={[{ percent: 0.1, label: "league" }]}
+                        tone={factorVsLeagueTone(cmp)}
+                        role={null}
+                      />;
+                    })()}
+                  </div>
                 </div>
 
                 {/* Phase S.2 — Velocity + Spin trendlines moved from
@@ -4478,10 +4483,12 @@ function GameAudit({
 
                 {rightTab === "signal" ? (
                   <div className="replay-tab-panel">
-                    {/* S.4 — Three-ring header row: Hook Score (large) +
-                      * Degradation Score (small, renamed from Pitcher-Only
-                      * Degradation) + Adjusted Degradation Score (small,
-                      * renamed from Adjusted Degradation). */}
+                    {/* Phase V.8 — 4-cell row: Hook Score (large) +
+                      * Degradation Score (small) + Adjusted Degradation
+                      * Score (small) + Preventable Runs. Each cell wraps
+                      * in a ring-tip-host so the description text moves
+                      * into a hover/focus tooltip and the visible block
+                      * stays compact. */}
                     <div className="signal-summary-rings">
                       {(() => {
                         const peak = headlineDegradationPeak;
@@ -4495,13 +4502,14 @@ function GameAudit({
                               ? "warn"
                               : "good";
                         return (
-                          <div className="signal-summary-ring signal-summary-ring--lg">
+                          <div className="signal-summary-ring signal-summary-ring--lg ring-tip-host" tabIndex={0}>
                             <span className="signal-summary-ring__label">Hook Score</span>
                             <div className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": degColor } as CSSProperties}>
                               <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                             </div>
-                            <em className="signal-summary-ring__note">{decisionPressurePhrase(peak)}</em>
-                            <em className="signal-summary-ring__note signal-summary-ring__note--sub">Composite: pitcher decay × game leverage × relief edge × opponent context.</em>
+                            <div className="ring-tip-bubble" role="tooltip">
+                              <strong>Hook Score.</strong> {decisionPressurePhrase(peak)} Composite: pitcher decay × game leverage × relief edge × opponent context.
+                            </div>
                           </div>
                         );
                       })()}
@@ -4513,20 +4521,21 @@ function GameAudit({
                         const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
                         const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
                         return (
-                          <div className="signal-summary-ring signal-summary-ring--sm">
+                          <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
                             <span className="signal-summary-ring__label">Degradation Score</span>
                             <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
                               <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                             </div>
-                            <em className="signal-summary-ring__note">Pitcher's own decay only — ignores leverage and relief alternatives.</em>
+                            <div className="ring-tip-bubble" role="tooltip">
+                              <strong>Degradation Score.</strong> Pitcher's own decay only — ignores leverage and relief alternatives.
+                            </div>
                           </div>
                         );
                       })()}
                       {(() => {
-                        // Phase U.12 — cumulative peak (monotonic) instead of
-                        // per-pitch raw. Mirrors Hook Score + Degradation Score
-                        // behavior so the three rings move together as the
-                        // appearance progresses.
+                        // Phase V.10 — cumulative peak (monotonic) in 0–1
+                        // ring space; matches Hook Score + Degradation
+                        // Score behavior so the three rings move together.
                         const v = enhancedConcern;
                         const clamped = v == null ? null : Math.max(0, Math.min(1, v));
                         const pct = clamped == null ? null : Math.round(clamped * 100);
@@ -4534,24 +4543,26 @@ function GameAudit({
                         const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
                         const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
                         return (
-                          <div className="signal-summary-ring signal-summary-ring--sm">
+                          <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
                             <span className="signal-summary-ring__label">Adjusted Degradation Score</span>
                             <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
                               <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                             </div>
-                            <em className="signal-summary-ring__note">Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load).</em>
+                            <div className="ring-tip-bubble" role="tooltip">
+                              <strong>Adjusted Degradation Score.</strong> Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load).
+                            </div>
                           </div>
                         );
                       })()}
-                    </div>
-
-                    {/* S.4 + T.8 — Preventable Runs centered below the rings.
-                      * Value rendered in amber; note replaced with a plain-
-                      * English description. */}
-                    <div className="signal-summary-preventable">
-                      <span className="decision-score-label">Preventable Runs</span>
-                      <strong className="decision-score-value decision-score-value--amber">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
-                      <em className="decision-score-note">{selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Estimated runs saved by pulling at this pitch versus letting the appearance continue." : "Not attached to this pitch window"}</em>
+                      {/* Phase V.8 — Preventable Runs moves INSIDE the
+                        * rings row as cell 4. Same hover-tooltip pattern. */}
+                      <div className="signal-summary-preventable ring-tip-host" tabIndex={0}>
+                        <span className="signal-summary-ring__label">Preventable Runs</span>
+                        <strong className="decision-score-value decision-score-value--amber">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
+                        <div className="ring-tip-bubble" role="tooltip">
+                          <strong>Preventable Runs.</strong> {selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Estimated runs saved by pulling at this pitch versus letting the appearance continue." : "Not attached to this pitch window."}
+                        </div>
+                      </div>
                     </div>
 
                     {/* S.4 — 4-card 2x2 grid (Stuff/Command/Workload/Leverage). Unchanged content. */}
@@ -4601,11 +4612,6 @@ function GameAudit({
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, fmtRate);
                           return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
-                        {(() => {
-                          const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good");
-                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
-                          return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
-                        })()}
                       </div>
                       <div className="model-detail-col">
                         {(() => {
@@ -4624,6 +4630,15 @@ function GameAudit({
                           const dispFmt = (v: number) => fmtNumber(v, 2);
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, dispFmt);
                           return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                        {/* Phase V.11 — Chase Rate Proxy moved from the
+                          * left column to the right column so columns
+                          * split 3/4 and Command Spread (right row 3)
+                          * aligns with Swinging-Strike (left row 3). */}
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good");
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
+                          return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                       </div>
                     </div>
