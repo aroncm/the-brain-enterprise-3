@@ -21133,3 +21133,102 @@ body.audit-immersive .appearance-pill--finished {
   color: #2ec4a0 !important;
   border: 1px solid #2ec4a0 !important;
 }
+
+/* ==========================================================================
+ * Phase X — Reliever feedback round 2.
+ * 3-column grid for the reliever Signal Summary tab (rings + gauges
+ * collapse from 4 cells to 3); reliever rows below the Actual Outcome
+ * Summary panel.
+ * ========================================================================== */
+
+/* X.6 — 3-column grid for the reliever Signal Summary tab body. Both
+ * the rings row and the gauges row collapse from 4 cells to 3. */
+body.audit-immersive .replay-tab-panel--reliever .signal-summary-rings {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+}
+
+body.audit-immersive .replay-tab-panel--reliever .decision-gauge-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+/* X.10 — Reliever Outcome rows below the 3 starter cards in the
+ * Actual Outcome Summary panel. */
+.reliever-outcomes-list {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reliever-outcomes-list__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+  margin: 0 0 4px;
+}
+
+.reliever-outcome-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: center;
+  padding: 10px 12px;
+  background: #141414;
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+}
+
+.reliever-outcome-row__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.reliever-outcome-row__name strong {
+  font-size: 14px;
+  color: #f5f5f5;
+}
+
+.reliever-outcome-row__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reliever-outcome-row__stats span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reliever-outcome-row__stats em {
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.reliever-outcome-row__stats b {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+
+.reliever-outcome-row__signal p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c0c0c0;
+}
+
+.reliever-outcome-row__signal strong {
+  color: #f5a03b;
+  font-weight: 700;
+}

@@ -889,6 +889,46 @@ function appearanceScopedPeak(
   return peak;
 }
 
+// Phase X.1 — 1-based position of entries[selectedIndex] within its own
+// appearance. Used for the reliever Pitches sidebar display so we don't
+// depend on backend pitch_count_in_game (which may or may not be
+// per-appearance scoped for relievers).
+function appearancePitchIndex(
+  entries: PitchingReplayEntry[],
+  selectedIndex: number,
+): number {
+  const target = entries[selectedIndex];
+  if (!target) return 0;
+  const targetKey = appearanceKey(target);
+  let count = 0;
+  const cap = Math.min(selectedIndex + 1, entries.length);
+  for (let i = 0; i < cap; i++) {
+    if (appearanceKey(entries[i]) === targetKey) count++;
+  }
+  return count;
+}
+
+// Phase X.4 — First non-null `read(entry)` value across the same
+// appearance scope. Used for per-appearance CONSTANTS (Handoff Risk +
+// Usage Fatigue) so the value stays visible across every pitch even
+// if the backend only populates it on the first entry.
+function appearanceFirstNonNull(
+  entries: PitchingReplayEntry[],
+  selectedIndex: number,
+  read: (entry: PitchingReplayEntry) => number | null | undefined,
+): number | undefined {
+  const target = entries[selectedIndex];
+  if (!target) return undefined;
+  const targetKey = appearanceKey(target);
+  const cap = Math.min(selectedIndex + 1, entries.length);
+  for (let i = 0; i < cap; i++) {
+    if (appearanceKey(entries[i]) !== targetKey) continue;
+    const v = read(entries[i]);
+    if (v != null && Number.isFinite(v)) return v;
+  }
+  return undefined;
+}
+
 // Cumulative max of the headline decision_pressure_score across entries.
 // Falls back to starter_state.normalized_degradation_score when the
 // recommendation field is missing on older artifacts.
@@ -4139,14 +4179,30 @@ function GameAudit({
         return num(s?.rss_command);
       })
     : undefined;
-  const rssOutcomePeak = selectedIsReliever
-    ? appearanceScopedPeak(entries, selectedIndex, (entry) => {
-        const s = replayState(entry) as { rss_outcome?: number | null } | null;
-        return num(s?.rss_outcome);
+  // Phase X.9 — if user is on Relief Edge or Comparison and switches
+  // to a reliever (which hides both tabs), fall back to Signal Summary.
+  useEffect(() => {
+    if (selectedIsReliever && (rightTab === "relief" || rightTab === "comparison")) {
+      setRightTab("signal");
+    }
+  }, [selectedIsReliever, rightTab]);
+
+  // Phase X.4 — per-appearance CONSTANTS: read the first non-null
+  // value across the appearance scope so Handoff Risk + Usage Fatigue
+  // stay visible on every pitch (backend only populates these on the
+  // first entry of the appearance).
+  const rssHandoffRisk = selectedIsReliever
+    ? appearanceFirstNonNull(entries, selectedIndex, (entry) => {
+        const s = replayState(entry) as { rss_handoff_risk?: number | null } | null;
+        return num(s?.rss_handoff_risk);
       })
     : undefined;
-  // Per-appearance constants — read from the selected reliever state.
-  const rssState = selectedIsReliever ? (selectedState as { rss_handoff_risk?: number | null; rss_usage_fatigue?: number | null; rss_status?: string | null } | null) : null;
+  const rssUsageFatigue = selectedIsReliever
+    ? appearanceFirstNonNull(entries, selectedIndex, (entry) => {
+        const s = replayState(entry) as { rss_usage_fatigue?: number | null } | null;
+        return num(s?.rss_usage_fatigue);
+      })
+    : undefined;
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
@@ -4372,7 +4428,7 @@ function GameAudit({
                     </div>
                     <div className="pws-stat">
                       <span>Pitches</span>
-                      <strong>{pitchCount(selected)}</strong>
+                      <strong>{selectedIsReliever ? appearancePitchIndex(entries, selectedIndex) : pitchCount(selected)}</strong>
                     </div>
                     <div className="pws-stat">
                       <span>{selectedIsReliever ? "Batters" : "TTO"}</span>
@@ -4536,12 +4592,19 @@ function GameAudit({
                 <div className="replay-tabs" role="tablist" aria-label="Replay detail tabs">
                   <button type="button" role="tab" aria-selected={rightTab === "signal"} className={`replay-tab${rightTab === "signal" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("signal")}>Signal Summary</button>
                   <button type="button" role="tab" aria-selected={rightTab === "model"} className={`replay-tab${rightTab === "model" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("model")}>Model Detail</button>
-                  <button type="button" role="tab" aria-selected={rightTab === "relief"} className={`replay-tab${rightTab === "relief" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("relief")}>{selectedIsReliever ? "Outcome" : "Relief Edge"}</button>
-                  <button type="button" role="tab" aria-selected={rightTab === "comparison"} className={`replay-tab${rightTab === "comparison" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("comparison")}>Comparison</button>
+                  {/* Phase X.8/X.9 — Relief Edge + Comparison tabs are
+                    * hidden for relievers. Reliever-variant right panel
+                    * reduces to Signal Summary + Model Detail only. */}
+                  {!selectedIsReliever ? (
+                    <button type="button" role="tab" aria-selected={rightTab === "relief"} className={`replay-tab${rightTab === "relief" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("relief")}>Relief Edge</button>
+                  ) : null}
+                  {!selectedIsReliever ? (
+                    <button type="button" role="tab" aria-selected={rightTab === "comparison"} className={`replay-tab${rightTab === "comparison" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("comparison")}>Comparison</button>
+                  ) : null}
                 </div>
 
                 {rightTab === "signal" ? (
-                  <div className="replay-tab-panel">
+                  <div className={`replay-tab-panel${selectedIsReliever ? " replay-tab-panel--reliever" : ""}`}>
                     {/* Phase V.8 — 4-cell rings row + 2x2 below.
                       * Phase W.2 — when the selected entry is a reliever
                       * the same chrome renders RSS-specific data. */}
@@ -4600,29 +4663,15 @@ function GameAudit({
                               </div>
                             );
                           })()}
-                          {(() => {
-                            const peak = rssOutcomePeak;
-                            const pct = peak == null ? null : Math.round(Math.max(0, Math.min(1, peak)) * 100);
-                            const tier = peak == null ? "good" : peak >= 0.50 ? "bad" : peak >= 0.25 ? "warn" : "good";
-                            const ringColor = peak == null ? "#2ec4a0" : peak >= 0.50 ? "#e05b4b" : peak >= 0.25 ? "#fce066" : "#2ec4a0";
-                            return (
-                              <div className="signal-summary-ring signal-summary-ring--sm ring-tip-host" tabIndex={0}>
-                                <span className="signal-summary-ring__label">RSS Outcome</span>
-                                <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
-                                  <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                                </div>
-                                <div className="ring-tip-bubble" role="tooltip">
-                                  <strong>RSS Outcome.</strong> Hard contact, swinging-strike drop, and called-strike drop in this appearance.
-                                </div>
-                              </div>
-                            );
-                          })()}
                         </div>
 
-                        {/* Phase W.2 — 2x2 below: Handoff Risk · Usage Fatigue · Leverage · Status. */}
+                        {/* Phase X.5/X.6 — 3-column row below the rings:
+                          * Handoff Risk · Usage Fatigue · Leverage. RSS
+                          * Outcome ring + Status pill removed; the
+                          * 2x2 collapsed to a clean 3-col layout. */}
                         <div className="decision-gauge-grid">
                           {(() => {
-                            const v = num(rssState?.rss_handoff_risk);
+                            const v = rssHandoffRisk;
                             return (
                               <GaugeMetric
                                 label="Handoff Risk"
@@ -4635,7 +4684,7 @@ function GameAudit({
                             );
                           })()}
                           {(() => {
-                            const v = num(rssState?.rss_usage_fatigue);
+                            const v = rssUsageFatigue;
                             return (
                               <GaugeMetric
                                 label="Usage Fatigue"
@@ -4663,17 +4712,6 @@ function GameAudit({
                                 tone="neutral"
                                 role={null}
                               />
-                            );
-                          })()}
-                          {(() => {
-                            const status = (rssState?.rss_status ?? "OK").toUpperCase();
-                            const tone = status === "DISTRESS" ? "bad" : status === "WATCH" ? "warn" : "good";
-                            return (
-                              <div className={`rss-status-card rss-status-card--${tone}`}>
-                                <span className="rss-status-card__label">Status</span>
-                                <strong className="rss-status-card__pill">{status}</strong>
-                                <em className="rss-status-card__note">Backend RSS tier (OK · WATCH · DISTRESS).</em>
-                              </div>
                             );
                           })()}
                         </div>
@@ -4832,54 +4870,8 @@ function GameAudit({
                   </div>
                 ) : null}
 
-                {rightTab === "relief" ? (
+                {rightTab === "relief" && !selectedIsReliever ? (
                   <div className="replay-tab-panel">
-                    {selectedIsReliever ? (
-                      <>
-                        {/* Phase W.3 — Reliever Outcome banner + 2x2
-                          * postgame summary cards. The recap-side
-                          * pitcher record drives all four cards; if
-                          * not yet finished, "Active" / dashes show. */}
-                        <div className="decision-delta decision-delta--active">
-                          <strong>Reliever Outcome</strong>
-                          <p>
-                            {selectedReliever
-                              ? relieverOutcomeCopy(selectedReliever)
-                              : "Outcome will populate after the game completes."}
-                          </p>
-                        </div>
-                        <div className="decision-gauge-grid">
-                          <div className="reliever-outcome-card">
-                            <span className="reliever-outcome-card__label">Innings Pitched</span>
-                            <strong className="reliever-outcome-card__value">
-                              {selectedReliever?.innings_pitched != null ? `${fmtNumber(selectedReliever.innings_pitched, 1)} IP` : "Active"}
-                            </strong>
-                          </div>
-                          <div className="reliever-outcome-card">
-                            <span className="reliever-outcome-card__label">Pitches Thrown</span>
-                            <strong className="reliever-outcome-card__value">
-                              {selectedReliever?.pitch_count ?? "—"}
-                            </strong>
-                          </div>
-                          <div className="reliever-outcome-card">
-                            <span className="reliever-outcome-card__label">Runs Allowed</span>
-                            <strong className="reliever-outcome-card__value">
-                              {selectedReliever?.runs_allowed_total ?? "—"}
-                            </strong>
-                            <em className="reliever-outcome-card__note">
-                              {selectedReliever?.runs_allowed_after_signal != null ? `${selectedReliever.runs_allowed_after_signal} after RSS trigger` : "After-RSS unavailable"}
-                            </em>
-                          </div>
-                          <div className="reliever-outcome-card">
-                            <span className="reliever-outcome-card__label">Exit Inning</span>
-                            <strong className="reliever-outcome-card__value">
-                              {selectedReliever?.actual_exit_inning ?? "Active"}
-                            </strong>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
                         {/* S.6 — Relief Edge banner at top, then full
                           * (uncapped) Relief Options list below. */}
                         <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
@@ -4938,8 +4930,6 @@ function GameAudit({
                             )}
                           </section>
                         ) : null}
-                      </>
-                    )}
                   </div>
                 ) : null}
 
@@ -5086,6 +5076,42 @@ function GameAudit({
                 <p>{exitAndDamageCopy(keyPitcher)}</p>
               </div>
             </div>
+            {/* Phase X.10 — reliever rows below the 3 starter cards.
+              * One row per reliever in teamRelievers with IP / pitches /
+              * exit inning / runs allowed, plus an "After RSS [WATCH|
+              * DISTRESS]" sentence when first_alert_inning is populated. */}
+            {teamRelievers.length > 0 ? (
+              <div className="reliever-outcomes-list">
+                <p className="reliever-outcomes-list__eyebrow">Reliever Outcomes</p>
+                {teamRelievers.map((pitcher) => (
+                  <div key={pitcher.pitcher_id || pitcher.pitcher_name} className="reliever-outcome-row">
+                    <div className="reliever-outcome-row__name">
+                      <strong>{pitcher.pitcher_name}</strong>
+                      {String(pitcher.pitcher_id ?? "") === closerPitcherId ? (
+                        <span className="appearance-pill appearance-pill--finished">Finished Game</span>
+                      ) : null}
+                    </div>
+                    <div className="reliever-outcome-row__stats">
+                      <span><em>IP</em><b>{fmtNumber(pitcher.innings_pitched, 1)}</b></span>
+                      <span><em>Pitches</em><b>{pitcher.pitch_count ?? "—"}</b></span>
+                      <span><em>Exit Inning</em><b>{pitcher.actual_exit_inning != null ? ordinal(pitcher.actual_exit_inning) : "Active"}</b></span>
+                      <span><em>Runs Allowed</em><b>{pitcher.runs_allowed_total ?? "—"}</b></span>
+                    </div>
+                    <div className="reliever-outcome-row__signal">
+                      {pitcher.first_alert_inning != null && pitcher.first_alert_status != null ? (
+                        <p>
+                          After RSS <strong>{statusLabel(pitcher.first_alert_status)}</strong> in the {ordinal(pitcher.first_alert_inning)} at pitch {pitcher.first_alert_pitch_count ?? "—"}:{" "}
+                          <strong>{pitcher.runs_allowed_after_first_alert ?? "—"}</strong>{" "}
+                          {pitcher.runs_allowed_after_first_alert === 1 ? "run" : "runs"} allowed.
+                        </p>
+                      ) : (
+                        <p>No RSS WATCH/DISTRESS signal during this appearance.</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             </div>
           </article>
 
