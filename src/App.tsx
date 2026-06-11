@@ -4016,10 +4016,12 @@ function GameAudit({
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
   const [autoplay, setAutoplay] = useState(false);
-  const [msfOpen, setMsfOpen] = useState(true);
   const [rssOpen, setRssOpen] = useState(true);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
-  const [showAllRelief, setShowAllRelief] = useState(false);
+  // Phase S — right-panel tab state. The Model Signal Factors section
+  // is removed and its cards relocated either into the left sidebar or
+  // into one of these four tabs.
+  const [rightTab, setRightTab] = useState<"signal" | "model" | "relief" | "comparison">("signal");
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -4324,48 +4326,13 @@ function GameAudit({
                   </div>
                 </div>
 
-                <PitchMixSnapshot entries={entries} selectedIndex={selectedIndex} />
-
-                <div className="pws-score-block">
-                  <p className="pws-eyebrow">Current Score</p>
-                  <div className="pws-score">
-                    {(() => {
-                      const ownIsAway = replay.game.away_team === team.abbr;
-                      const awayTone = ownIsAway ? "own" : "opp";
-                      const homeTone = ownIsAway ? "opp" : "own";
-                      return (
-                        <>
-                          <span className={`pws-score__team pws-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>{replay.game.away_team}</span>
-                          <strong className="pws-score__num">{selected.snapshot.away_score ?? 0}</strong>
-                          <span className="pws-score__dash">—</span>
-                          <strong className="pws-score__num">{selected.snapshot.home_score ?? 0}</strong>
-                          <span className={`pws-score__team pws-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>{replay.game.home_team}</span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </aside>
-
-              <div className="strike-zone-column">
-                {/* Phase D.1c — Current Pitch Window as a single horizontal
-                 * strip directly above the strike zone, so result + pitch +
-                 * velo + h/v movement read in one glance instead of a 2x3
-                 * grid hidden inside the left sidebar. */}
-                <div className="cpw-strip" role="group" aria-label="Current pitch window">
-                  {pitchFactItems(selected.snapshot).map((item) => (
-                    <span key={item.label} className="cpw-strip__fact">
-                      <em>{item.label}</em>
-                      <strong>{item.value}</strong>
-                      {item.secondary ? <b>{item.secondary}</b> : null}
-                    </span>
-                  ))}
-                </div>
-                <PitchPlot entries={entries} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
-                <div className="next-pocket-card">
-                  <span>Next 3 Hitters</span>
+                {/* Phase S.2 — Next 3 Hitters moved up from the
+                  * strike-zone column into the sidebar so the strike
+                  * zone gets the vertical real estate. */}
+                <section className="pws-section pws-next-hitters">
+                  <p className="pws-eyebrow">Next 3 Hitters</p>
                   {pocketHitters.length ? (
-                    <ol>
+                    <ol className="pws-next-hitters__list">
                       {pocketHitters.map((hitter, index) => (
                         <li key={`${hitter.name}-${index}`}>
                           <strong>{hitter.name}</strong>
@@ -4374,130 +4341,332 @@ function GameAudit({
                       ))}
                     </ol>
                   ) : (
-                    <p>Pocket unavailable</p>
+                    <p className="pws-next-hitters__empty">Pocket unavailable</p>
                   )}
+                </section>
+
+                {/* Phase S.2 — Pitch Mix Snapshot stays in place; Pitch
+                  * Mix Drift card from the (removed) Model Signal
+                  * Factors section now renders inline to the right. */}
+                <div className="pws-mix-row">
+                  <PitchMixSnapshot entries={entries} selectedIndex={selectedIndex} />
+                  <div className="pws-mix-drift">
+                    {(() => {
+                      const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
+                      return <GaugeMetric
+                        label="Pitch Mix Drift"
+                        value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
+                        detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)}`}
+                        percent={cmp?.scaledPercent}
+                        benchmarks={[{ percent: 0.1, label: "league" }]}
+                        tone={factorVsLeagueTone(cmp)}
+                        role={null}
+                      />;
+                    })()}
+                  </div>
+                </div>
+
+                {/* Phase S.2 — Velocity + Spin trendlines moved from
+                  * Model Signal Factors → Stuff column into a compact
+                  * symmetrical pair under the pitch-mix row. */}
+                <div className="pws-trend-row">
+                  <TrendSparkline
+                    label={`${matchedVelocityPitchLabel} Velocity`}
+                    value={`${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "mean_last5") ?? selected.snapshot.release_speed ?? selectedState?.velo_mean_5, 1)} mph`}
+                    detail={`Baseline ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_velo_baseline, 1)} · drop ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "drop"), 1)}`}
+                    points={currentPitchVeloPoints}
+                  />
+                  <TrendSparkline
+                    label={`${matchedSpinPitchLabel} Spin`}
+                    value={`${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "mean_last5") ?? selectedState?.spin_mean_5, 0)} rpm`}
+                    detail={`Baseline ${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_spin_baseline, 0)} · trend ${fmtSigned(trendNumber(currentSpinTrend?.bucket ?? null, "slope") ?? selectedState?.spin_slope_5, 0)}`}
+                    points={currentPitchSpinPoints}
+                  />
+                </div>
+              </aside>
+
+              <div className="strike-zone-column">
+                {/* Phase S.1 — pitch detail bar with TOP row of 4 boxes
+                  * (Pitch / Velocity / H-Mov / V-Mov) and BOTTOM row of
+                  * 2 boxes (Result + Current Score) so Result lines up
+                  * below H-Mov and the Current Score (moved out of the
+                  * left sidebar) sits to its right. */}
+                <div className="cpw-strip cpw-strip--two-row" role="group" aria-label="Current pitch window">
+                  {(() => {
+                    const items = pitchFactItems(selected.snapshot);
+                    const result = items[0];
+                    const top = items.slice(1); // Pitch, Velocity, H-Mov, V-Mov
+                    return (
+                      <>
+                        <div className="cpw-strip__row cpw-strip__row--top">
+                          {top.map((item) => (
+                            <span key={item.label} className="cpw-strip__fact">
+                              <em>{item.label}</em>
+                              <strong>{item.value}</strong>
+                              {item.secondary ? <b>{item.secondary}</b> : null}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="cpw-strip__row cpw-strip__row--bottom">
+                          <span className="cpw-strip__fact cpw-strip__fact--result">
+                            <em>{result.label}</em>
+                            <strong>{result.value}</strong>
+                            {result.secondary ? <b>{result.secondary}</b> : null}
+                          </span>
+                          <span className="cpw-strip__fact cpw-strip__fact--score">
+                            <em>Current Score</em>
+                            <div className="cpw-strip__score">
+                              {(() => {
+                                const ownIsAway = replay.game.away_team === team.abbr;
+                                const awayTone = ownIsAway ? "own" : "opp";
+                                const homeTone = ownIsAway ? "opp" : "own";
+                                return (
+                                  <>
+                                    <span className={`pws-score__team pws-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>{replay.game.away_team}</span>
+                                    <strong className="pws-score__num">{selected.snapshot.away_score ?? 0}</strong>
+                                    <span className="pws-score__dash">—</span>
+                                    <strong className="pws-score__num">{selected.snapshot.home_score ?? 0}</strong>
+                                    <span className={`pws-score__team pws-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>{replay.game.home_team}</span>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+                {/* Phase S.1 — strike zone centered, max-width prevents
+                  * pitch dots overflowing into the detail strip above. */}
+                <div className="strike-zone-wrap">
+                  <PitchPlot entries={entries} selectedIndex={selectedIndex} onSelect={setPitchIndex} />
                 </div>
               </div>
 
-	              <aside className="model-synthesis-card">
-	                <p className="eyebrow signal-summary-eyebrow">Signal Summary</p>
-                <div className="decision-score-row">
-                  {(() => {
-                    const peak = headlineDegradationPeak;
-                    const pct = peak == null ? null : Math.round(clamp(peak) * 100);
-                    const degColor = signalColor(displayStatus);
-                    const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
-                      ? "bad"
-                      : statusRank(displayStatus) >= statusRank("PREP")
-                        ? "prep"
-                        : statusRank(displayStatus) >= statusRank("WATCH")
-                          ? "warn"
-                          : "good";
-                    return (
-                      <div className="decision-score-col">
-                        <span className="decision-score-label">Degradation Score</span>
-                        <div
-                          className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`}
-                          style={{
-                            "--ring": `${pct ?? 0}%`,
-                            "--ring-color": degColor,
-                          } as CSSProperties}
-                        >
-                          <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                        </div>
-                        <em className="decision-score-note">{decisionPressurePhrase(peak)}</em>
-                        <em className="decision-score-note decision-score-note--sub">Composite: pitcher decay × game leverage × relief edge × opponent context.</em>
-                      </div>
-                    );
-                  })()}
-                  <div className="decision-score-col">
-                    <span className="decision-score-label">Preventable Runs</span>
-                    <strong className="decision-score-value">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
-                    <em className="decision-score-note">{selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Calibrated opportunity model" : "Not attached to this pitch window"}</em>
-                  </div>
+              {/* Phase S.3 — right panel is now tabbed. Four tabs:
+                * Signal Summary | Model Detail | Relief Edge | Comparison.
+                * The Model Signal Factors section below the article is
+                * removed entirely (S.8); all its cards have new homes
+                * here, in the left sidebar, or above the strike zone. */}
+              <aside className="model-synthesis-card model-synthesis-card--tabbed">
+                <div className="replay-tabs" role="tablist" aria-label="Replay detail tabs">
+                  <button type="button" role="tab" aria-selected={rightTab === "signal"} className={`replay-tab${rightTab === "signal" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("signal")}>Signal Summary</button>
+                  <button type="button" role="tab" aria-selected={rightTab === "model"} className={`replay-tab${rightTab === "model" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("model")}>Model Detail</button>
+                  <button type="button" role="tab" aria-selected={rightTab === "relief"} className={`replay-tab${rightTab === "relief" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("relief")}>Relief Edge</button>
+                  <button type="button" role="tab" aria-selected={rightTab === "comparison"} className={`replay-tab${rightTab === "comparison" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("comparison")}>Comparison</button>
                 </div>
-                <div className="decision-gauge-grid">
-                  <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
-                  <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
-                  <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
-                  {(() => {
-                    // Leverage scale: 0 → 3.0+ raw; baseline=1.0, high-threshold=1.5, max-rendered=3.0.
-                    const lev = num(selected.snapshot.leverage_index);
-                    const scaledLev = lev == null ? undefined : Math.min(1, lev / 3);
-                    return (
-                      <GaugeMetric
-                        label="Leverage"
-                        value={fmtNumber(selected.snapshot.leverage_index, 2)}
-                        detail="Baseline 1.0 · High ≈ 1.5 · Scale 0–3.0."
-                        percent={scaledLev}
-                        benchmarks={[
-                          { percent: 1 / 3, label: "1.0" },
-                          { percent: 1.5 / 3, label: "1.5" },
-                        ]}
-                        tone="neutral"
-                        role={null}
-                      />
-                    );
-                  })()}
-                </div>
-                <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
-                  <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
-                  {selectedIsReliever ? (
-                    <p>
-                      This bullpen view tracks the reliever’s own RSS: stuff, command, outcome, handoff, and workload pressure after entering the game.
-                    </p>
-                  ) : hasWatchSignal ? (
-                    <p>
-                      {bestCandidate?.player_name || "Best alternative"} changes the next-batter pocket by{" "}
-                      <b>{fmtSigned(selected.recommendation.decision_delta, 2)}</b> runs versus staying with the starter.
-                    </p>
-                  ) : (
-                    <p>Before WATCH, the replay stays focused on pitcher evidence. Bullpen alternatives are shown once the first action signal appears.</p>
-                  )}
-                </div>
-                {hasWatchSignal && !selectedIsReliever ? (
-                  <section className="relief-options">
-                    <h5 className="relief-options__heading">Relief Options</h5>
-                    {reliefOptions.length === 0 ? (
-                      <p className="relief-options__empty">No relief alternatives were attached to this pitch window.</p>
-                    ) : (
-                      (() => {
-                        const visible = showAllRelief ? reliefOptions : reliefOptions.slice(0, 3);
-                        const hidden = Math.max(0, reliefOptions.length - visible.length);
+
+                {rightTab === "signal" ? (
+                  <div className="replay-tab-panel">
+                    {/* S.4 — Three-ring header row: Hook Score (large) +
+                      * Degradation Score (small, renamed from Pitcher-Only
+                      * Degradation) + Adjusted Degradation Score (small,
+                      * renamed from Adjusted Degradation). */}
+                    <div className="signal-summary-rings">
+                      {(() => {
+                        const peak = headlineDegradationPeak;
+                        const pct = peak == null ? null : Math.round(clamp(peak) * 100);
+                        const degColor = signalColor(displayStatus);
+                        const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
+                          ? "bad"
+                          : statusRank(displayStatus) >= statusRank("PREP")
+                            ? "prep"
+                            : statusRank(displayStatus) >= statusRank("WATCH")
+                              ? "warn"
+                              : "good";
                         return (
-                          <>
-                            {visible.map((candidate) => (
-                              <GaugeMetric
-                                key={candidate.player_id}
-                                label={candidate.player_name}
-                                value={candidate.available ? "Available" : "Not available"}
-                                detail={`Net option ${fmtNumber(candidate.net_option_score, 2)} · usage cost ${fmtNumber(candidate.usage_cost, 2)} · matchup ${fmtNumber(candidate.direct_matchup_fit, 2)}`}
-                                percent={scaledPercent(candidate.net_option_score, 1)}
-                                tone={candidate.available ? "good" : "neutral"}
-                              />
-                            ))}
-                            {hidden > 0 ? (
-                              <button
-                                type="button"
-                                className="relief-options__more"
-                                onClick={() => setShowAllRelief(true)}
-                              >
-                                Show all ({reliefOptions.length})
-                              </button>
-                            ) : showAllRelief && reliefOptions.length > 3 ? (
-                              <button
-                                type="button"
-                                className="relief-options__more"
-                                onClick={() => setShowAllRelief(false)}
-                              >
-                                Show fewer
-                              </button>
-                            ) : null}
-                          </>
+                          <div className="signal-summary-ring signal-summary-ring--lg">
+                            <span className="signal-summary-ring__label">Hook Score</span>
+                            <div className={`degradation-ring degradation-ring--lg degradation-ring--${degTier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": degColor } as CSSProperties}>
+                              <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                            </div>
+                            <em className="signal-summary-ring__note">{decisionPressurePhrase(peak)}</em>
+                          </div>
                         );
-                      })()
-                    )}
-                  </section>
+                      })()}
+                      {(() => {
+                        const v = pitcherOnlyConcern;
+                        const clamped = v == null ? null : Math.max(0, Math.min(1, v));
+                        const pct = clamped == null ? null : Math.round(clamped * 100);
+                        const role = concernRole(clamped);
+                        const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
+                        const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
+                        return (
+                          <div className="signal-summary-ring signal-summary-ring--sm">
+                            <span className="signal-summary-ring__label">Degradation Score</span>
+                            <div className={`degradation-ring degradation-ring--xs degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                              <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      {(() => {
+                        const v = num(selectedState?.enhanced_degradation_score);
+                        const clamped = v == null ? null : Math.max(0, Math.min(1, v));
+                        const pct = clamped == null ? null : Math.round(clamped * 100);
+                        const role = concernRole(clamped);
+                        const tier = role === "PULL_NOW" ? "bad" : role === "PREP" ? "prep" : role === "WATCH" ? "warn" : "good";
+                        const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
+                        return (
+                          <div className="signal-summary-ring signal-summary-ring--sm">
+                            <span className="signal-summary-ring__label">Adjusted Degradation Score</span>
+                            <div className={`degradation-ring degradation-ring--xs degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                              <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* S.4 — Preventable Runs centered below the rings. */}
+                    <div className="signal-summary-preventable">
+                      <span className="decision-score-label">Preventable Runs</span>
+                      <strong className="decision-score-value">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
+                      <em className="decision-score-note">{selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Calibrated opportunity model" : "Not attached to this pitch window"}</em>
+                    </div>
+
+                    {/* S.4 — 4-card 2x2 grid (Stuff/Command/Workload/Leverage). Unchanged content. */}
+                    <div className="decision-gauge-grid">
+                      <GaugeMetric label="Stuff Decay" value={fmtPct(stuffPressure)} detail={`Peak stuff decay this appearance. ${bandPhrase(stuffPressure, "stuff")}`} percent={stuffPressure} tone={concernTone(stuffPressure)} role={concernRole(stuffPressure)} />
+                      <GaugeMetric label="Command Decay" value={fmtPct(commandPressure)} detail={`Peak command decay this appearance. ${bandPhrase(commandPressure, "command")}`} percent={commandPressure} tone={concernTone(commandPressure)} role={concernRole(commandPressure)} />
+                      <GaugeMetric label="Workload" value={fmtPct(decayPressure)} detail={`Peak workload this appearance. ${workloadBandPhrase(decayPressure)}`} percent={decayPressure} tone={concernTone(decayPressure)} role={concernRole(decayPressure)} />
+                      {(() => {
+                        const lev = num(selected.snapshot.leverage_index);
+                        const scaledLev = lev == null ? undefined : Math.min(1, lev / 3);
+                        return (
+                          <GaugeMetric
+                            label="Leverage"
+                            value={fmtNumber(selected.snapshot.leverage_index, 2)}
+                            detail="Baseline 1.0 · High ≈ 1.5 · Scale 0–3.0."
+                            percent={scaledLev}
+                            benchmarks={[
+                              { percent: 1 / 3, label: "1.0" },
+                              { percent: 1.5 / 3, label: "1.5" },
+                            ]}
+                            tone="neutral"
+                            role={null}
+                          />
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ) : null}
+
+                {rightTab === "model" ? (
+                  <div className="replay-tab-panel">
+                    {/* S.5 — 7 diagnostic cards in 2 cols. */}
+                    <div className="model-detail-grid">
+                      <div className="model-detail-col">
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.strike_rate_10, REPLAY_RATE_BENCHMARKS.strike, "high-good");
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, fmtRate);
+                          return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good");
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, fmtRate);
+                          return <GaugeMetric label="Called-Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, fmtRate);
+                          return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good");
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
+                          return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                      </div>
+                      <div className="model-detail-col">
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact, "low-good");
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, fmtRate);
+                          return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good");
+                          const zoneFmt = (v: number) => `${fmtNumber(v, 2)} ft`;
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, zoneFmt);
+                          return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                        {(() => {
+                          const cmp = factorVsLeague(selectedState?.location_dispersion_10, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good");
+                          const dispFmt = (v: number) => fmtNumber(v, 2);
+                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, dispFmt);
+                          return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {rightTab === "relief" ? (
+                  <div className="replay-tab-panel">
+                    {/* S.6 — Relief Edge banner at top, then full
+                      * (uncapped) Relief Options list below. */}
+                    <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>
+                      <strong>{hasWatchSignal ? "Relief Edge" : "Relief Edge unlocks at WATCH"}</strong>
+                      {selectedIsReliever ? (
+                        <p>
+                          This bullpen view tracks the reliever's own RSS: stuff, command, outcome, handoff, and workload pressure after entering the game.
+                        </p>
+                      ) : hasWatchSignal ? (
+                        <p>
+                          {bestCandidate?.player_name || "Best alternative"} changes the next-batter pocket by{" "}
+                          <b>{fmtSigned(selected.recommendation.decision_delta, 2)}</b> runs versus staying with the starter.
+                        </p>
+                      ) : (
+                        <p>Before WATCH, the replay stays focused on pitcher evidence. Bullpen alternatives are shown once the first action signal appears.</p>
+                      )}
+                    </div>
+                    {hasWatchSignal && !selectedIsReliever ? (
+                      <section className="relief-options">
+                        <h5 className="relief-options__heading">Relief Options</h5>
+                        {reliefOptions.length === 0 ? (
+                          <p className="relief-options__empty">No relief alternatives were attached to this pitch window.</p>
+                        ) : (
+                          reliefOptions.map((candidate) => (
+                            <GaugeMetric
+                              key={candidate.player_id}
+                              label={candidate.player_name}
+                              value={candidate.available ? "Available" : "Not available"}
+                              detail={`Net option ${fmtNumber(candidate.net_option_score, 2)} · usage cost ${fmtNumber(candidate.usage_cost, 2)} · matchup ${fmtNumber(candidate.direct_matchup_fit, 2)}`}
+                              percent={scaledPercent(candidate.net_option_score, 1)}
+                              tone={candidate.available ? "good" : "neutral"}
+                            />
+                          ))
+                        )}
+                      </section>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {rightTab === "comparison" ? (
+                  <div className="replay-tab-panel">
+                    {/* S.7 — vs League + vs Career percentile cards. */}
+                    {(() => {
+                      const p = num(selectedState?.empirical_degradation_percentile);
+                      const pct = p ?? 0;
+                      const tone: "good" | "gold" | "bad" | "neutral" = p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
+                      const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
+                      const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
+                      const valueLabel = p == null ? UNAVAILABLE : pct <= 0.495 ? `${lowerPct}% lower` : pct >= 0.505 ? `${higherPct}% higher` : "League-avg";
+                      const summaryPhrase = p == null ? "Unavailable for this pitch." : pct <= 0.495 ? `${lowerPct}% lower decay than league avg.` : pct >= 0.505 ? `${higherPct}% higher decay than league avg.` : "League-average decay.";
+                      return <GaugeMetric label="vs League Average" value={valueLabel} detail={`${summaryPhrase} Where this pitch ranks vs all MLB pitchers in the same situation. 0 = cleanest, 100 = most degraded.`} percent={p ?? undefined} benchmarks={[{ percent: 0.5, label: "league avg" }]} tone={tone} role={null} />;
+                    })()}
+                    {(() => {
+                      const p = num(selectedState?.pitcher_empirical_degradation_percentile);
+                      const pct = p ?? 0;
+                      const tone: "good" | "gold" | "bad" | "neutral" = p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
+                      const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
+                      const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
+                      const valueLabel = p == null ? UNAVAILABLE : pct <= 0.495 ? `${lowerPct}% lower` : pct >= 0.505 ? `${higherPct}% higher` : "Career-avg";
+                      const summaryPhrase = p == null ? "Unavailable for this pitch." : pct <= 0.495 ? `${lowerPct}% lower decay than career avg.` : pct >= 0.505 ? `${higherPct}% higher decay than career avg.` : "Career-average decay.";
+                      return <GaugeMetric label="vs Career Average" value={valueLabel} detail={`${summaryPhrase} Where this pitch ranks vs this pitcher's own history. 0 = cleanest, 100 = most degraded.`} percent={p ?? undefined} benchmarks={[{ percent: 0.5, label: "career avg" }]} tone={tone} role={null} />;
+                    })()}
+                  </div>
                 ) : null}
               </aside>
             </div>
@@ -4545,263 +4714,6 @@ function GameAudit({
             </div>
           </article>
 
-          <article className={`panel evidence-panel${msfOpen ? "" : " panel--collapsed"}`}>
-            <div className="panel__header">
-              <p className="eyebrow model-signal-eyebrow">
-                <span className="model-signal-dot" aria-hidden="true" />
-                Model Signal Factors
-                <span
-                  className="model-signal-info"
-                  title="Tracked inputs feeding the headline signal. Missing values are shown as unavailable rather than estimated."
-                  aria-label="Description"
-                >i</span>
-              </p>
-              <button
-                type="button"
-                className="panel__toggle panel__toggle--msf"
-                aria-label={msfOpen ? "Collapse Model Signal Factors" : "Expand Model Signal Factors"}
-                aria-expanded={msfOpen}
-                onClick={() => setMsfOpen((o) => !o)}
-              >
-                {msfOpen ? <Minus size={16} /> : <Plus size={16} />}
-              </button>
-            </div>
-            <div className="panel__body">
-            <div className="evidence-grid">
-              <section>
-                <h4>Stuff</h4>
-                <TrendSparkline
-                  label={`${matchedVelocityPitchLabel} Velocity`}
-                  value={`${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "mean_last5") ?? selected.snapshot.release_speed ?? selectedState?.velo_mean_5, 1)} mph`}
-                  detail={`Pitch-type baseline ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_velo_baseline, 1)} · drop ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "drop"), 1)} mph`}
-                  points={currentPitchVeloPoints}
-                />
-                <TrendSparkline
-                  label={`${matchedSpinPitchLabel} Spin`}
-                  value={`${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "mean_last5") ?? selectedState?.spin_mean_5, 0)} rpm`}
-                  detail={`Pitch-type baseline ${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_spin_baseline, 0)} · trend ${fmtSigned(trendNumber(currentSpinTrend?.bucket ?? null, "slope") ?? selectedState?.spin_slope_5, 0)} rpm`}
-                  points={currentPitchSpinPoints}
-                />
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
-                  return <GaugeMetric
-                    label="Pitch Mix Drift"
-                    value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
-                    detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)} (Lower = more aligned with expected mix.)`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={[{ percent: 0.1, label: "league" }]}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                <GaugeMetric label="Pitcher-Only Degradation" value={fmtPct(pitcherOnlyConcern)} detail={`Current model read: ${fmtPct(pitcherOnlyCurrentConcern)}. Irrespective of Leverage or Relief Alternatives. ${bandPhrase(pitcherOnlyConcern, "pitcher")}`} percent={pitcherOnlyConcern} tone={concernTone(pitcherOnlyConcern)} role={concernRole(pitcherOnlyConcern)} />
-                {(() => {
-                  // Enhanced degradation = base degradation plus game-context layers
-                  // (opponent contact, arsenal decay, inning/TTO). Same operational
-                  // scale as the headline ring, so render with the same ring widget
-                  // (Collin: "should match the main Degradation Score").
-                  const v = num(selectedState?.enhanced_degradation_score);
-                  const clamped = v == null ? null : Math.max(0, Math.min(1, v));
-                  const pct = clamped == null ? null : Math.round(clamped * 100);
-                  const role = concernRole(clamped);
-                  const tier = role === "PULL_NOW"
-                    ? "bad"
-                    : role === "PREP"
-                      ? "prep"
-                      : role === "WATCH"
-                        ? "warn"
-                        : "good";
-                  const ringColor = factorRoleColor(role) ?? factorToneColor(concernTone(clamped));
-                  return (
-                    <div className="evidence-gauge evidence-gauge--ring-card">
-                      <div
-                        className={`degradation-ring degradation-ring--xs degradation-ring--${tier}`}
-                        style={{
-                          "--ring": `${pct ?? 0}%`,
-                          "--ring-color": ringColor,
-                        } as CSSProperties}
-                      >
-                        <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
-                      </div>
-                      <div className="evidence-gauge--ring-card__body">
-                        <div className="evidence-gauge-labelrow">
-                          <span>Adjusted Degradation</span>
-                        </div>
-                        <em>Base degradation + opponent contact suppression + arsenal velo/spin decay + inning/TTO load. Same scale as the headline Degradation Score.</em>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </section>
-              <section>
-                <h4>Command and Contact</h4>
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.strike_rate_10, REPLAY_RATE_BENCHMARKS.strike, "high-good");
-                  const actualPct = Math.round((selectedState?.strike_rate_10 ?? 0) * 10);
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, fmtRate);
-                  return <GaugeMetric
-                    label="Strike Rate (last 10 pitches)"
-                    value={fmtRate(selectedState?.strike_rate_10)}
-                    detail={`${actualPct} of the last 10 pitches were strikes. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, "high-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good");
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, fmtRate);
-                  return <GaugeMetric
-                    label="Called-Strike Rate (last 10 pitches)"
-                    value={fmtRate(selectedState?.called_strike_rate_15)}
-                    detail={`Running rate. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, fmtRate);
-                  return <GaugeMetric
-                    label="Swinging-Strike Rate"
-                    value={fmtRate(selectedState?.whiff_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good");
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
-                  return <GaugeMetric
-                    label="Chase Rate Proxy"
-                    value={fmtRate(selectedState?.chase_proxy_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact, "low-good");
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, fmtRate);
-                  return <GaugeMetric
-                    label="Hard Contact"
-                    value={fmtRate(selectedState?.hard_contact_rate_15)}
-                    detail={`Running last 15 pitches. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, "low-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good");
-                  const zoneFmt = (v: number) => `${fmtNumber(v, 2)} ft`;
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, zoneFmt);
-                  return <GaugeMetric
-                    label="Zone Miss (last 10 pitches)"
-                    value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`}
-                    detail={`Average miss distance from zone edge. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const cmp = factorVsLeague(selectedState?.location_dispersion_10, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good");
-                  const dispFmt = (v: number) => fmtNumber(v, 2);
-                  const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, dispFmt);
-                  return <GaugeMetric
-                    label="Command Spread (last 10 pitches)"
-                    value={fmtNumber(selectedState?.location_dispersion_10, 2)}
-                    detail={`Pitch-to-pitch location variance. League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}.${baselinePhrase} ${cmp?.label ?? "League comparison unavailable."}`}
-                    percent={cmp?.scaledPercent}
-                    benchmarks={dualTicks(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good")}
-                    tone={factorVsLeagueTone(cmp)}
-                    role={null}
-                  />;
-                })()}
-              </section>
-              <section>
-                <h4>Comparison Context</h4>
-                {(() => {
-                  // Phase C.7 — express the league percentile as signed +/- vs
-                  // league average instead of raw 0..100. p < 0.5 means lower
-                  // decay than league (good); p > 0.5 means higher (bad).
-                  // X = round((0.5 - p) * 200) → 0pp at 0.5, +100pp at 0.0.
-                  const p = num(selectedState?.empirical_degradation_percentile);
-                  const pct = p ?? 0;
-                  const tone: "good" | "gold" | "bad" | "neutral" =
-                    p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
-                  const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
-                  const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
-                  const valueLabel = p == null
-                    ? UNAVAILABLE
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher`
-                        : "League-avg";
-                  const summaryPhrase = p == null
-                    ? "Unavailable for this pitch."
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower decay than league avg.`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher decay than league avg.`
-                        : "League-average decay.";
-                  return <GaugeMetric
-                    label="vs League Average"
-                    value={valueLabel}
-                    detail={`${summaryPhrase} Where this pitch ranks vs all MLB pitchers in the same situation. 0 = cleanest, 100 = most degraded.`}
-                    percent={p ?? undefined}
-                    benchmarks={[{ percent: 0.5, label: "league avg" }]}
-                    tone={tone}
-                    role={null}
-                  />;
-                })()}
-                {(() => {
-                  const p = num(selectedState?.pitcher_empirical_degradation_percentile);
-                  const pct = p ?? 0;
-                  const tone: "good" | "gold" | "bad" | "neutral" =
-                    p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
-                  const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
-                  const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
-                  const valueLabel = p == null
-                    ? UNAVAILABLE
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher`
-                        : "Career-avg";
-                  const summaryPhrase = p == null
-                    ? "Unavailable for this pitch."
-                    : pct <= 0.495
-                      ? `${lowerPct}% lower decay than career avg.`
-                      : pct >= 0.505
-                        ? `${higherPct}% higher decay than career avg.`
-                        : "Career-average decay.";
-                  return <GaugeMetric
-                    label="vs Career Average"
-                    value={valueLabel}
-                    detail={`${summaryPhrase} Where this pitch ranks vs this pitcher's own history. 0 = cleanest, 100 = most degraded.`}
-                    percent={p ?? undefined}
-                    benchmarks={[{ percent: 0.5, label: "career avg" }]}
-                    tone={tone}
-                    role={null}
-                  />;
-                })()}
-              </section>
-            </div>
-            </div>
-          </article>
 
           {teamRelievers.length > 0 ? (
             <article className={`panel rss-panel${rssOpen ? "" : " panel--collapsed"}`}>

@@ -20290,3 +20290,298 @@ body.audit-immersive .top-nav__brand {
 body.audit-immersive .top-nav__tagline {
   margin-top: -16px !important;
 }
+
+/* ---------- Phase S — single-screen layout restructure ---------- */
+
+/* S.1 — Pitch detail bar (two-row variant). Top row: Pitch / Velocity /
+ * H-Mov / V-Mov in 4 matched columns. Bottom row: Result + Current
+ * Score in 2 boxes, each spanning HALF the strip so Result sits below
+ * the first 2 columns and Score sits to its right. */
+.theme-mobian .cpw-strip--two-row {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  padding: 8px 10px !important;
+  background: #0e0e0e !important;
+  border: 1px solid #1e1e1e !important;
+  border-radius: 6px !important;
+  margin-bottom: 10px !important;
+}
+
+.theme-mobian .cpw-strip__row {
+  display: grid !important;
+  gap: 6px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.theme-mobian .cpw-strip__row--bottom .cpw-strip__fact--result {
+  grid-column: span 2;
+}
+
+.theme-mobian .cpw-strip__row--bottom .cpw-strip__fact--score {
+  grid-column: span 2;
+}
+
+/* Each detail box: dark fill, eyebrow above value. */
+.theme-mobian .cpw-strip--two-row .cpw-strip__fact {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 3px !important;
+  padding: 6px 10px !important;
+  background: #141414 !important;
+  border-radius: 4px !important;
+  min-width: 0 !important;
+}
+
+.theme-mobian .cpw-strip--two-row .cpw-strip__fact em {
+  font-style: normal !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+}
+
+.theme-mobian .cpw-strip--two-row .cpw-strip__fact strong {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #f5f5f5 !important;
+  line-height: 1.1 !important;
+}
+
+.theme-mobian .cpw-strip--two-row .cpw-strip__fact b {
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  color: #2ec4a0 !important;
+}
+
+/* CURRENT SCORE inline layout (re-uses .pws-score__team / __num / __dash). */
+.theme-mobian .cpw-strip__score {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+.theme-mobian .cpw-strip__score .pws-score__team {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.theme-mobian .cpw-strip__score .pws-score__num {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+}
+
+.theme-mobian .cpw-strip__score .pws-score__dash {
+  color: #5a5a5a !important;
+  font-size: 12px !important;
+}
+
+/* S.1 — Strike zone centered, capped so pitch dots stay inside. */
+.theme-mobian .strike-zone-wrap {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  width: 100% !important;
+}
+
+.theme-mobian .strike-zone-wrap .strike-zone-card {
+  max-width: 320px !important;
+  width: 100% !important;
+}
+
+/* S.2 — Next 3 Hitters in the sidebar (compact horizontal pills). */
+.theme-mobian .pws-next-hitters {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.theme-mobian .pws-next-hitters__list {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  gap: 6px !important;
+}
+
+.theme-mobian .pws-next-hitters__list li {
+  flex: 1 1 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 1px !important;
+  padding: 6px 8px !important;
+  background: #141414 !important;
+  border-radius: 4px !important;
+  min-width: 0 !important;
+}
+
+.theme-mobian .pws-next-hitters__list li strong {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #f5f5f5 !important;
+  letter-spacing: -0.2px !important;
+  line-height: 1.15 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  width: 100% !important;
+}
+
+.theme-mobian .pws-next-hitters__list li em {
+  font-style: normal !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #2ec4a0 !important;
+}
+
+.theme-mobian .pws-next-hitters__empty {
+  font-size: 11px !important;
+  color: #8a8a8a !important;
+  margin: 0 !important;
+}
+
+/* S.2 — Pitch Mix row: snapshot on the left, Pitch Mix Drift gauge
+ * on the right. */
+.theme-mobian .pws-mix-row {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+
+.theme-mobian .pws-mix-row .pws-section {
+  margin: 0 !important;
+}
+
+.theme-mobian .pws-mix-drift {
+  display: flex !important;
+  align-items: stretch !important;
+}
+
+.theme-mobian .pws-mix-drift .evidence-gauge {
+  flex: 1 1 auto !important;
+  padding: 8px !important;
+}
+
+/* S.2 — Slider Velocity + Spin trend pair (compact, symmetrical). */
+.theme-mobian .pws-trend-row {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 8px !important;
+}
+
+.theme-mobian .pws-trend-row .sparkline-card {
+  padding: 8px !important;
+}
+
+/* S.3 — Right-panel tab buttons. Active tab gets the team-accent
+ * underline (same color source as the top-nav active tab). */
+.theme-mobian .model-synthesis-card--tabbed {
+  padding: 0 !important;
+}
+
+.theme-mobian .replay-tabs {
+  display: flex !important;
+  gap: 0 !important;
+  border-bottom: 1px solid #1e1e1e !important;
+  margin-bottom: 14px !important;
+}
+
+.theme-mobian .replay-tab {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 10px 14px !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+  cursor: pointer !important;
+  margin-bottom: -1px !important;
+}
+
+.theme-mobian .replay-tab:hover {
+  color: #d0d0d0 !important;
+}
+
+.theme-mobian .replay-tab--active {
+  color: #ffffff !important;
+  border-bottom-color: var(--team-accent, #2ec4a0) !important;
+}
+
+.theme-mobian .replay-tab-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  padding: 0 14px 14px !important;
+}
+
+/* S.4 — Signal Summary tab: 3-ring row. Hook (large) + Degradation
+ * Score (small) + Adjusted Degradation Score (small). */
+.theme-mobian .signal-summary-rings {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+.theme-mobian .signal-summary-ring {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.theme-mobian .signal-summary-ring__label {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #a0a0a0 !important;
+  text-align: center !important;
+}
+
+.theme-mobian .signal-summary-ring__note {
+  font-style: normal !important;
+  font-size: 10px !important;
+  color: #8a8a8a !important;
+  text-align: center !important;
+  line-height: 1.25 !important;
+}
+
+.theme-mobian .signal-summary-preventable {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 8px 0 !important;
+  border-top: 1px solid #1e1e1e !important;
+  border-bottom: 1px solid #1e1e1e !important;
+}
+
+/* S.5 — Model Detail tab: 2 columns of compact cards. */
+.theme-mobian .model-detail-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+}
+
+.theme-mobian .model-detail-col {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.theme-mobian .model-detail-col .evidence-gauge {
+  padding: 8px !important;
+}
