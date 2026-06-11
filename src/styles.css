@@ -20585,3 +20585,144 @@ body.audit-immersive .top-nav__tagline {
 .theme-mobian .model-detail-col .evidence-gauge {
   padding: 8px !important;
 }
+
+/* ---------- Phase T — single-screen polish round 1 ---------- */
+
+/* T.1 — Tighten the gap between top-nav and the yellow signal banner. */
+body.audit-immersive .workflow-sticky-top {
+  margin-top: 2px !important;
+}
+
+/* T.2 — Re-center the brand block on the nav row (Phase Q pulled it
+ * to flex-start; with T.1 tighter the tagline read as crowded). */
+body.audit-immersive .top-nav__brand {
+  align-self: auto !important;
+  margin-top: 0 !important;
+}
+
+/* T.3 — Replay layout: symmetric 1fr side tracks + content-sized
+ * middle. Strike-zone column is capped by .strike-zone-wrap; side
+ * panels share the remaining horizontal space. */
+body.audit-immersive .replay-layout {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  column-gap: 16px !important;
+}
+
+/* T.4 — Trim sidebar card padding, fix the Pitch Mix Snapshot
+ * overlap bug, and cap the right-panel tab body. */
+.theme-mobian .pws-mix-row {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) !important;
+  align-items: stretch !important;
+}
+
+.theme-mobian .pws-mix-row .pitch-mix-card {
+  min-width: 0 !important;
+  padding: 8px !important;
+}
+
+.theme-mobian .pws-mix-row .pitch-mix-card__body {
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+  overflow: hidden !important;
+}
+
+.theme-mobian .pws-mix-row .pitch-mix-legend {
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+}
+
+.theme-mobian .pws-mix-row .pitch-mix-legend strong {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.theme-mobian .pws-mix-drift .evidence-gauge {
+  padding: 6px 8px !important;
+}
+
+.theme-mobian .pws-trend-row .sparkline-card {
+  padding: 6px 8px !important;
+}
+
+.theme-mobian .replay-tab-panel {
+  max-height: calc(100vh - 240px) !important;
+  overflow: visible !important;
+}
+
+/* T.5 — Pitch detail bar: drop the surrounding container chrome.
+ * Each fact card stands on its own with dark fill + radius. */
+.theme-mobian .cpw-strip--two-row {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin-bottom: 6px !important;
+  gap: 6px !important;
+}
+
+/* Top row: 4 fixed-width cards centered as a group. */
+.theme-mobian .cpw-strip__row--top {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  grid-template-columns: none !important;
+}
+
+.theme-mobian .cpw-strip__row--top .cpw-strip__fact {
+  width: 96px !important;
+  flex: 0 0 96px !important;
+  grid-column: auto !important;
+}
+
+/* Bottom row: Result + Current Score, larger, centered as a group. */
+.theme-mobian .cpw-strip__row--bottom {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+  grid-template-columns: none !important;
+}
+
+.theme-mobian .cpw-strip__row--bottom .cpw-strip__fact--result,
+.theme-mobian .cpw-strip__row--bottom .cpw-strip__fact--score {
+  width: 200px !important;
+  flex: 0 0 200px !important;
+  grid-column: auto !important;
+}
+
+/* T.6 — Three ring labels at the same top edge. */
+body.audit-immersive .signal-summary-rings {
+  align-items: flex-start !important;
+}
+
+/* T.7 — Medium ring size (between --xs 58 and --lg 152). */
+.theme-mobian .degradation-ring--md {
+  width: 96px !important;
+  height: 96px !important;
+}
+
+.theme-mobian .degradation-ring--md strong {
+  font-size: 20px !important;
+  letter-spacing: -0.5px !important;
+}
+
+/* T.7 — Sub-note variant under the Hook Score for the composite-
+ * formula line. */
+.theme-mobian .signal-summary-ring__note--sub {
+  font-size: 9px !important;
+  color: #6a6a6a !important;
+  letter-spacing: 0.2px !important;
+  margin-top: -2px !important;
+}
+
+/* T.8 — Preventable Runs value rendered in amber. */
+.theme-mobian .signal-summary-preventable .decision-score-value--amber {
+  color: #f5a03b !important;
+}
+
+/* T.9 — Model Detail tab columns aligned to top edge. */
+.theme-mobian .model-detail-col {
+  align-self: start !important;
+}

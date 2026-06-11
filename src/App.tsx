@@ -4022,6 +4022,10 @@ function GameAudit({
   // is removed and its cards relocated either into the left sidebar or
   // into one of these four tabs.
   const [rightTab, setRightTab] = useState<"signal" | "model" | "relief" | "comparison">("signal");
+  // Phase T.10 — re-introduce the 3-up + Show All cap so the Relief
+  // Edge tab doesn't need internal scrolling on bullpens with 5–8
+  // available candidates.
+  const [showAllRelief, setShowAllRelief] = useState(false);
   const teamReplayEntries = useMemo(
     () =>
       ([...(replay?.entries ?? []), ...(replay?.reliever_entries ?? [])])
@@ -4482,6 +4486,7 @@ function GameAudit({
                               <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                             </div>
                             <em className="signal-summary-ring__note">{decisionPressurePhrase(peak)}</em>
+                            <em className="signal-summary-ring__note signal-summary-ring__note--sub">Composite: pitcher decay × game leverage × relief edge × opponent context.</em>
                           </div>
                         );
                       })()}
@@ -4495,9 +4500,10 @@ function GameAudit({
                         return (
                           <div className="signal-summary-ring signal-summary-ring--sm">
                             <span className="signal-summary-ring__label">Degradation Score</span>
-                            <div className={`degradation-ring degradation-ring--xs degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                            <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
                               <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                             </div>
+                            <em className="signal-summary-ring__note">Pitcher's own decay only — ignores leverage and relief alternatives.</em>
                           </div>
                         );
                       })()}
@@ -4511,19 +4517,22 @@ function GameAudit({
                         return (
                           <div className="signal-summary-ring signal-summary-ring--sm">
                             <span className="signal-summary-ring__label">Adjusted Degradation Score</span>
-                            <div className={`degradation-ring degradation-ring--xs degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
+                            <div className={`degradation-ring degradation-ring--md degradation-ring--${tier}`} style={{ "--ring": `${pct ?? 0}%`, "--ring-color": ringColor } as CSSProperties}>
                               <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                             </div>
+                            <em className="signal-summary-ring__note">Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load).</em>
                           </div>
                         );
                       })()}
                     </div>
 
-                    {/* S.4 — Preventable Runs centered below the rings. */}
+                    {/* S.4 + T.8 — Preventable Runs centered below the rings.
+                      * Value rendered in amber; note replaced with a plain-
+                      * English description. */}
                     <div className="signal-summary-preventable">
                       <span className="decision-score-label">Preventable Runs</span>
-                      <strong className="decision-score-value">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
-                      <em className="decision-score-note">{selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Calibrated opportunity model" : "Not attached to this pitch window"}</em>
+                      <strong className="decision-score-value decision-score-value--amber">{selectedIsReliever ? "Reliever RSS" : fmtRuns(selectedPreventableRuns)}</strong>
+                      <em className="decision-score-note">{selectedIsReliever ? `RSS ${fmtNumber(selectedState?.rss_score, 2)}` : selectedOpportunity ? "Estimated runs saved by pulling at this pitch versus letting the appearance continue." : "Not attached to this pitch window"}</em>
                     </div>
 
                     {/* S.4 — 4-card 2x2 grid (Stuff/Command/Workload/Leverage). Unchanged content. */}
@@ -4627,16 +4636,42 @@ function GameAudit({
                         {reliefOptions.length === 0 ? (
                           <p className="relief-options__empty">No relief alternatives were attached to this pitch window.</p>
                         ) : (
-                          reliefOptions.map((candidate) => (
-                            <GaugeMetric
-                              key={candidate.player_id}
-                              label={candidate.player_name}
-                              value={candidate.available ? "Available" : "Not available"}
-                              detail={`Net option ${fmtNumber(candidate.net_option_score, 2)} · usage cost ${fmtNumber(candidate.usage_cost, 2)} · matchup ${fmtNumber(candidate.direct_matchup_fit, 2)}`}
-                              percent={scaledPercent(candidate.net_option_score, 1)}
-                              tone={candidate.available ? "good" : "neutral"}
-                            />
-                          ))
+                          (() => {
+                            // Phase T.10 — show 3 by default; expand on click.
+                            const visible = showAllRelief ? reliefOptions : reliefOptions.slice(0, 3);
+                            const hidden = Math.max(0, reliefOptions.length - visible.length);
+                            return (
+                              <>
+                                {visible.map((candidate) => (
+                                  <GaugeMetric
+                                    key={candidate.player_id}
+                                    label={candidate.player_name}
+                                    value={candidate.available ? "Available" : "Not available"}
+                                    detail={`Net option ${fmtNumber(candidate.net_option_score, 2)} · usage cost ${fmtNumber(candidate.usage_cost, 2)} · matchup ${fmtNumber(candidate.direct_matchup_fit, 2)}`}
+                                    percent={scaledPercent(candidate.net_option_score, 1)}
+                                    tone={candidate.available ? "good" : "neutral"}
+                                  />
+                                ))}
+                                {hidden > 0 ? (
+                                  <button
+                                    type="button"
+                                    className="relief-options__more"
+                                    onClick={() => setShowAllRelief(true)}
+                                  >
+                                    Show all ({reliefOptions.length})
+                                  </button>
+                                ) : showAllRelief && reliefOptions.length > 3 ? (
+                                  <button
+                                    type="button"
+                                    className="relief-options__more"
+                                    onClick={() => setShowAllRelief(false)}
+                                  >
+                                    Show fewer
+                                  </button>
+                                ) : null}
+                              </>
+                            );
+                          })()
                         )}
                       </section>
                     ) : null}
