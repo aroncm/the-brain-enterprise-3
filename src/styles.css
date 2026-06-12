@@ -21846,3 +21846,28 @@ body:not(.audit-immersive) .top-nav__context .top-nav__team-name {
   line-height: 1.05 !important;
   min-width: 0 !important;
 }
+
+/* ==========================================================================
+ * Phase II — pressure-easing annotation in the signal slab.
+ * Third labelled column in the GG slab grid (eyebrow "Pressure" + a
+ * "▾ Easing" badge), shown only when the model's raw per-pitch status sits
+ * below the held (monotonic) display status. Inherits the count-badge
+ * chrome incl. the CC.3 per-tier inversions.
+ * ========================================================================== */
+
+body.audit-immersive .signal-banner__slab-eyebrow--easing {
+  grid-column: 3 !important;
+  justify-self: start !important;
+}
+
+/* Must out-rank the GG count-badge column rule
+ * (body.audit-immersive .signal-banner--3zone .signal-banner__zone--right
+ * .signal-banner__count-badge), which would otherwise pin this badge to
+ * column 2 on top of the dwell badge. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__easing-badge {
+  grid-row: 2 !important;
+  grid-column: 3 !important;
+  justify-self: start !important;
+  opacity: 0.85 !important;
+  letter-spacing: 0.6px !important;
+}

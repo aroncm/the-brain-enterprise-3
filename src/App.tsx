@@ -4112,7 +4112,7 @@ function GameAudit({
   // Phase S — right-panel tab state. The Model Signal Factors section
   // is removed and its cards relocated either into the left sidebar or
   // into one of these four tabs.
-  const [rightTab, setRightTab] = useState<"signal" | "model" | "relief" | "comparison">("signal");
+  const [rightTab, setRightTab] = useState<"signal" | "model" | "relief">("signal");
   // Phase T.10 — re-introduce the 3-up + Show All cap so the Relief
   // Edge tab doesn't need internal scrolling on bullpens with 5–8
   // available candidates.
@@ -4228,10 +4228,11 @@ function GameAudit({
         return num(s?.rss_command);
       })
     : undefined;
-  // Phase X.9 — if user is on Relief Edge or Comparison and switches
-  // to a reliever (which hides both tabs), fall back to Signal Summary.
+  // Phase X.9 — if user is on Relief Edge and switches to a reliever
+  // (which hides that tab), fall back to Signal Summary. (The Comparison
+  // tab was removed entirely in Phase II per Collin's feedback.)
   useEffect(() => {
-    if (selectedIsReliever && (rightTab === "relief" || rightTab === "comparison")) {
+    if (selectedIsReliever && rightTab === "relief") {
       setRightTab("signal");
     }
   }, [selectedIsReliever, rightTab]);
@@ -4449,11 +4450,22 @@ function GameAudit({
                     * keep each eyebrow x-aligned with its badge. */}
                   {(() => {
                     const count = currentSignalCount(displayStatuses, selectedIndex);
+                    // Phase II — pressure-easing annotation (monotonicity
+                    // option a): the displayed signal is a high-water mark and
+                    // never de-escalates, but when the model's RAW per-pitch
+                    // status sits below it, surface that the underlying
+                    // pressure has eased. Starters only — the reliever RSS
+                    // variant has its own status semantics.
+                    const rawStatus = !selectedIsReliever && selected ? statusLabel(selected.recommendation.status) : null;
+                    const easing = rawStatus != null && statusRank(rawStatus) < statusRank(displayStatus);
                     return (
                       <>
                         <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--signal">Model Signal</span>
                         {count > 0 ? (
                           <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--dwell">Signal Dwell</span>
+                        ) : null}
+                        {easing ? (
+                          <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--easing">Pressure</span>
                         ) : null}
                         <strong className="signal-banner__value signal-banner__value--pill">
                           {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
@@ -4464,6 +4476,14 @@ function GameAudit({
                             title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
                           >
                             {count} {count === 1 ? "pitch" : "pitches"}
+                          </span>
+                        ) : null}
+                        {easing ? (
+                          <span
+                            className="signal-banner__count-badge signal-banner__easing-badge"
+                            title={`Underlying pressure has eased to ${rawStatus} on this pitch; the operational signal holds at ${displayStatus}.`}
+                          >
+                            ▾ Easing
                           </span>
                         ) : null}
                       </>
@@ -4570,18 +4590,32 @@ function GameAudit({
                   * Model Signal Factors → Stuff column into a compact
                   * symmetrical pair under the pitch-mix row. */}
                 <div className="pws-trend-row">
-                  <TrendSparkline
-                    label={`${matchedVelocityPitchLabel} Velocity`}
-                    value={`${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "mean_last5") ?? selected.snapshot.release_speed ?? selectedState?.velo_mean_5, 1)} mph`}
-                    detail={`Baseline ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_velo_baseline, 1)} · drop ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "drop"), 1)}`}
-                    points={currentPitchVeloPoints}
-                  />
-                  <TrendSparkline
-                    label={`${matchedSpinPitchLabel} Spin`}
-                    value={`${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "mean_last5") ?? selectedState?.spin_mean_5, 0)} rpm`}
-                    detail={`Baseline ${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_spin_baseline, 0)} · trend ${fmtSigned(trendNumber(currentSpinTrend?.bucket ?? null, "slope") ?? selectedState?.spin_slope_5, 0)}`}
-                    points={currentPitchSpinPoints}
-                  />
+                  {/* Phase II — 0 mph / 0 rpm are impossible readings; they
+                    * appear when the pitch-type window has no usable data
+                    * (e.g. no tracked pitches of this type yet). Render
+                    * "n/a" instead of a misleading zero. */}
+                  {(() => {
+                    const veloVal = trendNumber(currentVelocityTrend?.bucket ?? null, "mean_last5") ?? selected.snapshot.release_speed ?? selectedState?.velo_mean_5;
+                    const spinVal = trendNumber(currentSpinTrend?.bucket ?? null, "mean_last5") ?? selectedState?.spin_mean_5;
+                    const veloLabel = veloVal == null || !Number.isFinite(veloVal) || veloVal <= 0 ? "n/a" : `${fmtNumber(veloVal, 1)} mph`;
+                    const spinLabel = spinVal == null || !Number.isFinite(spinVal) || spinVal <= 0 ? "n/a" : `${fmtNumber(spinVal, 0)} rpm`;
+                    return (
+                      <>
+                        <TrendSparkline
+                          label={`${matchedVelocityPitchLabel} Velocity`}
+                          value={veloLabel}
+                          detail={veloLabel === "n/a" ? "No tracked pitches of this type in the window yet." : `Baseline ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_velo_baseline, 1)} · drop ${fmtNumber(trendNumber(currentVelocityTrend?.bucket ?? null, "drop"), 1)}`}
+                          points={currentPitchVeloPoints}
+                        />
+                        <TrendSparkline
+                          label={`${matchedSpinPitchLabel} Spin`}
+                          value={spinLabel}
+                          detail={spinLabel === "n/a" ? "No tracked pitches of this type in the window yet." : `Baseline ${fmtNumber(trendNumber(currentSpinTrend?.bucket ?? null, "baseline") ?? selectedState?.seasonal_spin_baseline, 0)} · trend ${fmtSigned(trendNumber(currentSpinTrend?.bucket ?? null, "slope") ?? selectedState?.spin_slope_5, 0)}`}
+                          points={currentPitchSpinPoints}
+                        />
+                      </>
+                    );
+                  })()}
                 </div>
               </aside>
 
@@ -4650,8 +4684,10 @@ function GameAudit({
                 </div>
               </div>
 
-              {/* Phase S.3 — right panel is now tabbed. Four tabs:
-                * Signal Summary | Model Detail | Relief Edge | Comparison.
+              {/* Phase S.3 — right panel is now tabbed. Three tabs since
+                * Phase II removed Comparison (Collin: percentiles read as
+                * "random numbers" without context):
+                * Signal Summary | Model Detail | Relief Edge.
                 * The Model Signal Factors section below the article is
                 * removed entirely (S.8); all its cards have new homes
                 * here, in the left sidebar, or above the strike zone. */}
@@ -4659,14 +4695,11 @@ function GameAudit({
                 <div className="replay-tabs" role="tablist" aria-label="Replay detail tabs">
                   <button type="button" role="tab" aria-selected={rightTab === "signal"} className={`replay-tab${rightTab === "signal" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("signal")}>Signal Summary</button>
                   <button type="button" role="tab" aria-selected={rightTab === "model"} className={`replay-tab${rightTab === "model" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("model")}>Model Detail</button>
-                  {/* Phase X.8/X.9 — Relief Edge + Comparison tabs are
-                    * hidden for relievers. Reliever-variant right panel
-                    * reduces to Signal Summary + Model Detail only. */}
+                  {/* Phase X.8/X.9 — Relief Edge tab is hidden for
+                    * relievers. Reliever-variant right panel reduces to
+                    * Signal Summary + Model Detail only. */}
                   {!selectedIsReliever ? (
                     <button type="button" role="tab" aria-selected={rightTab === "relief"} className={`replay-tab${rightTab === "relief" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("relief")}>Relief Edge</button>
-                  ) : null}
-                  {!selectedIsReliever ? (
-                    <button type="button" role="tab" aria-selected={rightTab === "comparison"} className={`replay-tab${rightTab === "comparison" ? " replay-tab--active" : ""}`} onClick={() => setRightTab("comparison")}>Comparison</button>
                   ) : null}
                 </div>
 
@@ -4890,26 +4923,34 @@ function GameAudit({
                     <div className="model-detail-grid">
                       <div className="model-detail-col">
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.strike_rate_10, REPLAY_RATE_BENCHMARKS.strike, "high-good");
-                          const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, fmtRate);
-                          return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.strike_rate_10)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_strike_rate, REPLAY_RATE_BENCHMARKS.strike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          // Phase II — this card previously displayed the CALLED-strike
+                          // share (strike_rate_10 is built from called-strike flags
+                          // backend-side) against the 0.63 overall-strike league
+                          // benchmark — which is why it always read ~20% and red.
+                          // True strike share = 1 − ball rate (everything not taken
+                          // for a ball: swings, fouls, contact, called strikes). The
+                          // pitcher-norm tick is dropped here because the exposed norm
+                          // is called-strike-based and would mislead on this scale.
+                          const trueStrikeRate = selectedState?.ball_rate_10 == null ? null : Math.max(0, Math.min(1, 1 - selectedState.ball_rate_10));
+                          const cmp = factorVsLeague(trueStrikeRate, REPLAY_RATE_BENCHMARKS.strike, "high-good");
+                          return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(trueStrikeRate)} detail={`Share of the last 10 pitches not taken for balls. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.`} percent={cmp?.scaledPercent} benchmarks={dualTicks(null, REPLAY_RATE_BENCHMARKS.strike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
                           const cmp = factorVsLeague(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good");
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, fmtRate);
-                          return <GaugeMetric label="Called-Strike Rate (last 10 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
                           const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good");
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, fmtRate);
-                          return <GaugeMetric label="Swinging-Strike Rate" value={fmtRate(selectedState?.whiff_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Swinging-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.whiff_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                       </div>
                       <div className="model-detail-col">
                         {(() => {
                           const cmp = factorVsLeague(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact, "low-good");
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, fmtRate);
-                          return <GaugeMetric label="Hard Contact" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Hard Contact (last 15 pitches)" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
                           const cmp = factorVsLeague(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good");
@@ -4930,7 +4971,7 @@ function GameAudit({
                         {(() => {
                           const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good");
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
-                          return <GaugeMetric label="Chase Rate Proxy" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Chase Rate Proxy (last 15 pitches)" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                       </div>
                     </div>
@@ -5000,31 +5041,12 @@ function GameAudit({
                   </div>
                 ) : null}
 
-                {rightTab === "comparison" ? (
-                  <div className="replay-tab-panel">
-                    {/* S.7 — vs League + vs Career percentile cards. */}
-                    {(() => {
-                      const p = num(selectedState?.empirical_degradation_percentile);
-                      const pct = p ?? 0;
-                      const tone: "good" | "gold" | "bad" | "neutral" = p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
-                      const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
-                      const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
-                      const valueLabel = p == null ? UNAVAILABLE : pct <= 0.495 ? `${lowerPct}% lower` : pct >= 0.505 ? `${higherPct}% higher` : "League-avg";
-                      const summaryPhrase = p == null ? "Unavailable for this pitch." : pct <= 0.495 ? `${lowerPct}% lower decay than league avg.` : pct >= 0.505 ? `${higherPct}% higher decay than league avg.` : "League-average decay.";
-                      return <GaugeMetric label="vs League Average" value={valueLabel} detail={`${summaryPhrase} Where this pitch ranks vs all MLB pitchers in the same situation. 0 = cleanest, 100 = most degraded.`} percent={p ?? undefined} benchmarks={[{ percent: 0.5, label: "league avg" }]} tone={tone} role={null} />;
-                    })()}
-                    {(() => {
-                      const p = num(selectedState?.pitcher_empirical_degradation_percentile);
-                      const pct = p ?? 0;
-                      const tone: "good" | "gold" | "bad" | "neutral" = p == null ? "neutral" : pct < 0.3 ? "good" : pct < 0.7 ? "gold" : "bad";
-                      const lowerPct = p == null ? null : Math.round((0.5 - pct) * 200);
-                      const higherPct = p == null ? null : Math.round((pct - 0.5) * 200);
-                      const valueLabel = p == null ? UNAVAILABLE : pct <= 0.495 ? `${lowerPct}% lower` : pct >= 0.505 ? `${higherPct}% higher` : "Career-avg";
-                      const summaryPhrase = p == null ? "Unavailable for this pitch." : pct <= 0.495 ? `${lowerPct}% lower decay than career avg.` : pct >= 0.505 ? `${higherPct}% higher decay than career avg.` : "Career-average decay.";
-                      return <GaugeMetric label="vs Career Average" value={valueLabel} detail={`${summaryPhrase} Where this pitch ranks vs this pitcher's own history. 0 = cleanest, 100 = most degraded.`} percent={p ?? undefined} benchmarks={[{ percent: 0.5, label: "career avg" }]} tone={tone} role={null} />;
-                    })()}
-                  </div>
-                ) : null}
+                {/* Phase II — the Comparison tab (S.7 vs League / vs Career
+                  * percentile cards) was removed per Collin's feedback: the
+                  * percentile framing read as "random numbers" without
+                  * actionable context. The underlying fields
+                  * (empirical_degradation_percentile et al.) remain in the
+                  * payload if a better framing earns the space back. */}
               </aside>
             </div>
 
@@ -5195,6 +5217,39 @@ function GameAudit({
               <div className="outcome-card">
                 <strong className="outcome-card__title">Actual Result</strong>
                 <p>{exitAndDamageCopy(keyPitcher)}</p>
+                {/* Phase II — the "if left in" counterfactual returns (it was
+                  * removed in FF.2 as an unlabeled orphan). It reads as part
+                  * of the actual-outcome narrative: only rendered when the
+                  * manager held the starter past the Pull Now signal and the
+                  * post-signal peak is at least the at-signal value. */}
+                {(() => {
+                  if (starterPullIndex < 0 || starterPullIndex >= starterEntries.length - 1) return null;
+                  let atSignal: number | undefined;
+                  for (let i = 0; i <= starterPullIndex; i++) {
+                    const s = replayState(starterEntries[i]) as { enhanced_degradation_score?: number | null } | null;
+                    const raw = num(s?.enhanced_degradation_score);
+                    if (raw == null) continue;
+                    const scaled = Math.max(0, Math.min(1, raw / 3));
+                    atSignal = atSignal === undefined ? scaled : Math.max(atSignal, scaled);
+                  }
+                  let leftInPeak: number | undefined;
+                  for (let i = starterPullIndex; i < starterEntries.length; i++) {
+                    const s = replayState(starterEntries[i]) as { enhanced_degradation_score?: number | null } | null;
+                    const raw = num(s?.enhanced_degradation_score);
+                    if (raw == null) continue;
+                    const scaled = Math.max(0, Math.min(1, raw / 3));
+                    leftInPeak = leftInPeak === undefined ? scaled : Math.max(leftInPeak, scaled);
+                  }
+                  if (atSignal == null || leftInPeak == null) return null;
+                  const atSignalPct = Math.round(atSignal * 100);
+                  const leftInPct = Math.round(leftInPeak * 100);
+                  if (leftInPct < atSignalPct) return null;
+                  return (
+                    <p>
+                      Over the pitches after the signal, his Adjusted Degradation peaked at <b>{leftInPct}%</b> — vs <b>{atSignalPct}%</b> at the signal.
+                    </p>
+                  );
+                })()}
               </div>
             </div>
             {/* Phase X.10 — reliever rows below the 3 starter cards.
