@@ -21445,3 +21445,123 @@ body.audit-immersive .signal-banner__field--pitcher .signal-banner__value--inlin
   letter-spacing: -0.2px !important;
   line-height: 1.15 !important;
 }
+
+/* ==========================================================================
+ * Phase DD — Signal banner width parity + appearance-switcher card redesign.
+ * ========================================================================== */
+
+/* DD.1 — The banner's colored slab must sit exactly over the right panel.
+ * Phases Z.5–CC.3 mirrored the body grid but hardcoded the banner's center
+ * track at 320px, while the body's center track (Phase T.3) is `auto` —
+ * sized by its widest content, the pitch-detail card strip (4 × 110px
+ * cards + 3 × 8px gaps = 464px, Phase V.7). The ~144px difference split
+ * across the banner's two 1fr side tracks, pushing the colored slab
+ * ~72px left into the center column. Fix: ONE variable drives BOTH grids'
+ * center track, so the column edges align by construction at every
+ * viewport width (side padding 22px and column-gap 16px already match).
+ * If the pitch-card strip ever changes width, update --replay-center-col. */
+body.audit-immersive {
+  --replay-center-col: 464px;
+}
+
+body.audit-immersive .replay-layout {
+  grid-template-columns: minmax(0, 1fr) var(--replay-center-col) minmax(0, 1fr) !important;
+}
+
+body.audit-immersive .signal-banner--3zone {
+  grid-template-columns: minmax(0, 1fr) var(--replay-center-col) minmax(0, 1fr) !important;
+}
+
+/* The body's center column was content-sized before; with a fixed track,
+ * keep the strike-zone stack centered and unable to widen the track. */
+body.audit-immersive .replay-layout > .strike-zone-column {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+/* DD.2 — Appearance-switcher refined cards. Supersedes BB.3's fixed
+ * 200px width: cards keep the uniform 64px height but size to content
+ * within 150–230px, and every text line ellipsizes instead of spilling
+ * past the card edge (long reliever names like "Karinchak, James"). */
+body.audit-immersive .appearance-switcher button,
+body.audit-immersive .appearance-switcher__outcome-cta {
+  width: auto !important;
+  min-width: 150px !important;
+  max-width: 260px !important;
+  gap: 3px !important;
+}
+
+/* Line 1 — pitcher name (or CTA title). */
+body.audit-immersive .appearance-card__name {
+  display: block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: #d6d6d6 !important;
+  opacity: 1 !important;
+}
+
+/* Line 2 — ROLE · N PITCHES (+ finished marker). */
+body.audit-immersive .appearance-card__meta {
+  display: block !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+  opacity: 1 !important;
+}
+
+/* Active card — keep the team-accent border, add an accent-tinted fill
+ * + white name so the selected pitcher reads at a glance. */
+body.audit-immersive .appearance-switcher button.active {
+  background: color-mix(in srgb, var(--team-primary, #2ec4a0) 14%, #1a1a1a) !important;
+  border-color: var(--team-primary, #2ec4a0) !important;
+}
+
+body.audit-immersive .appearance-switcher button.active .appearance-card__name {
+  color: #ffffff !important;
+}
+
+body.audit-immersive .appearance-switcher button.active .appearance-card__meta {
+  color: #c4c4c4 !important;
+}
+
+body.audit-immersive .appearance-switcher button:not(.active):hover {
+  background: #202020 !important;
+  border-color: #333333 !important;
+}
+
+/* Finished-game marker — compact green check in the meta line (replaces
+ * the Phase W.10 pill, which forced a third row into the fixed-height
+ * card). */
+body.audit-immersive .appearance-card__finished {
+  display: inline !important;
+  margin-left: 8px !important;
+  color: #2ec4a0 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+}
+
+/* CTA — green title + down arrow so it reads as an action, not another
+ * pitcher tab. Border stays #2ec4a0 from the Z.4 rule. */
+body.audit-immersive .appearance-switcher__outcome-cta .appearance-card__name {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #2ec4a0 !important;
+}
+
+body.audit-immersive .appearance-switcher__outcome-cta:hover {
+  background: rgba(46, 196, 160, 0.12) !important;
+}

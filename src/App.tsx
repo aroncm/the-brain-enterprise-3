@@ -4139,6 +4139,7 @@ function GameAudit({
       grouped.set(key, {
         key,
         role,
+        name: entry.snapshot.pitcher_name,
         label: `${entry.snapshot.pitcher_name} · ${role}`,
         count: 1,
         firstPitch: pitchCount(entry),
@@ -5027,26 +5028,36 @@ function GameAudit({
                       type="button"
                       className={item.key === selectedAppearanceKey ? "active" : ""}
                       onClick={() => setAppearance(item.key)}
+                      title={item.label}
                     >
-                      {item.label}
-                      <span>{item.count} pitches</span>
-                      {/* Phase W.10 — pill on the reliever who closed the game. */}
-                      {closerPitcherId && item.pitcherId === closerPitcherId ? (
-                        <span className="appearance-pill appearance-pill--finished">Finished Game</span>
-                      ) : null}
+                      {/* Phase DD.2 — two-line card: name on top, role · count
+                        * below. Each line ellipsizes so long reliever names no
+                        * longer overflow the card. The Phase W.10 Finished Game
+                        * pill becomes a compact green marker in the meta line. */}
+                      <span className="appearance-card__name">{displayPersonName(item.name)}</span>
+                      <span className="appearance-card__meta">
+                        {item.role} · {item.count} pitches
+                        {closerPitcherId && item.pitcherId === closerPitcherId ? (
+                          <span className="appearance-card__finished">✓ Finished</span>
+                        ) : null}
+                      </span>
                     </button>
                   ))}
                   {/* Phase Z.4 — CTA card to the right of the last
                     * reliever; smooth-scrolls the Actual Outcome
-                    * Summary panel into view. */}
+                    * Summary panel into view. DD.2 restyles it as a
+                    * green action: green title + down arrow. */}
                   <button
                     type="button"
                     className="appearance-switcher__outcome-cta"
                     onClick={scrollToAos}
                     aria-label="Scroll to Actual Outcome Summary"
                   >
-                    Game Outcome Summary
-                    <span>Jump to summary</span>
+                    <span className="appearance-card__name appearance-card__name--cta">
+                      Game Outcome Summary
+                      <ArrowDown size={13} aria-hidden="true" />
+                    </span>
+                    <span className="appearance-card__meta">Jump to summary</span>
                   </button>
                 </div>
               ) : null}
