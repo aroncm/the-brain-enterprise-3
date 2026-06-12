@@ -21672,3 +21672,46 @@ body.audit-immersive .cpw-strip__score .pws-score__team {
 body.audit-immersive .cpw-strip__score .pws-score__dash {
   font-size: 14px !important;
 }
+
+/* ==========================================================================
+ * Phase FF — AOS outcome-card readability, signal-banner labelled badges,
+ * STAY pill back to dark fill. (FF.1 is a backend pocket fix; FF.2 removed
+ * the orphan "If left in" percentage in JSX.)
+ * ========================================================================== */
+
+/* FF.3 — Why It Fired + Actual Result prose steps up to fill the cards. */
+body.audit-immersive .outcome-card p {
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+}
+
+/* FF.4 — The banner's colored slab left-aligns its content: the signal
+ * pill and the dwell badge each sit in a stacked field with a small
+ * eyebrow label above, mirroring the left zone's labelled clusters. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+  gap: 28px !important;
+}
+
+body.audit-immersive .signal-banner__zone--right .signal-banner__field {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+}
+
+/* The dwell badge rides lower than the pill (smaller element) — align
+ * both eyebrows to the same top edge and let the badges hang below. */
+body.audit-immersive .signal-banner__zone--right .signal-banner__eyebrow {
+  line-height: 1 !important;
+}
+
+/* FF.5 — STAY pill drops the CC.3 white inversion: dark fill + white
+ * text like the light-tier pills. The STAY slab is the same #1a1a1a, so
+ * a subtle border keeps the pill legible against it. */
+body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--right .signal-banner__value--pill {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  border: 1px solid #3a3a3a !important;
+}

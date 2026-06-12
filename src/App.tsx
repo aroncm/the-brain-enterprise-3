@@ -4442,19 +4442,28 @@ function GameAudit({
                   * share the colored cell that sits flush above the
                   * right panel below. */}
                 <div className="signal-banner__zone signal-banner__zone--right">
-                  <strong className="signal-banner__value signal-banner__value--pill">
-                    {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
-                  </strong>
+                  {/* Phase FF.4 — pill + count badge left-aligned, each in a
+                    * stacked field with a small eyebrow label matching the
+                    * left zone's labelled clusters. */}
+                  <div className="signal-banner__field signal-banner__field--signal">
+                    <span className="signal-banner__eyebrow">Model Signal</span>
+                    <strong className="signal-banner__value signal-banner__value--pill">
+                      {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
+                    </strong>
+                  </div>
                   {(() => {
                     const count = currentSignalCount(displayStatuses, selectedIndex);
                     if (count <= 0) return null;
                     return (
-                      <span
-                        className="signal-banner__count-badge"
-                        title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
-                      >
-                        {count} {count === 1 ? "pitch" : "pitches"}
-                      </span>
+                      <div className="signal-banner__field signal-banner__field--dwell">
+                        <span className="signal-banner__eyebrow">Signal Dwell</span>
+                        <span
+                          className="signal-banner__count-badge"
+                          title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
+                        >
+                          {count} {count === 1 ? "pitch" : "pitches"}
+                        </span>
+                      </div>
                     );
                   })()}
                 </div>
@@ -5139,19 +5148,6 @@ function GameAudit({
                       }
                     }
                     const adjPct = adjPeak == null ? null : Math.round(adjPeak * 100);
-                    // "If left in" — peak Adjusted Degradation from the
-                    // pull pitch to the end of the appearance.
-                    let leftInPeak: number | undefined;
-                    if (starterPullIndex >= 0) {
-                      for (let i = starterPullIndex; i < starterEntries.length; i++) {
-                        const s = replayState(starterEntries[i]) as { enhanced_degradation_score?: number | null } | null;
-                        const raw = num(s?.enhanced_degradation_score);
-                        if (raw == null) continue;
-                        const scaled = Math.max(0, Math.min(1, raw / 3));
-                        leftInPeak = leftInPeak === undefined ? scaled : Math.max(leftInPeak, scaled);
-                      }
-                    }
-                    const leftInPct = leftInPeak == null ? null : Math.round(leftInPeak * 100);
                     return (
                       <>
                         <li>
@@ -5176,11 +5172,12 @@ function GameAudit({
                             <i style={{ width: `${adjPct ?? 0}%` }} />
                           </div>
                           <b className="pull-meter-value">{adjPct == null ? UNAVAILABLE : `${adjPct}%`}</b>
+                          {/* Phase FF.2 — the "If left in: peak by end of
+                            * appearance N%" suffix is gone; its <strong>
+                            * rendered as a huge unattached percentage at the
+                            * bottom of the card. */}
                           <em className="pull-meter-tagline">
                             Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load) through the pull pitch.
-                            {leftInPct != null ? (
-                              <> If left in: peak by end of appearance <strong>{leftInPct}%</strong>.</>
-                            ) : null}
                           </em>
                         </li>
                       </>
