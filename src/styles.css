@@ -21238,109 +21238,149 @@ body.audit-immersive .replay-tab-panel--reliever .decision-gauge-grid {
  * styling to match At Bat eyebrow + name.
  * ========================================================================== */
 
-/* Z.4 — Game Outcome Summary CTA card to the right of the last reliever
- * in the appearance-switcher. Distinct from the appearance buttons so
- * the user reads it as a navigation affordance. */
+/* Z.4 + AA.2 — Game Outcome Summary CTA card matches the appearance-
+ * switcher buttons (dark pill-shape, same padding + font sizing) but
+ * with a GREEN border to differentiate it as a navigation action. */
 body.audit-immersive .appearance-switcher__outcome-cta {
   margin-left: 12px !important;
-  padding: 8px 14px !important;
-  background: rgba(245, 160, 59, 0.12) !important;
-  border: 1px solid #f5a03b !important;
-  border-radius: 8px !important;
-  color: #f5a03b !important;
-  font-size: 12px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.6px !important;
-  text-transform: uppercase !important;
+  padding: 10px 14px !important;
+  background: #1a1a1a !important;
+  border: 1px solid #2ec4a0 !important;
+  border-radius: 999px !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
   cursor: pointer !important;
   display: inline-flex !important;
   flex-direction: column !important;
   align-items: flex-start !important;
   gap: 2px !important;
+  white-space: nowrap !important;
   transition: background 0.15s ease !important;
 }
 
 body.audit-immersive .appearance-switcher__outcome-cta:hover {
-  background: rgba(245, 160, 59, 0.22) !important;
+  background: rgba(46, 196, 160, 0.12) !important;
 }
 
 body.audit-immersive .appearance-switcher__outcome-cta span {
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0.4px !important;
+  display: block !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
   text-transform: none !important;
-  color: rgba(245, 160, 59, 0.8) !important;
+  color: inherit !important;
+  opacity: 0.7 !important;
 }
 
-/* Z.5 — Signal banner narrows to the right-panel column width and sits
- * flush at the top of it. The full-width sticky bar becomes a 3-col
- * grid that mirrors the replay-layout below; only the right cell
- * carries the colored signal background. */
+/* Z.5 + AA.1 — Signal banner sits flush directly above the right-hand
+ * panel, matching its width. The workflow-sticky-top stays as a dark
+ * solid sticky bar (preserves stickiness visual) with NO border-bottom
+ * and NO bottom padding so the colored slab below touches the right
+ * panel's top edge with no gap. */
 body.audit-immersive .workflow-sticky-top {
-  background: transparent !important;
+  background: #0a0a0a !important;
   border-bottom: 0 !important;
-  padding: 0 !important;
+  padding-bottom: 0 !important;
 }
 
+/* The .signal-banner--3zone is a 3-col grid that mirrors the body's
+ * replay-layout (Phase T.3) so the right cell aligns over the right
+ * panel column. The container background stays transparent so the
+ * tier-color classes (.signal-watch / .signal-prep / etc.) DON'T
+ * paint the full banner — only the right cell carries the tier color. */
 body.audit-immersive .signal-banner--3zone {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
   column-gap: 16px !important;
-  margin-left: 22px !important;
-  margin-right: 22px !important;
+  margin: 0 !important;
   background: transparent !important;
-  padding: 6px 0 !important;
+  padding: 0 22px !important;
 }
 
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--left {
   background: transparent !important;
   border-radius: 0 !important;
-  padding: 0 !important;
+  padding: 10px 0 !important;
 }
 
-/* The right zone holds the pill + count badge and carries the colored
- * tier background. */
+/* The right zone carries a SOLID tier color (same palette as the original
+ * full banner) and sits flush at the bottom of the sticky-top so its
+ * bottom edge merges with the top edge of the right-hand panel below. */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 10px !important;
-  padding: 8px 16px !important;
-  border-radius: 6px !important;
-  background: rgba(46, 196, 160, 0.12) !important;
-  border: 1px solid #2ec4a0 !important;
+  gap: 12px !important;
+  padding: 10px 22px !important;
+  border-radius: 0 !important;
+  border: 0 !important;
+  background: #1a1a1a !important;
+  color: #f0f0f0 !important;
+  align-self: stretch !important;
 }
 
 body.audit-immersive .signal-banner--3zone.signal-watch .signal-banner__zone--right {
-  background: rgba(252, 224, 102, 0.16) !important;
-  border-color: #fce066 !important;
+  background: #fce066 !important;
+  color: #000000 !important;
 }
 
 body.audit-immersive .signal-banner--3zone.signal-prep .signal-banner__zone--right {
-  background: rgba(245, 160, 59, 0.18) !important;
-  border-color: #f5a03b !important;
+  background: #f5a03b !important;
+  color: #000000 !important;
 }
 
 body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right,
 body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right {
-  background: rgba(224, 91, 75, 0.18) !important;
-  border-color: #e05b4b !important;
+  background: #e05b4b !important;
+  color: #ffffff !important;
+}
+
+/* AA.1 — Restore Phase P.2 pill weight inside the right zone (the
+ * pill was moved out of the center zone in Z.5, losing the boost). */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__value--pill {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.6px !important;
+  padding: 8px 22px !important;
+  border-radius: 999px !important;
 }
 
 /* Pill keeps its tier coloring from upstream rules; count badge sits
- * to its right via the flex layout above. */
+ * to its right via the flex layout above. Use currentColor for the
+ * badge text so it inherits the tier's contrast. */
 body.audit-immersive .signal-banner__count-badge {
   display: inline-flex !important;
   align-items: center !important;
   padding: 4px 10px !important;
   border-radius: 999px !important;
-  background: rgba(0, 0, 0, 0.35) !important;
-  color: #f5f5f5 !important;
+  background: rgba(0, 0, 0, 0.32) !important;
+  color: currentColor !important;
   font-size: 11px !important;
   font-weight: 700 !important;
   letter-spacing: 0.4px !important;
   text-transform: uppercase !important;
+}
+
+/* On dark tiers (STAY / PULL_NOW / DISTRESS), invert the badge so it
+ * reads white on a dim backdrop. */
+body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__count-badge,
+body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__count-badge,
+body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__count-badge {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* AA.3 — Bottom clearance so the Pitch Mix Snapshot below the strike
+ * zone scrolls fully past the sticky-bottom chrome. */
+body.audit-immersive .replay-layout {
+  padding-bottom: 28px !important;
+}
+
+body.audit-immersive .strike-zone-mix-snapshot {
+  margin-bottom: 12px !important;
 }
 
 /* Z.6 — Starting Pitcher label + name match the At Bat eyebrow + name
