@@ -21238,37 +21238,54 @@ body.audit-immersive .replay-tab-panel--reliever .decision-gauge-grid {
  * styling to match At Bat eyebrow + name.
  * ========================================================================== */
 
-/* Z.4 + AA.2 — Game Outcome Summary CTA card matches the appearance-
- * switcher buttons (dark pill-shape, same padding + font sizing) but
- * with a GREEN border to differentiate it as a navigation action. */
+/* Z.4 + AA.2 + BB.3 — Game Outcome Summary CTA card matches the
+ * appearance-switcher pitcher buttons EXACTLY in chrome, dimensions,
+ * font, color. Only the green border differentiates it. Fixed
+ * dimensions on both the pitcher buttons AND the CTA so adding the
+ * CTA doesn't grow the pitcher buttons' height. */
+body.audit-immersive .appearance-switcher {
+  align-items: stretch !important;
+}
+
+body.audit-immersive .appearance-switcher button,
 body.audit-immersive .appearance-switcher__outcome-cta {
-  margin-left: 12px !important;
-  padding: 10px 14px !important;
-  background: #1a1a1a !important;
-  border: 1px solid #2ec4a0 !important;
-  border-radius: 999px !important;
-  color: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  letter-spacing: 0 !important;
-  text-transform: none !important;
-  cursor: pointer !important;
+  width: 200px !important;
+  min-width: 200px !important;
+  max-width: 200px !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  box-sizing: border-box !important;
   display: inline-flex !important;
   flex-direction: column !important;
   align-items: flex-start !important;
-  gap: 2px !important;
+  justify-content: center !important;
+  padding: 10px 14px !important;
+  border-radius: 999px !important;
   white-space: nowrap !important;
+}
+
+body.audit-immersive .appearance-switcher__outcome-cta {
+  margin-left: 12px !important;
+  background: #1a1a1a !important;
+  border: 1px solid #2ec4a0 !important;
+  color: #a0a0a0 !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  cursor: pointer !important;
+  gap: 0 !important;
   transition: background 0.15s ease !important;
 }
 
 body.audit-immersive .appearance-switcher__outcome-cta:hover {
-  background: rgba(46, 196, 160, 0.12) !important;
+  background: #222222 !important;
 }
 
 body.audit-immersive .appearance-switcher__outcome-cta span {
   display: block !important;
   font-size: 11px !important;
-  font-weight: 400 !important;
+  font-weight: inherit !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   color: inherit !important;
@@ -21308,14 +21325,18 @@ body.audit-immersive .signal-banner--3zone .signal-banner__zone--left {
 
 /* The right zone carries a SOLID tier color (same palette as the original
  * full banner) and sits flush at the bottom of the sticky-top so its
- * bottom edge merges with the top edge of the right-hand panel below. */
+ * bottom edge merges with the top edge of the right-hand panel below.
+ * BB.1 — explicit grid-column: 3 so this lands in the actual right
+ * cell of the 3-col grid, not the auto center cell (the JSX only has
+ * 2 zone divs after Phase Z removed the center zone). */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  grid-column: 3 !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 12px !important;
-  padding: 10px 22px !important;
+  gap: 8px !important;
+  padding: 8px 16px !important;
   border-radius: 0 !important;
   border: 0 !important;
   background: #1a1a1a !important;
@@ -21339,29 +21360,29 @@ body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone-
   color: #ffffff !important;
 }
 
-/* AA.1 — Restore Phase P.2 pill weight inside the right zone (the
- * pill was moved out of the center zone in Z.5, losing the boost). */
+/* BB.2 — Tighter pill sizing in the narrower right cell (the Phase P.2
+ * 22px boost was designed for the wider center zone and looked
+ * cramped here). */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__value--pill {
-  font-size: 22px !important;
+  font-size: 16px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.6px !important;
-  padding: 8px 22px !important;
+  letter-spacing: 0.4px !important;
+  padding: 4px 12px !important;
   border-radius: 999px !important;
 }
 
-/* Pill keeps its tier coloring from upstream rules; count badge sits
- * to its right via the flex layout above. Use currentColor for the
- * badge text so it inherits the tier's contrast. */
+/* BB.2 — Tighter count badge so it reads as a small chip next to the
+ * pill rather than competing with it. */
 body.audit-immersive .signal-banner__count-badge {
   display: inline-flex !important;
   align-items: center !important;
-  padding: 4px 10px !important;
+  padding: 3px 8px !important;
   border-radius: 999px !important;
   background: rgba(0, 0, 0, 0.32) !important;
   color: currentColor !important;
-  font-size: 11px !important;
+  font-size: 10px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.4px !important;
+  letter-spacing: 0.3px !important;
   text-transform: uppercase !important;
 }
 
@@ -21373,10 +21394,13 @@ body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__count
   background: rgba(255, 255, 255, 0.18) !important;
 }
 
-/* AA.3 — Bottom clearance so the Pitch Mix Snapshot below the strike
- * zone scrolls fully past the sticky-bottom chrome. */
+/* AA.3 + BB.4 — Bottom clearance so the Pitch Mix Snapshot below the
+ * strike zone scrolls fully past the sticky-bottom chrome. Bumped to
+ * 140 px in BB.4 since AA.3's 28 px was nowhere near the sticky
+ * chrome's actual height (~140 px = 64 px appearance row + 28 px
+ * timeline + 44 px playback + padding). */
 body.audit-immersive .replay-layout {
-  padding-bottom: 28px !important;
+  padding-bottom: 140px !important;
 }
 
 body.audit-immersive .strike-zone-mix-snapshot {
