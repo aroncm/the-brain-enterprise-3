@@ -21459,9 +21459,14 @@ body.audit-immersive .signal-banner__field--pitcher .signal-banner__value--inlin
  * ~72px left into the center column. Fix: ONE variable drives BOTH grids'
  * center track, so the column edges align by construction at every
  * viewport width (side padding 22px and column-gap 16px already match).
- * If the pitch-card strip ever changes width, update --replay-center-col. */
+ * The pitch-card strip no longer drives this value — EE.3 made the cards
+ * flex to fill whatever track width is set here. */
 body.audit-immersive {
-  --replay-center-col: 464px;
+  /* EE.3 — widened 464px → 520px so the top pitch-detail cards have room
+   * for "4-Seam Fastball" without truncation ("4-Seam Fastball" needs
+   * ~97px of text; each card gets ~104px of content width at 520px).
+   * Wider would crowd the side columns at 1440px viewports. */
+  --replay-center-col: 520px;
 }
 
 body.audit-immersive .replay-layout {
@@ -21564,4 +21569,106 @@ body.audit-immersive .appearance-switcher__outcome-cta .appearance-card__name {
 
 body.audit-immersive .appearance-switcher__outcome-cta:hover {
   background: rgba(46, 196, 160, 0.12) !important;
+}
+
+/* ==========================================================================
+ * Phase EE — Game Replays polish round: sticky-bottom row centering,
+ * inline handedness, full-width pitch-detail cards, inline result context,
+ * bigger bottom-row cards. (EE.3's track widening lives in the DD.1 block
+ * above; EE.6's status-pill removal is JSX-only.)
+ * ========================================================================== */
+
+/* EE.1 — Pitcher-card row vertically centered between the sticky-bottom
+ * top border and the SignalTimeline. Values tuned against measured
+ * bounding rects: container padding-top 6px + 14px here = ~21px above
+ * the row; 12px here + ~10px of intrinsic timeline clearance = ~22px
+ * below it. */
+body.audit-immersive .workflow-sticky-bottom .appearance-switcher {
+  padding-top: 14px !important;
+  padding-bottom: 12px !important;
+}
+
+/* EE.2 — Next 3 Hitters: handedness sits right of the batter name and
+ * the name steps up 11px → 13px. The name keeps single-line ellipsis;
+ * flex-shrink on the name (not the hand) so "RH"/"LH" never clips. */
+.theme-mobian .pws-next-hitters__list li {
+  flex-direction: row !important;
+  align-items: baseline !important;
+  gap: 6px !important;
+}
+
+.theme-mobian .pws-next-hitters__list li strong {
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 0 1 auto !important;
+  font-size: 13px !important;
+}
+
+.theme-mobian .pws-next-hitters__list li em {
+  flex: 0 0 auto !important;
+}
+
+/* EE.3 — Top pitch-detail cards (Pitch Type / Velocity / H-Mov / V-Mov)
+ * split the full center track equally instead of fixed 110px (V.7), so
+ * "4-Seam Fastball" renders untruncated on the widened 540px track.
+ * nowrap + ellipsis from V.7 stay as the safety net. */
+body.audit-immersive .cpw-strip__row--top {
+  width: 100% !important;
+}
+
+body.audit-immersive .cpw-strip__row--top .cpw-strip__fact {
+  width: auto !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+
+/* EE.4 — Pitch Result context text ("Slow Roller", "Hard Contact") sits
+ * to the RIGHT of the primary result instead of below it: the fact stays
+ * a wrapping flex row, the eyebrow takes the full first line, and the
+ * value + context share the second line on a common baseline. */
+body.audit-immersive .cpw-strip__row--bottom .cpw-strip__fact--result {
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: baseline !important;
+  column-gap: 8px !important;
+  row-gap: 3px !important;
+}
+
+body.audit-immersive .cpw-strip__row--bottom .cpw-strip__fact--result em {
+  width: 100% !important;
+}
+
+/* EE.5 — Bottom row: Pitch Result + Current Score consume the full center
+ * track at equal widths (was fixed 200px each), with bigger value text. */
+body.audit-immersive .cpw-strip__row--bottom {
+  width: 100% !important;
+}
+
+body.audit-immersive .cpw-strip__row--bottom .cpw-strip__fact--result,
+body.audit-immersive .cpw-strip__row--bottom .cpw-strip__fact--score {
+  width: auto !important;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+}
+
+body.audit-immersive .cpw-strip__row--bottom .cpw-strip__fact--result strong {
+  font-size: 18px !important;
+}
+
+/* Context text steps up with the result value so it doesn't read as
+ * orphaned next to the larger number. */
+body.audit-immersive .cpw-strip__row--bottom .cpw-strip__fact--result b {
+  font-size: 12px !important;
+}
+
+body.audit-immersive .cpw-strip__score .pws-score__num {
+  font-size: 18px !important;
+}
+
+body.audit-immersive .cpw-strip__score .pws-score__team {
+  font-size: 12px !important;
+}
+
+body.audit-immersive .cpw-strip__score .pws-score__dash {
+  font-size: 14px !important;
 }

@@ -2299,12 +2299,14 @@ function TopNav({
                 }}
               />
             </div>
-            <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
-              {loadState === "loading" ? "Loading Data" :
-               loadState === "ready" ? "Data Ready" :
-               loadState === "missing-config" ? "Setup Required" :
-               "Connection Error"}
-            </span>
+            {/* Phase EE.6 — the Loading Data / Data Ready states are
+              * redundant with the full-screen loading treatment, so the
+              * pill only renders for actionable problem states. */}
+            {loadState !== "loading" && loadState !== "ready" ? (
+              <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
+                {loadState === "missing-config" ? "Setup Required" : "Connection Error"}
+              </span>
+            ) : null}
             {/* Phase H.5 — clickable avatar opens a dropdown menu with the
               * signed-in user's email and a Logout button. Previously the
               * avatar was a static <div> with no way to sign out. */}
