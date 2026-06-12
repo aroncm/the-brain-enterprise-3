@@ -21232,3 +21232,134 @@ body.audit-immersive .replay-tab-panel--reliever .decision-gauge-grid {
   color: #f5a03b;
   font-weight: 700;
 }
+
+/* ==========================================================================
+ * Phase Z — AOS-scoping CTA + signal-banner narrowing + Starting Pitcher
+ * styling to match At Bat eyebrow + name.
+ * ========================================================================== */
+
+/* Z.4 — Game Outcome Summary CTA card to the right of the last reliever
+ * in the appearance-switcher. Distinct from the appearance buttons so
+ * the user reads it as a navigation affordance. */
+body.audit-immersive .appearance-switcher__outcome-cta {
+  margin-left: 12px !important;
+  padding: 8px 14px !important;
+  background: rgba(245, 160, 59, 0.12) !important;
+  border: 1px solid #f5a03b !important;
+  border-radius: 8px !important;
+  color: #f5a03b !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  transition: background 0.15s ease !important;
+}
+
+body.audit-immersive .appearance-switcher__outcome-cta:hover {
+  background: rgba(245, 160, 59, 0.22) !important;
+}
+
+body.audit-immersive .appearance-switcher__outcome-cta span {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: none !important;
+  color: rgba(245, 160, 59, 0.8) !important;
+}
+
+/* Z.5 — Signal banner narrows to the right-panel column width and sits
+ * flush at the top of it. The full-width sticky bar becomes a 3-col
+ * grid that mirrors the replay-layout below; only the right cell
+ * carries the colored signal background. */
+body.audit-immersive .workflow-sticky-top {
+  background: transparent !important;
+  border-bottom: 0 !important;
+  padding: 0 !important;
+}
+
+body.audit-immersive .signal-banner--3zone {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  column-gap: 16px !important;
+  margin-left: 22px !important;
+  margin-right: 22px !important;
+  background: transparent !important;
+  padding: 6px 0 !important;
+}
+
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--left {
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+/* The right zone holds the pill + count badge and carries the colored
+ * tier background. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  padding: 8px 16px !important;
+  border-radius: 6px !important;
+  background: rgba(46, 196, 160, 0.12) !important;
+  border: 1px solid #2ec4a0 !important;
+}
+
+body.audit-immersive .signal-banner--3zone.signal-watch .signal-banner__zone--right {
+  background: rgba(252, 224, 102, 0.16) !important;
+  border-color: #fce066 !important;
+}
+
+body.audit-immersive .signal-banner--3zone.signal-prep .signal-banner__zone--right {
+  background: rgba(245, 160, 59, 0.18) !important;
+  border-color: #f5a03b !important;
+}
+
+body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right,
+body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right {
+  background: rgba(224, 91, 75, 0.18) !important;
+  border-color: #e05b4b !important;
+}
+
+/* Pill keeps its tier coloring from upstream rules; count badge sits
+ * to its right via the flex layout above. */
+body.audit-immersive .signal-banner__count-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  color: #f5f5f5 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+}
+
+/* Z.6 — Starting Pitcher label + name match the At Bat eyebrow + name
+ * styling (color + font + letter-spacing) but keep the larger
+ * font-size on the pitcher name. */
+body.audit-immersive .signal-banner__field--pitcher .signal-banner__eyebrow {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+}
+
+body.audit-immersive .signal-banner__field--pitcher .signal-banner__value--inline {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #f5f5f5 !important;
+  letter-spacing: -0.2px !important;
+  line-height: 1.15 !important;
+}

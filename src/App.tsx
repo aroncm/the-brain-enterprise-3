@@ -1361,6 +1361,22 @@ function signalClass(status: string): string {
   return statusLabel(status).toLowerCase().replace(/\s+/g, "_");
 }
 
+// Phase Z.5 — count of consecutive pitches with the current displayStatus
+// (or worse) ending at selectedIndex. Replaces the multi-status dwell text
+// in the signal banner with a single compact count for the current tier.
+function currentSignalCount(displayStatuses: string[], selectedIndex: number): number {
+  if (selectedIndex < 0 || selectedIndex >= displayStatuses.length) return 0;
+  const current = displayStatuses[selectedIndex];
+  if (!current || current === "STAY") return 0;
+  const currentRank = statusRank(current);
+  let count = 0;
+  for (let i = selectedIndex; i >= 0; i--) {
+    if (statusRank(displayStatuses[i]) >= currentRank) count++;
+    else break;
+  }
+  return count;
+}
+
 function monotonicStatuses(entries: PitchingReplayEntry[]): string[] {
   let current = entries.some(isRelieverReplayEntry) ? "OK" : "STAY";
   return entries.map((entry) => {
@@ -4081,6 +4097,16 @@ function GameAudit({
   const [appearance, setAppearance] = useState<string | null>(null);
   const [autoplay, setAutoplay] = useState(false);
   const [outcomeOpen, setOutcomeOpen] = useState(true);
+  // Phase Z.4 — ref on the Actual Outcome Summary article so the new
+  // "Game Outcome Summary" CTA card in the appearance switcher can
+  // smooth-scroll the panel into view.
+  const aosRef = useRef<HTMLElement | null>(null);
+  const scrollToAos = useCallback(() => {
+    setOutcomeOpen(true);
+    requestAnimationFrame(() => {
+      aosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
   // Phase S — right-panel tab state. The Model Signal Factors section
   // is removed and its cards relocated either into the left sidebar or
   // into one of these four tabs.
@@ -4146,6 +4172,26 @@ function GameAudit({
   const actionIndex = selected && isRelieverReplayEntry(selected) ? relieverActionIndex : pullIndex;
   const pullEntry = pullIndex >= 0 ? entries[pullIndex] ?? null : null;
   const pullMetrics = pullWindowMetrics(pullEntry, entries, pullIndex);
+  // Phase Z.2 — starter-scoped entries + pull-pitch derivations. The
+  // Actual Outcome Summary panel must always reflect the STARTER's
+  // pull-decision data regardless of which appearance the user has
+  // active. There's exactly one starter appearance per team per game.
+  const starterAppearanceKey = useMemo(() => {
+    const e = teamReplayEntries.find((entry) => !isRelieverReplayEntry(entry));
+    return e ? appearanceKey(e) : null;
+  }, [teamReplayEntries]);
+  const starterEntries = useMemo(
+    () =>
+      starterAppearanceKey
+        ? teamReplayEntries
+            .filter((entry) => appearanceKey(entry) === starterAppearanceKey)
+            .sort((a, b) => pitchCount(a) - pitchCount(b))
+        : [],
+    [starterAppearanceKey, teamReplayEntries],
+  );
+  const starterDisplayStatuses = useMemo(() => monotonicStatuses(starterEntries), [starterEntries]);
+  const starterPullIndex = starterDisplayStatuses.findIndex((status) => statusRank(status) >= statusRank("PULL NOW"));
+  const starterPullEntry = starterPullIndex >= 0 ? starterEntries[starterPullIndex] ?? null : null;
   const hasWatchSignal = statusRank(displayStatus) >= statusRank("WATCH");
   const reliefOptions = reliefCandidatesThroughPitch(entries, selectedIndex, selected);
   const bestCandidate = reliefOptions.find((candidate) => candidate.available) ?? reliefOptions[0] ?? null;
@@ -4388,20 +4434,26 @@ function GameAudit({
                     />
                   </div>
                 </div>
-                <div className="signal-banner__zone signal-banner__zone--center">
+                {/* Phase Z.5 — center zone removed; pill moved into
+                  * the right zone alongside the count badge so they
+                  * share the colored cell that sits flush above the
+                  * right panel below. */}
+                <div className="signal-banner__zone signal-banner__zone--right">
                   <strong className="signal-banner__value signal-banner__value--pill">
                     {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
                   </strong>
-                </div>
-                <div className="signal-banner__zone signal-banner__zone--right">
-                  {signalDwellSummary ? (
-                    <span
-                      className="signal-banner__dwell signal-banner__dwell--chip"
-                      title={`Signal Dwell — ${signalDwellSummary}`}
-                    >
-                      {signalDwellSummary}
-                    </span>
-                  ) : null}
+                  {(() => {
+                    const count = currentSignalCount(displayStatuses, selectedIndex);
+                    if (count <= 0) return null;
+                    return (
+                      <span
+                        className="signal-banner__count-badge"
+                        title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
+                      >
+                        {count} {count === 1 ? "pitch" : "pitches"}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -4984,6 +5036,18 @@ function GameAudit({
                       ) : null}
                     </button>
                   ))}
+                  {/* Phase Z.4 — CTA card to the right of the last
+                    * reliever; smooth-scrolls the Actual Outcome
+                    * Summary panel into view. */}
+                  <button
+                    type="button"
+                    className="appearance-switcher__outcome-cta"
+                    onClick={scrollToAos}
+                    aria-label="Scroll to Actual Outcome Summary"
+                  >
+                    Game Outcome Summary
+                    <span>Jump to summary</span>
+                  </button>
                 </div>
               ) : null}
 
@@ -5014,7 +5078,7 @@ function GameAudit({
             * Summary tab (RSS Score + components + handoff/usage) and
             * Outcome tab (postgame IP / pitches / runs / exit inning). */}
 
-          <article className={`panel counterfactual-panel${outcomeOpen ? "" : " panel--collapsed"}`}>
+          <article ref={aosRef} className={`panel counterfactual-panel${outcomeOpen ? "" : " panel--collapsed"}`}>
             <div className="panel__header">
               <p className="eyebrow model-signal-eyebrow">
                 <span className="model-signal-dot model-signal-dot--outcome" aria-hidden="true" />
@@ -5035,41 +5099,85 @@ function GameAudit({
               <div className="outcome-card">
                 <strong className="outcome-card__title">Pull Now Summary</strong>
                 <p>{actionPointCopy(keyPitcher)}</p>
+                {/* Phase Z.3 — Pull Now Summary values now use the same
+                  * cumulative-peak helpers as the Signal Summary rings,
+                  * evaluated at the STARTER's pull-pitch index. This
+                  * removes the scale discrepancy the user reported and
+                  * keeps the values aligned with the Signal Summary
+                  * read at that moment. */}
                 <ul className="pull-meter-list">
-                  <li>
-                    <span className="pull-meter-label">Composite Health at Pull</span>
-                    <div className="pull-meter-track" aria-hidden="true">
-                      <i style={{ width: `${Math.max(0, Math.min(100, ((pullMetrics.stuffRaw ?? 0) / 100) * 100))}%` }} />
-                    </div>
-                    <b className="pull-meter-value">{pullMetrics.stuff}</b>
-                    <em className="pull-meter-tagline">100 − overall degradation at the moment of pull. Higher = better shape.</em>
-                  </li>
-                  <li>
-                    <span className="pull-meter-label">Workload at Pull</span>
-                    <div className="pull-meter-track" aria-hidden="true">
-                      <i style={{ width: `${Math.max(0, Math.min(100, (pullMetrics.decayRaw ?? 0) * 100))}%` }} />
-                    </div>
-                    <b className="pull-meter-value">{pullMetrics.decay}</b>
-                    <em className="pull-meter-tagline">Inning + times-through-order pressure stacked at the pull pitch.</em>
-                  </li>
-                  <li>
-                    <span className="pull-meter-label">Degradation</span>
-                    <div className="pull-meter-track" aria-hidden="true">
-                      <i style={{ width: `${Math.max(0, Math.min(100, (pullMetrics.degradationRaw ?? 0) * 100))}%` }} />
-                    </div>
-                    <b className="pull-meter-value">{pullMetrics.degradation}</b>
-                    <em className="pull-meter-tagline">
-                      Overall degradation at the pull pitch.
-                      {pullMetrics.degradationIfLeftInRaw != null ? (
-                        <> If left in: peak by end of appearance <strong>{pullMetrics.degradationIfLeftIn}</strong>.</>
-                      ) : null}
-                    </em>
-                  </li>
+                  {(() => {
+                    const hookPeak = starterPullIndex >= 0 ? headlinePeak(starterEntries, starterPullIndex) : undefined;
+                    const hookPct = hookPeak == null ? null : Math.round(clamp(hookPeak) * 100);
+                    const degPeak = starterPullIndex >= 0 ? pitcherOnlyPeak(starterEntries, starterPullIndex) : undefined;
+                    const degPct = degPeak == null ? null : Math.round(Math.max(0, Math.min(1, degPeak)) * 100);
+                    // Adjusted Degradation Score — cumulative peak of
+                    // enhanced_degradation_score / 3 through the pull
+                    // pitch (matches the Signal Summary Adjusted ring
+                    // formula from Phase V.10).
+                    let adjPeak: number | undefined;
+                    if (starterPullIndex >= 0) {
+                      for (let i = 0; i <= starterPullIndex; i++) {
+                        const s = replayState(starterEntries[i]) as { enhanced_degradation_score?: number | null } | null;
+                        const raw = num(s?.enhanced_degradation_score);
+                        if (raw == null) continue;
+                        const scaled = Math.max(0, Math.min(1, raw / 3));
+                        adjPeak = adjPeak === undefined ? scaled : Math.max(adjPeak, scaled);
+                      }
+                    }
+                    const adjPct = adjPeak == null ? null : Math.round(adjPeak * 100);
+                    // "If left in" — peak Adjusted Degradation from the
+                    // pull pitch to the end of the appearance.
+                    let leftInPeak: number | undefined;
+                    if (starterPullIndex >= 0) {
+                      for (let i = starterPullIndex; i < starterEntries.length; i++) {
+                        const s = replayState(starterEntries[i]) as { enhanced_degradation_score?: number | null } | null;
+                        const raw = num(s?.enhanced_degradation_score);
+                        if (raw == null) continue;
+                        const scaled = Math.max(0, Math.min(1, raw / 3));
+                        leftInPeak = leftInPeak === undefined ? scaled : Math.max(leftInPeak, scaled);
+                      }
+                    }
+                    const leftInPct = leftInPeak == null ? null : Math.round(leftInPeak * 100);
+                    return (
+                      <>
+                        <li>
+                          <span className="pull-meter-label">Hook Score at Pull</span>
+                          <div className="pull-meter-track" aria-hidden="true">
+                            <i style={{ width: `${hookPct ?? 0}%` }} />
+                          </div>
+                          <b className="pull-meter-value">{hookPct == null ? UNAVAILABLE : `${hookPct}%`}</b>
+                          <em className="pull-meter-tagline">Cumulative peak of the pull-pressure composite through the pull pitch. Same value as the Signal Summary Hook Score ring at that moment.</em>
+                        </li>
+                        <li>
+                          <span className="pull-meter-label">Degradation Score at Pull</span>
+                          <div className="pull-meter-track" aria-hidden="true">
+                            <i style={{ width: `${degPct ?? 0}%` }} />
+                          </div>
+                          <b className="pull-meter-value">{degPct == null ? UNAVAILABLE : `${degPct}%`}</b>
+                          <em className="pull-meter-tagline">Pitcher-only degradation cumulative peak through the pull pitch. Ignores leverage and relief alternatives.</em>
+                        </li>
+                        <li>
+                          <span className="pull-meter-label">Adjusted Degradation Score at Pull</span>
+                          <div className="pull-meter-track" aria-hidden="true">
+                            <i style={{ width: `${adjPct ?? 0}%` }} />
+                          </div>
+                          <b className="pull-meter-value">{adjPct == null ? UNAVAILABLE : `${adjPct}%`}</b>
+                          <em className="pull-meter-tagline">
+                            Base degradation + game-context layers (opponent contact, arsenal decay, inning/TTO load) through the pull pitch.
+                            {leftInPct != null ? (
+                              <> If left in: peak by end of appearance <strong>{leftInPct}%</strong>.</>
+                            ) : null}
+                          </em>
+                        </li>
+                      </>
+                    );
+                  })()}
                 </ul>
               </div>
               <div className="outcome-card">
                 <strong className="outcome-card__title">Why It Fired</strong>
-                <p>{modelDecisionSummary}</p>
+                <p>{replayRecommendationSummary(starterPullEntry ?? null)}</p>
               </div>
               <div className="outcome-card">
                 <strong className="outcome-card__title">Actual Result</strong>
