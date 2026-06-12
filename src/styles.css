@@ -21797,3 +21797,52 @@ body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-b
   grid-row: 2 !important;
   grid-column: 2 !important;
 }
+
+/* ==========================================================================
+ * Phase HH.1 — non-audit (Game Briefings) nav overflow.
+ * The hero-sized brand SVG (500px) + 72px team logo + 44px nowrap team
+ * name could not fit the single nowrap row (Phase H.4), so on EVERY team
+ * the name ran off the right edge of the viewport underneath the TEAM
+ * select + avatar. Scoped to body:not(.audit-immersive) so the compact
+ * Game Replays nav (which already fits) is untouched.
+ * ========================================================================== */
+
+body:not(.audit-immersive) .top-nav__brain-svg {
+  max-width: 24vw !important;
+}
+
+/* The tagline is decorative; below 1500px it competes directly with the
+ * team name for row space — hide it there. */
+@media (max-width: 1500px) {
+  body:not(.audit-immersive) .top-nav__tagline {
+    display: none !important;
+  }
+}
+
+/* Context takes the row's spare space and is allowed to actually shrink;
+ * the actions cluster sizes to its content instead of competing for the
+ * leftover via flex-grow. */
+body:not(.audit-immersive) .top-nav__context {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  gap: 12px !important;
+}
+
+body:not(.audit-immersive) .top-nav__actions {
+  flex: 0 0 auto !important;
+}
+
+body:not(.audit-immersive) .top-nav__context .top-nav__team-logo {
+  width: 52px !important;
+  height: 52px !important;
+  flex: 0 0 52px !important;
+}
+
+/* The name may wrap to two lines ("SAN FRANCISCO / GIANTS") instead of
+ * overflowing — every team stays fully visible at >=1152px viewports. */
+body:not(.audit-immersive) .top-nav__context .top-nav__team-name {
+  white-space: normal !important;
+  font-size: clamp(15px, 1.9vw, 30px) !important;
+  line-height: 1.05 !important;
+  min-width: 0 !important;
+}
