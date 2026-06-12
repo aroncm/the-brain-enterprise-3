@@ -21260,7 +21260,8 @@ body.audit-immersive .appearance-switcher__outcome-cta {
   align-items: flex-start !important;
   justify-content: center !important;
   padding: 10px 14px !important;
-  border-radius: 999px !important;
+  /* CC.4 — Rectangle shape (subtle rounding) instead of pill. */
+  border-radius: 10px !important;
   white-space: nowrap !important;
 }
 
@@ -21310,7 +21311,11 @@ body.audit-immersive .workflow-sticky-top {
  * paint the full banner — only the right cell carries the tier color. */
 body.audit-immersive .signal-banner--3zone {
   display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  /* CC.1 — fixed 320px center column matches the body's strike-zone-card
+   * max-width so the left and right 1fr columns share the SAME remaining
+   * space as the body grid. The right cell width now equals the body's
+   * right-panel column width, so the colored slab no longer overflows. */
+  grid-template-columns: minmax(0, 1fr) 320px minmax(0, 1fr) !important;
   column-gap: 16px !important;
   margin: 0 !important;
   background: transparent !important;
@@ -21360,38 +21365,51 @@ body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone-
   color: #ffffff !important;
 }
 
-/* BB.2 — Tighter pill sizing in the narrower right cell (the Phase P.2
- * 22px boost was designed for the wider center zone and looked
- * cramped here). */
+/* CC.2 + CC.3 — Pill back to its original Phase P.2 visual size with
+ * SOLID contrasting fill so it reads clearly against each tier. Default
+ * is the dark-fill / white-text combination that anchors the light
+ * (yellow / orange) tiers. */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__value--pill {
-  font-size: 16px !important;
+  font-size: 22px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.4px !important;
-  padding: 4px 12px !important;
+  letter-spacing: 0.6px !important;
+  padding: 8px 22px !important;
   border-radius: 999px !important;
+  background: #1a1a1a !important;
+  color: #ffffff !important;
 }
 
-/* BB.2 — Tighter count badge so it reads as a small chip next to the
- * pill rather than competing with it. */
+/* CC.3 — Count badge gets the same solid dark fill + white text by
+ * default (twin to the pill) so the pair reads as a cohesive cluster
+ * on light tiers (WATCH yellow, PREP orange). */
 body.audit-immersive .signal-banner__count-badge {
   display: inline-flex !important;
   align-items: center !important;
-  padding: 3px 8px !important;
+  padding: 4px 10px !important;
   border-radius: 999px !important;
-  background: rgba(0, 0, 0, 0.32) !important;
-  color: currentColor !important;
-  font-size: 10px !important;
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.3px !important;
+  letter-spacing: 0.4px !important;
   text-transform: uppercase !important;
 }
 
-/* On dark tiers (STAY / PULL_NOW / DISTRESS), invert the badge so it
- * reads white on a dim backdrop. */
+/* CC.3 — On dark tiers (STAY dark, PULL_NOW + DISTRESS red), invert the
+ * pill and badge so they stay legible: white pill with dark text, white
+ * badge fill on a dim transparent backdrop. */
+body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--right .signal-banner__value--pill,
+body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right .signal-banner__value--pill,
+body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right .signal-banner__value--pill {
+  background: #ffffff !important;
+  color: #1a1a1a !important;
+}
+
 body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__count-badge,
 body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__count-badge,
 body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__count-badge {
-  background: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
 }
 
 /* AA.3 + BB.4 — Bottom clearance so the Pitch Mix Snapshot below the
