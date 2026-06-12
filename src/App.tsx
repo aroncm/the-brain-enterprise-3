@@ -4442,28 +4442,31 @@ function GameAudit({
                   * share the colored cell that sits flush above the
                   * right panel below. */}
                 <div className="signal-banner__zone signal-banner__zone--right">
-                  {/* Phase FF.4 — pill + count badge left-aligned, each in a
-                    * stacked field with a small eyebrow label matching the
-                    * left zone's labelled clusters. */}
-                  <div className="signal-banner__field signal-banner__field--signal">
-                    <span className="signal-banner__eyebrow">Model Signal</span>
-                    <strong className="signal-banner__value signal-banner__value--pill">
-                      {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
-                    </strong>
-                  </div>
+                  {/* Phase GG — 2-row grid: gray eyebrows (FF.4 labels,
+                    * restyled to the Z.6 Starting Pitcher gray) sit on the
+                    * dark bar above the colored slab, which now starts at
+                    * the Season/Game dropdown-box top line. Grid columns
+                    * keep each eyebrow x-aligned with its badge. */}
                   {(() => {
                     const count = currentSignalCount(displayStatuses, selectedIndex);
-                    if (count <= 0) return null;
                     return (
-                      <div className="signal-banner__field signal-banner__field--dwell">
-                        <span className="signal-banner__eyebrow">Signal Dwell</span>
-                        <span
-                          className="signal-banner__count-badge"
-                          title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
-                        >
-                          {count} {count === 1 ? "pitch" : "pitches"}
-                        </span>
-                      </div>
+                      <>
+                        <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--signal">Model Signal</span>
+                        {count > 0 ? (
+                          <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--dwell">Signal Dwell</span>
+                        ) : null}
+                        <strong className="signal-banner__value signal-banner__value--pill">
+                          {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
+                        </strong>
+                        {count > 0 ? (
+                          <span
+                            className="signal-banner__count-badge"
+                            title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
+                          >
+                            {count} {count === 1 ? "pitch" : "pitches"}
+                          </span>
+                        ) : null}
+                      </>
                     );
                   })()}
                 </div>

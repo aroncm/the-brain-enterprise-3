@@ -21715,3 +21715,85 @@ body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--rig
   color: #ffffff !important;
   border: 1px solid #3a3a3a !important;
 }
+
+/* ==========================================================================
+ * Phase GG — shorter signal slab + gray slab eyebrows.
+ * The colored slab's top border now aligns with the Season/Game dropdown
+ * boxes; the Model Signal / Signal Dwell eyebrows move ABOVE the slab onto
+ * the dark bar, on the same label band as the left zone's eyebrows, in the
+ * Z.6 Starting Pitcher gray.
+ * ========================================================================== */
+
+/* Distance from the banner grid-row top to the dropdown-box top line:
+ * left zone padding-top 10px + 10px eyebrow line + 4px gap. Tuned against
+ * measured .custom-select__trigger rects in verification. */
+body.audit-immersive {
+  --gg-slab-offset: 24px;
+}
+
+/* The right cell becomes a transparent 2-row grid: row 1 (offset-high)
+ * holds the eyebrows, row 2 is the slab area with the badges. Columns
+ * x-align each eyebrow with its badge regardless of pill width. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  display: grid !important;
+  grid-template-columns: auto auto 1fr !important;
+  grid-template-rows: var(--gg-slab-offset) 1fr !important;
+  gap: 0 28px !important;
+  align-items: center !important;
+  justify-content: start !important;
+  padding: 0 16px !important;
+}
+
+/* Slab paint — vertical gradient leaves the label band transparent (the
+ * dark sticky bar shows through) and starts the tier color exactly at the
+ * dropdown-top line. Overrides the FF-era solid fills. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  background: linear-gradient(180deg, transparent var(--gg-slab-offset), #1a1a1a var(--gg-slab-offset)) !important;
+}
+
+body.audit-immersive .signal-banner--3zone.signal-watch .signal-banner__zone--right {
+  background: linear-gradient(180deg, transparent var(--gg-slab-offset), #fce066 var(--gg-slab-offset)) !important;
+}
+
+body.audit-immersive .signal-banner--3zone.signal-prep .signal-banner__zone--right {
+  background: linear-gradient(180deg, transparent var(--gg-slab-offset), #f5a03b var(--gg-slab-offset)) !important;
+}
+
+body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right,
+body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right {
+  background: linear-gradient(180deg, transparent var(--gg-slab-offset), #e05b4b var(--gg-slab-offset)) !important;
+}
+
+/* Eyebrows — row 1, bottom-aligned onto the left zone's label baseline,
+ * always the Z.6 Starting Pitcher gray (they sit on the dark bar, never
+ * on the tier color, so the adaptive currentColor rules no longer apply). */
+body.audit-immersive .signal-banner__slab-eyebrow {
+  grid-row: 1 !important;
+  align-self: end !important;
+  padding-bottom: 4px !important;
+  color: #8a8a8a !important;
+  opacity: 1 !important;
+  line-height: 1 !important;
+}
+
+body.audit-immersive .signal-banner__slab-eyebrow--signal {
+  grid-column: 1 !important;
+}
+
+body.audit-immersive .signal-banner__slab-eyebrow--dwell {
+  grid-column: 2 !important;
+}
+
+/* Badges — row 2, vertically centered in the shorter slab. The pill steps
+ * down from the big-slab 22px so the pair sits comfortably. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__value--pill {
+  grid-row: 2 !important;
+  grid-column: 1 !important;
+  font-size: 18px !important;
+  padding: 7px 18px !important;
+}
+
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__count-badge {
+  grid-row: 2 !important;
+  grid-column: 2 !important;
+}
