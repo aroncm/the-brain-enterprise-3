@@ -271,21 +271,33 @@ function displayPersonName(name: string | null | undefined): string {
   return [first, last].filter(Boolean).join(" ") || clean;
 }
 
-function formatGameDate(iso: string | null | undefined): string {
+// Phase MM.3 — parse a game date WITHOUT a timezone shift. A bare
+// "YYYY-MM-DD" passed to `new Date()` is interpreted as UTC midnight, and
+// toLocaleDateString then formats it in the local zone — which rolls a
+// US-timezone viewer back a day (artifact "2026-06-07" rendered "June 6"),
+// so the dropdown date no longer matched the generated recap. Build the
+// Date from the local calendar parts for date-only tokens.
+function parseGameDate(iso: string | null | undefined): Date | null {
   const token = String(iso || "").trim();
-  if (!token) return "";
-  const d = new Date(token);
-  if (Number.isNaN(d.getTime())) return token;
+  if (!token) return null;
+  const dateOnly = token.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]))
+    : new Date(token);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatGameDate(iso: string | null | undefined): string {
+  const d = parseGameDate(iso);
+  if (!d) return String(iso || "").trim();
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 // Long form for the Game-dropdown labels: e.g. "June 7, 2026" — spelled
 // out month, 4-digit year, per user request.
 function formatGameDateLong(iso: string | null | undefined): string {
-  const token = String(iso || "").trim();
-  if (!token) return "";
-  const d = new Date(token);
-  if (Number.isNaN(d.getTime())) return token;
+  const d = parseGameDate(iso);
+  if (!d) return String(iso || "").trim();
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
