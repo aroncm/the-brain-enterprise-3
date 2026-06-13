@@ -25,6 +25,8 @@ import {
   fetchPitcherProfiles,
   fetchPitchingAuditSummary,
   fetchPitchingRecap,
+  fetchReplayShareGrant,
+  type PitchingReplayShareGrant,
   fetchPitchingRecapSettings,
   fetchPitchingReplay,
   fetchPreventableRunsOpportunities,
@@ -171,6 +173,14 @@ function initialGameIdFromSearch(): string | null {
   const params = appSearchParams();
   const gameId = params.get("gameId") ?? params.get("game_id");
   return gameId?.trim() || null;
+}
+
+// Phase JJ.3b — Game Briefings share links: ?view=shared-replay&grant=...
+// renders the locked single-game replay (no login, no navigation chrome).
+function shareGrantIdFromSearch(): string | null {
+  const params = appSearchParams();
+  if (params.get("view") !== "shared-replay") return null;
+  return (params.get("grant") || "").trim() || null;
 }
 
 const PITCH_TYPE_NAMES: Record<string, string> = {
@@ -2182,6 +2192,7 @@ function TopNav({
   games,
   selectedGameId,
   season,
+  shareMode = false,
   onTeamChange,
   onWorkflowChange,
   onGameChange,
@@ -2193,6 +2204,7 @@ function TopNav({
   games: EnterpriseGameSummary[];
   selectedGameId: string | null;
   season: string;
+  shareMode?: boolean;
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
   onGameChange: (id: string) => void;
@@ -2240,7 +2252,7 @@ function TopNav({
   return (
     <header className="top-nav" style={headerStyle}>
       <div className="top-nav__row top-nav__row--primary">
-        <a className="top-nav__brand" href="/" aria-label="Baseball brAIn">
+        <a className="top-nav__brand" href={shareMode ? undefined : "/"} aria-label="Baseball brAIn">
           <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
             <text x="20" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="36" fontWeight="300" letterSpacing="6" fill="#FFFFFF">BASEBALL</text>
             <text x="322" y="82" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontSize="84" fontWeight="700" letterSpacing="-1" fill="#FFFFFF" fillOpacity="0.7">
@@ -2255,18 +2267,23 @@ function TopNav({
           <span className="top-nav__tagline">Advanced Baseball Intelligence</span>
         </a>
 
-        <nav className="top-nav__tabs" aria-label="Primary workflows">
-          {WORKFLOWS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`top-nav__tab${workflow === item.id ? " top-nav__tab--active" : ""}`}
-              onClick={() => onWorkflowChange(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        {/* Phase JJ.3b — share mode strips every navigation affordance:
+          * the briefing recipient sees this one game's replay and nothing
+          * else (no workflow tabs, no team selector, no profile menu). */}
+        {!shareMode ? (
+          <nav className="top-nav__tabs" aria-label="Primary workflows">
+            {WORKFLOWS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`top-nav__tab${workflow === item.id ? " top-nav__tab--active" : ""}`}
+                onClick={() => onWorkflowChange(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        ) : null}
 
         {team ? (
           // Phase H.1 — dropped the redundant <h2> page heading. The active
@@ -2285,20 +2302,22 @@ function TopNav({
               * Team selector, which frees horizontal room and stops the
               * team-name overlap that's been on the screenshot list
               * since Phase L. */}
-            <div className="audit-filter audit-filter--team audit-filter--inline">
-              <span>Team</span>
-              <CustomSelect
-                ariaLabel="Select club"
-                placeholder="Select Club"
-                minWidth={200}
-                value={team?.abbr ?? ""}
-                options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
-                onChange={(next) => {
-                  const team = MLB_TEAMS.find((item) => item.abbr === next);
-                  if (team) onTeamChange(team);
-                }}
-              />
-            </div>
+            {!shareMode ? (
+              <div className="audit-filter audit-filter--team audit-filter--inline">
+                <span>Team</span>
+                <CustomSelect
+                  ariaLabel="Select club"
+                  placeholder="Select Club"
+                  minWidth={200}
+                  value={team?.abbr ?? ""}
+                  options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
+                  onChange={(next) => {
+                    const team = MLB_TEAMS.find((item) => item.abbr === next);
+                    if (team) onTeamChange(team);
+                  }}
+                />
+              </div>
+            ) : null}
             {/* Phase EE.6 — the Loading Data / Data Ready states are
               * redundant with the full-screen loading treatment, so the
               * pill only renders for actionable problem states. */}
@@ -2309,7 +2328,9 @@ function TopNav({
             ) : null}
             {/* Phase H.5 — clickable avatar opens a dropdown menu with the
               * signed-in user's email and a Logout button. Previously the
-              * avatar was a static <div> with no way to sign out. */}
+              * avatar was a static <div> with no way to sign out.
+              * Phase JJ.3b — hidden entirely in share mode. */}
+            {shareMode ? null : (
             <div className="top-nav__profile-wrapper" ref={profileWrapperRef}>
               <button
                 type="button"
@@ -2350,6 +2371,7 @@ function TopNav({
                 </div>
               ) : null}
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -4079,6 +4101,7 @@ function GameAudit({
   games,
   selectedGameId,
   season,
+  shareMode = false,
   onSeasonChange,
   onGameChange,
   replay,
@@ -4089,6 +4112,7 @@ function GameAudit({
   games: EnterpriseGameSummary[];
   selectedGameId: string | null;
   season: string;
+  shareMode?: boolean;
   onSeasonChange: (season: string) => void;
   onGameChange: (id: string) => void;
   replay: PitchingReplayResponse | null;
@@ -4417,74 +4441,88 @@ function GameAudit({
                     <span className="signal-banner__eyebrow">Starting Pitcher</span>
                     <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
                   </div>
-                  <div className="signal-banner__field signal-banner__field--season">
-                    <span className="signal-banner__eyebrow">Season</span>
-                    <CustomSelect
-                      ariaLabel="Select season"
-                      minWidth={96}
-                      value={season}
-                      options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
-                      onChange={onSeasonChange}
-                    />
-                  </div>
-                  <div className="signal-banner__field signal-banner__field--game">
-                    <span className="signal-banner__eyebrow">Game</span>
-                    <CustomSelect
-                      ariaLabel="Select game"
-                      minWidth={240}
-                      value={selectedGameId ?? ""}
-                      options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
-                      onChange={onGameChange}
-                    />
-                  </div>
+                  {/* Phase JJ.3b — share mode locks the view to one game:
+                    * the Season/Game dropdowns become a static game label. */}
+                  {shareMode ? (
+                    <div className="signal-banner__field signal-banner__field--game">
+                      <span className="signal-banner__eyebrow">Game</span>
+                      <strong className="signal-banner__value signal-banner__value--inline signal-banner__value--static-game">
+                        {(() => {
+                          const game = games.find((item) => item.game_id === selectedGameId);
+                          return game ? gameLabel(game) : `${selectedGame?.away_team ?? ""} @ ${selectedGame?.home_team ?? ""}`.trim() || "Shared replay";
+                        })()}
+                      </strong>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="signal-banner__field signal-banner__field--season">
+                        <span className="signal-banner__eyebrow">Season</span>
+                        <CustomSelect
+                          ariaLabel="Select season"
+                          minWidth={96}
+                          value={season}
+                          options={[{ value: "2026", label: "2026" }, { value: "2025", label: "2025" }]}
+                          onChange={onSeasonChange}
+                        />
+                      </div>
+                      <div className="signal-banner__field signal-banner__field--game">
+                        <span className="signal-banner__eyebrow">Game</span>
+                        <CustomSelect
+                          ariaLabel="Select game"
+                          minWidth={240}
+                          value={selectedGameId ?? ""}
+                          options={games.map((game) => ({ value: game.game_id, label: gameLabel(game) }))}
+                          onChange={onGameChange}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
                 {/* Phase Z.5 — center zone removed; pill moved into
                   * the right zone alongside the count badge so they
                   * share the colored cell that sits flush above the
                   * right panel below. */}
                 <div className="signal-banner__zone signal-banner__zone--right">
-                  {/* Phase GG — 2-row grid: gray eyebrows (FF.4 labels,
-                    * restyled to the Z.6 Starting Pitcher gray) sit on the
-                    * dark bar above the colored slab, which now starts at
-                    * the Season/Game dropdown-box top line. Grid columns
-                    * keep each eyebrow x-aligned with its badge. */}
+                  {/* Phase JJ.2 — scoreboard slab. The gray label band that
+                    * sat ABOVE the slab (FF.4/GG/II) read as a second tab
+                    * row; the labels now live INSIDE the colored slab as
+                    * small contrast text over plain typographic values —
+                    * no pill or badge chrome. GG invariant kept: the slab
+                    * still starts at the Season/Game dropdown-top line. */}
                   {(() => {
                     const count = currentSignalCount(displayStatuses, selectedIndex);
-                    // Phase II — pressure-easing annotation (monotonicity
-                    // option a): the displayed signal is a high-water mark and
-                    // never de-escalates, but when the model's RAW per-pitch
-                    // status sits below it, surface that the underlying
-                    // pressure has eased. Starters only — the reliever RSS
-                    // variant has its own status semantics.
+                    // Phase II — pressure-easing read (monotonicity option a):
+                    // shown when the model's raw per-pitch status sits below
+                    // the held display status. Starters only.
                     const rawStatus = !selectedIsReliever && selected ? statusLabel(selected.recommendation.status) : null;
                     const easing = rawStatus != null && statusRank(rawStatus) < statusRank(displayStatus);
                     return (
                       <>
-                        <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--signal">Model Signal</span>
+                        <div className="signal-banner__stat signal-banner__stat--signal">
+                          <span className="signal-banner__stat-label">Model Signal</span>
+                          <strong className="signal-banner__stat-value signal-banner__stat-value--signal">
+                            {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
+                          </strong>
+                        </div>
                         {count > 0 ? (
-                          <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--dwell">Signal Dwell</span>
-                        ) : null}
-                        {easing ? (
-                          <span className="signal-banner__eyebrow signal-banner__slab-eyebrow signal-banner__slab-eyebrow--easing">Pressure</span>
-                        ) : null}
-                        <strong className="signal-banner__value signal-banner__value--pill">
-                          {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
-                        </strong>
-                        {count > 0 ? (
-                          <span
-                            className="signal-banner__count-badge"
+                          <div
+                            className="signal-banner__stat signal-banner__stat--dwell"
                             title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
                           >
-                            {count} {count === 1 ? "pitch" : "pitches"}
-                          </span>
+                            <span className="signal-banner__stat-label">Signal Dwell</span>
+                            <strong className="signal-banner__stat-value">
+                              {count} {count === 1 ? "pitch" : "pitches"}
+                            </strong>
+                          </div>
                         ) : null}
                         {easing ? (
-                          <span
-                            className="signal-banner__count-badge signal-banner__easing-badge"
+                          <div
+                            className="signal-banner__stat signal-banner__stat--easing"
                             title={`Underlying pressure has eased to ${rawStatus} on this pitch; the operational signal holds at ${displayStatus}.`}
                           >
-                            ▾ Easing
-                          </span>
+                            <span className="signal-banner__stat-label">Pressure</span>
+                            <strong className="signal-banner__stat-value">▾ Easing</strong>
+                          </div>
                         ) : null}
                       </>
                     );
@@ -4549,10 +4587,11 @@ function GameAudit({
                   </div>
                 </div>
 
-                {/* Phase V.3 — Next 3 Hitters (vertical list, col 1) +
-                  * Pitch Mix Drift card (col 2) sit side-by-side in a
-                  * 2-column row so the sparklines below pull up and fit
-                  * the viewport with no internal scroll. */}
+                {/* Phase JJ.1 — the Pitch Mix Drift card is gone (Collin
+                  * questioned the factor's read; the MODEL input is
+                  * untouched and the Pitch Mix Snapshot donut under the
+                  * strike zone stays). Next 3 Hitters now owns the full
+                  * row — three hitters across one line. */}
                 <div className="pws-pocket-row">
                   <section className="pws-section pws-next-hitters">
                     <p className="pws-eyebrow">Next 3 Hitters</p>
@@ -4560,7 +4599,7 @@ function GameAudit({
                       <ol className="pws-next-hitters__list">
                         {pocketHitters.map((hitter, index) => (
                           <li key={`${hitter.name}-${index}`}>
-                            <strong>{hitter.name}</strong>
+                            <strong title={hitter.name}>{hitter.name}</strong>
                             <em>{hitter.hand}</em>
                           </li>
                         ))}
@@ -4569,21 +4608,6 @@ function GameAudit({
                       <p className="pws-next-hitters__empty">Pocket unavailable</p>
                     )}
                   </section>
-
-                  <div className="pws-mix-drift-card">
-                    {(() => {
-                      const cmp = factorVsLeague(selectedState?.pitch_mix_drift_10, REPLAY_RATE_BENCHMARKS.pitchMixDrift ?? 0.3, "low-good");
-                      return <GaugeMetric
-                        label="Pitch Mix Drift"
-                        value={fmtNumber(selectedState?.pitch_mix_drift_10, 2)}
-                        detail={`${pitchMixDriftCopy(selectedState?.pitch_mix_drift_10)}`}
-                        percent={cmp?.scaledPercent}
-                        benchmarks={[{ percent: 0.1, label: "league" }]}
-                        tone={factorVsLeagueTone(cmp)}
-                        role={null}
-                      />;
-                    })()}
-                  </div>
                 </div>
 
                 {/* Phase S.2 — Velocity + Spin trendlines moved from
@@ -5879,6 +5903,38 @@ export default function App() {
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflowFromSearch);
   const [season, setSeason] = useState("2026");
   const [selectedGameId, setSelectedGameId] = useState<string | null>(initialGameIdFromSearch);
+  // Phase JJ.3b — locked share mode. A briefing share link resolves its
+  // grant, pins team + game, and hides every navigation affordance.
+  const shareGrantId = useMemo(() => shareGrantIdFromSearch(), []);
+  const shareMode = shareGrantId != null;
+  const [shareGrant, setShareGrant] = useState<PitchingReplayShareGrant | null>(null);
+  const [shareGrantStatus, setShareGrantStatus] = useState<"idle" | "loading" | "active" | "inactive">(shareMode ? "loading" : "idle");
+  useEffect(() => {
+    if (!shareGrantId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const grant = await fetchReplayShareGrant(shareGrantId);
+        if (cancelled) return;
+        const active = String(grant.state || "").toLowerCase() === "active" && String(grant.game_id || "").trim();
+        if (!active) {
+          setShareGrantStatus("inactive");
+          return;
+        }
+        setShareGrant(grant);
+        const grantTeam = MLB_TEAMS.find((item) => item.abbr === String(grant.team || "").toUpperCase());
+        if (grantTeam) setSelectedTeamAbbr(grantTeam.abbr);
+        setWorkflow("audit");
+        setSelectedGameId(String(grant.game_id));
+        setShareGrantStatus("active");
+      } catch {
+        if (!cancelled) setShareGrantStatus("inactive");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shareGrantId]);
   const [games, setGames] = useState<EnterpriseGameSummary[]>([]);
   const [profilesPayload, setProfilesPayload] = useState<PitcherProfilesPayload | null>(null);
   const [auditSummary, setAuditSummary] = useState<PitchingAuditSummaryPayload | null>(null);
@@ -5953,7 +6009,9 @@ export default function App() {
         const gamePayload = gameResult.value;
         setGames(gamePayload.games);
         setSelectedGameId((current) => {
-          if (current && gamePayload.games.some((game) => game.game_id === current)) return current;
+          // Share mode pins the granted game even if it's outside the
+          // recent-games window (Phase JJ.3b).
+          if (current && (shareMode || gamePayload.games.some((game) => game.game_id === current))) return current;
           return gamePayload.games[0]?.game_id ?? null;
         });
       } else {
@@ -6081,6 +6139,27 @@ export default function App() {
     void loadRecapSettings();
   }
 
+  // Phase JJ.3b — share-mode gates: nothing renders until the grant
+  // resolves; an inactive/expired grant gets a friendly dead-end (no app
+  // chrome, no navigation).
+  if (shareMode && shareGrantStatus === "loading") {
+    return (
+      <main className="share-gate">
+        <p className="share-gate__eyebrow">Baseball brAIn</p>
+        <h1>Loading shared replay…</h1>
+      </main>
+    );
+  }
+  if (shareMode && shareGrantStatus !== "active") {
+    return (
+      <main className="share-gate">
+        <p className="share-gate__eyebrow">Baseball brAIn</p>
+        <h1>This replay link is no longer active</h1>
+        <p className="share-gate__detail">Share links expire for security. Ask your Baseball brAIn contact to send a fresh Game Briefing.</p>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <TopNav
@@ -6090,6 +6169,7 @@ export default function App() {
         games={games}
         selectedGameId={selectedGameId}
         season={season}
+        shareMode={shareMode}
         onTeamChange={(team) => {
           setSelectedTeamAbbr(team.abbr);
         }}
@@ -6117,6 +6197,7 @@ export default function App() {
             games={games}
             selectedGameId={selectedGameId}
             season={season}
+            shareMode={shareMode}
             onSeasonChange={setSeason}
             onGameChange={setSelectedGameId}
             replay={replay}

@@ -5,6 +5,15 @@ import { Login } from "../pages/Login";
 export function ProtectedApp({ children }: { children: ReactNode }) {
   const { session, profile, loading, profileLoading, needsPasswordSetup } = useAuth();
 
+  // Phase JJ.3b — Game Briefings share links render the locked single-game
+  // replay WITHOUT a session. The pitching data endpoints are public; the
+  // share view itself hides all navigation chrome (see App shareMode), and
+  // the grant id is validated against the backend before anything renders.
+  const shareParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
+  if (shareParams.get("view") === "shared-replay" && (shareParams.get("grant") || "").trim()) {
+    return <>{children}</>;
+  }
+
   if (loading) {
     return (
       <div className="auth-loading">

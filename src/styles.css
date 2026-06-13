@@ -21871,3 +21871,150 @@ body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-b
   opacity: 0.85 !important;
   letter-spacing: 0.6px !important;
 }
+
+/* ==========================================================================
+ * Phase JJ — scoreboard slab + full-row Next 3 Hitters.
+ * JJ.2: the slab's labels move INSIDE the colored area (the gray band above
+ * read as a second tab row) and the pill/badge chrome is gone — pure
+ * typography on the tier color. The GG/II slab-eyebrow + badge rules above
+ * are inert (their elements no longer render).
+ * JJ.1: the Pitch Mix Drift card is gone; Next 3 Hitters owns the full
+ * sidebar row, three hitters across one line at 15px (At Bat stays 17px).
+ * ========================================================================== */
+
+/* JJ.1 — pocket row collapses to a single full-width column, and the
+ * hitter list flips from V.3's vertical stack to ONE row of three. */
+body.audit-immersive .pws-pocket-row {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+body.audit-immersive .pws-pocket-row .pws-next-hitters__list {
+  flex-direction: row !important;
+  gap: 6px !important;
+}
+
+body.audit-immersive .pws-pocket-row .pws-next-hitters__list li {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  gap: 5px !important;
+}
+
+/* Name grows and ellipsizes; handedness never shrinks. 14px is a notch
+ * above the prior 13px (Collin wanted bigger) yet clearly below the 17px
+ * At Bat name. Long names ("Jacob Gonzalez") truncate with a title
+ * tooltip rather than breaking the single row. */
+body.audit-immersive .pws-pocket-row .pws-next-hitters__list li strong {
+  font-size: 14px !important;
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.audit-immersive .pws-pocket-row .pws-next-hitters__list li em {
+  flex: 0 0 auto !important;
+}
+
+/* JJ.2 — stat stacks in the slab row (row 2 of the GG grid; row 1 stays
+ * the empty dark band that keeps the slab top on the dropdown line). */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat {
+  grid-row: 2 !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: flex-end !important;
+  /* Bottom-align the stacks so the three values share a baseline like a
+   * scoreboard; each label sits directly above its own value. */
+  align-self: end !important;
+  padding-bottom: 14px !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+}
+
+body.audit-immersive .signal-banner__stat--signal { grid-column: 1 !important; }
+body.audit-immersive .signal-banner__stat--dwell { grid-column: 2 !important; }
+body.audit-immersive .signal-banner__stat--easing { grid-column: 3 !important; justify-self: start !important; }
+
+/* Labels INSIDE the slab — small caps in the slab's own text color at
+ * reduced opacity (dark on WATCH/PREP, white on STAY/PULL_NOW/DISTRESS
+ * via the tier classes' color). */
+body.audit-immersive .signal-banner__stat-label {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: currentColor !important;
+  opacity: 0.62 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
+/* Values — plain bold type, no chrome. The signal word anchors the slab. */
+body.audit-immersive .signal-banner__stat-value {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: currentColor !important;
+  line-height: 1.05 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+body.audit-immersive .signal-banner__stat-value--signal {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.4px !important;
+}
+
+body.audit-immersive .signal-banner__stat--easing .signal-banner__stat-value {
+  opacity: 0.85 !important;
+}
+
+/* JJ.3b — share-gate screens (loading / expired) for briefing links, and
+ * the static game label that replaces the Season/Game dropdowns in the
+ * locked share view. */
+.share-gate {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  text-align: center;
+  padding: 24px;
+}
+
+.share-gate__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+  margin: 0;
+}
+
+.share-gate h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.share-gate__detail {
+  font-size: 14px;
+  color: #a0a0a0;
+  max-width: 420px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+body.audit-immersive .signal-banner__value--static-game {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #d6d6d6 !important;
+  white-space: nowrap !important;
+}

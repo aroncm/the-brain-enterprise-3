@@ -328,6 +328,23 @@ export function fetchPitchingRecap(gameId: string, league: "mlb" | "triple_a" = 
   return fetchJson<PitchingGameRecap>(`/v1/pitching/recap/${encodeURIComponent(gameId)}?league=${league}`);
 }
 
+// Phase JJ.3b — Game Briefings share links resolve a grant to a single
+// game's locked replay view (no login).
+export interface PitchingReplayShareGrant {
+  grant_id: string;
+  game_id: string;
+  team: string;
+  date?: string | null;
+  home_team?: string | null;
+  away_team?: string | null;
+  matchup?: string | null;
+  state: string;
+}
+
+export function fetchReplayShareGrant(grantId: string): Promise<PitchingReplayShareGrant> {
+  return fetchJson<PitchingReplayShareGrant>(`/v1/pitching/share/grant/${encodeURIComponent(grantId)}`);
+}
+
 export function fetchPitchingRecapSettings(league: "mlb" | "triple_a" = "mlb"): Promise<PitchingRecapSettings> {
   return fetchJson<PitchingRecapSettings>(`/v1/pitching/recap-settings?league=${league}`);
 }
