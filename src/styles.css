@@ -18465,7 +18465,7 @@ body.audit-immersive .app-main {
 }
 
 .theme-mobian .decision-gauge-grid {
-  gap: 8px !important;
+  gap: 18px 8px !important;
 }
 
 .theme-mobian .evidence-gauge--prep .gauge-track i,
@@ -20475,6 +20475,7 @@ body.audit-immersive .top-nav__tagline {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
   gap: 8px !important;
+  margin-top: 14px !important;
 }
 
 .theme-mobian .pws-trend-row .sparkline-card {
@@ -22047,9 +22048,9 @@ body.audit-immersive .pws-pitcher-head__eyebrow {
 }
 body.audit-immersive .pws-pitcher-head__name {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
-  font-size: 16px !important;
+  font-size: 20px !important;
   font-weight: 800 !important;
-  letter-spacing: -0.2px !important;
+  letter-spacing: -0.3px !important;
   line-height: 1.1 !important;
   color: #ffffff !important;
 }
@@ -22089,4 +22090,52 @@ body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-b
 /* (4) Signal word white on every tier (Stay / Watch / Prep / Pull Now). */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat-value--signal {
   color: #ffffff !important;
+}
+
+/* ==========================================================================
+ * Phase PP.2 — Signal banner: dark slab + tier accent rail (prominent, calm).
+ * Replaces the loud full-color tier slab with a dark slab matching the rings
+ * panel; the tier color survives only as the bold signal WORD + a thin rail on
+ * the slab's left edge. Per-tier selectors so these beat the GG gradient fills
+ * (same specificity, appended later = wins).
+ * ========================================================================== */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  border-left: 3px solid #3a3a3a !important;
+}
+/* Dark slab for every tier + the tier-colored left rail. */
+body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--right {
+  background: #141414 !important;
+  border-left-color: #2ec4a0 !important;
+}
+body.audit-immersive .signal-banner--3zone.signal-watch .signal-banner__zone--right {
+  background: #141414 !important;
+  border-left-color: #fce066 !important;
+}
+body.audit-immersive .signal-banner--3zone.signal-prep .signal-banner__zone--right {
+  background: #141414 !important;
+  border-left-color: #f5a03b !important;
+}
+body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right,
+body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right {
+  background: #141414 !important;
+  border-left-color: #e05b4b !important;
+}
+/* The signal WORD now carries the tier color (was PP white). */
+body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--right .signal-banner__stat-value--signal {
+  color: #2ec4a0 !important;
+}
+body.audit-immersive .signal-banner--3zone.signal-watch .signal-banner__zone--right .signal-banner__stat-value--signal {
+  color: #fce066 !important;
+}
+body.audit-immersive .signal-banner--3zone.signal-prep .signal-banner__zone--right .signal-banner__stat-value--signal {
+  color: #f5a03b !important;
+}
+body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right .signal-banner__stat-value--signal,
+body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right .signal-banner__stat-value--signal {
+  color: #e05b4b !important;
+}
+/* Dwell value legible on the dark slab (the old currentColor went black on
+ * the former light tiers). */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat--dwell .signal-banner__stat-value {
+  color: #d6d6d6 !important;
 }
