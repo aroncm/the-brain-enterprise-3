@@ -22161,6 +22161,9 @@ body.audit-immersive .top-nav__brain-svg {
 body.audit-immersive .top-nav__tagline {
   font-size: 9px !important;
   letter-spacing: 2.6px !important;
+  /* Override the Phase Q -16px (tuned for the old 224px logo) — that pulled the
+   * tagline up INTO the smaller logo. Sit it directly below with a small gap. */
+  margin-top: -4px !important;
 }
 body.audit-immersive .top-nav {
   padding-top: 4px !important;
