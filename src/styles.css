@@ -22018,3 +22018,75 @@ body.audit-immersive .signal-banner__value--static-game {
   color: #d6d6d6 !important;
   white-space: nowrap !important;
 }
+
+/* ==========================================================================
+ * Phase PP — Game Replay: Starting Pitcher row moved into the left column;
+ * Model Signal slab right-aligned with vertically-aligned labels + white
+ * signal text. (Appended last so these win the cascade.)
+ * ========================================================================== */
+
+/* (2) Starting Pitcher label + name = first row of the left column, directly
+ * under the team-accent top border. Mirrors the old banner field: eyebrow
+ * 10px gray + name 16px/800 white. */
+body.audit-immersive .pitch-window-summary--compact .pws-pitcher-head {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  padding: 2px 0 10px !important;
+  margin-bottom: 2px !important;
+  border-bottom: 1px solid #1e1e1e !important;
+}
+body.audit-immersive .pws-pitcher-head__eyebrow {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 1.4px !important;
+  text-transform: uppercase !important;
+  color: #8a8a8a !important;
+  line-height: 1 !important;
+}
+body.audit-immersive .pws-pitcher-head__name {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.2px !important;
+  line-height: 1.1 !important;
+  color: #ffffff !important;
+}
+
+/* (4) Model Signal slab — override the GG/JJ.2 grid so the Model Signal +
+ * Signal Dwell stacks sit at the RIGHT, their labels share one top baseline
+ * (with clearance from the banner top border), and the signal word is white
+ * on every tier. The slab gradient (--gg-slab-offset) is unchanged: labels
+ * land on the dark band, values land on the tier color below it. */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  justify-content: flex-end !important;
+  gap: 26px !important;
+  padding: 7px 18px 0 16px !important;
+}
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat {
+  grid-row: auto !important;
+  grid-column: auto !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  justify-content: flex-start !important;
+  align-self: flex-start !important;
+  padding-bottom: 0 !important;
+  gap: 8px !important;
+  text-align: right !important;
+  min-width: 0 !important;
+}
+/* Labels always legible: gray on the dark band, not the tier's currentColor
+ * (which is black on Watch/Prep and would vanish on the dark band). */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat-label {
+  color: #8a8a8a !important;
+  opacity: 1 !important;
+}
+/* (4) Signal word white on every tier (Stay / Watch / Prep / Pull Now). */
+body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat-value--signal {
+  color: #ffffff !important;
+}

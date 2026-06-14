@@ -4449,10 +4449,9 @@ function GameAudit({
                 * removed per user request. */}
               <div className={`signal-banner signal-banner--inline signal-banner--sticky signal-banner--3zone signal-${signalClass(displayStatus)}`}>
                 <div className="signal-banner__zone signal-banner__zone--left">
-                  <div className="signal-banner__field signal-banner__field--pitcher">
-                    <span className="signal-banner__eyebrow">Starting Pitcher</span>
-                    <strong className="signal-banner__value signal-banner__value--inline">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
-                  </div>
+                  {/* Phase PP — the Starting Pitcher label + name moved into
+                    * the left column (first row under the team-accent border);
+                    * the left zone now leads with the Season/Game dropdowns. */}
                   {/* Phase JJ.3b — share mode locks the view to one game:
                     * the Season/Game dropdowns become a static game label. */}
                   {shareMode ? (
@@ -4549,6 +4548,12 @@ function GameAudit({
                * single horizontal strip directly above the strike zone (D.1c).
                */}
               <aside className="pitch-window-summary pitch-window-summary--compact" style={{ borderTop: `3px solid ${accents.primary}` }}>
+                {/* Phase PP — Starting Pitcher label + name as the first row
+                  * of the left column, directly under the team-accent border. */}
+                <section className="pws-section pws-pitcher-head">
+                  <span className="pws-pitcher-head__eyebrow">Starting Pitcher</span>
+                  <strong className="pws-pitcher-head__name">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                </section>
                 <section className="pws-section pws-pitcher-section">
                   <div className="pws-stats">
                     <div className="pws-stat">
