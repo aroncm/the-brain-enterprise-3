@@ -53,6 +53,7 @@ async function fetchProfile(userId: string): Promise<Profile | null> {
 
 type AuthLinkParams = {
   code: string | null;
+  tokenHash: string | null;
   accessToken: string | null;
   refreshToken: string | null;
   type: string | null;
@@ -61,13 +62,14 @@ type AuthLinkParams = {
 
 function readAuthLinkParams(): AuthLinkParams {
   if (typeof window === "undefined") {
-    return { code: null, accessToken: null, refreshToken: null, type: null, errorDescription: null };
+    return { code: null, tokenHash: null, accessToken: null, refreshToken: null, type: null, errorDescription: null };
   }
   const search = new URLSearchParams(window.location.search);
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const pick = (key: string) => search.get(key) || hash.get(key) || null;
   return {
     code: pick("code"),
+    tokenHash: pick("token_hash"),
     accessToken: pick("access_token"),
     refreshToken: pick("refresh_token"),
     type: (pick("type") || "").toLowerCase() || null,
@@ -78,7 +80,7 @@ function readAuthLinkParams(): AuthLinkParams {
 function clearAuthLinkUrl() {
   if (typeof window === "undefined") return;
   if (!window.history?.replaceState) return;
-  window.history.replaceState({}, document.title, window.location.pathname + window.location.search.replace(/[?&]?(code|type|access_token|refresh_token|expires_in|expires_at|token_type|provider_token|provider_refresh_token|error|error_code|error_description)=[^&]*/g, "").replace(/^&/, "?"));
+  window.history.replaceState({}, document.title, window.location.pathname + window.location.search.replace(/[?&]?(code|token_hash|type|access_token|refresh_token|expires_in|expires_at|token_type|provider_token|provider_refresh_token|error|error_code|error_description)=[^&]*/g, "").replace(/^&/, "?"));
 }
 
 function isPasswordSetupType(type: string | null): boolean {
@@ -104,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...params,
       });
     }
-    return Boolean(params.code) || Boolean(params.accessToken) || isPasswordSetupType(params.type);
+    return Boolean(params.code) || Boolean(params.tokenHash) || Boolean(params.accessToken) || isPasswordSetupType(params.type);
   });
   const [linkError, setLinkError] = useState<string | null>(null);
 
@@ -123,7 +125,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       let exchangeOk = false;
       try {
-        if (params.code) {
+        if (params.tokenHash) {
+          // Supabase server-generated invite/recovery links (token_hash flow).
+          // verifyOtp needs no client code_verifier — unlike exchangeCodeForSession,
+          // which fails for admin-generated links since the verifier never existed
+          // on this device. This is the durable path for our invite-only app.
+          const otpType = (params.type || "invite") as "invite" | "recovery" | "signup" | "email";
+          const { error } = await supabase.auth.verifyOtp({ type: otpType, token_hash: params.tokenHash });
+          if (error) throw error;
+          exchangeOk = true;
+          // eslint-disable-next-line no-console
+          console.log("[auth] verifyOtp (token_hash) succeeded", { type: otpType });
+        } else if (params.code) {
           await supabase.auth.exchangeCodeForSession(params.code);
           exchangeOk = true;
           // eslint-disable-next-line no-console
@@ -144,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLinkError(err instanceof Error ? err.message : "Could not complete sign-in link");
         }
       }
-      if (params.code || params.accessToken) {
+      if (params.code || params.tokenHash || params.accessToken) {
         clearAuthLinkUrl();
       }
       if (!cancelled) {

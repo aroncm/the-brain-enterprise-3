@@ -26,8 +26,8 @@ function detectInitialMode(): Mode {
 }
 
 export function Login() {
-  const { clearPasswordSetup } = useAuth();
-  const initialMode = useMemo(() => detectInitialMode(), []);
+  const { clearPasswordSetup, needsPasswordSetup } = useAuth();
+  const initialMode = useMemo(() => (needsPasswordSetup ? "setPassword" : detectInitialMode()), [needsPasswordSetup]);
   const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +35,14 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // When AuthContext has consumed an invite/recovery link (token_hash /
+  // code / hash) it sets needsPasswordSetup and clears the URL — by then the
+  // ?type= param is gone, so drive setPassword mode off the context flag
+  // rather than re-reading the (now-empty) URL.
+  useEffect(() => {
+    if (needsPasswordSetup) setMode("setPassword");
+  }, [needsPasswordSetup]);
 
   // Supabase fires a PASSWORD_RECOVERY event when the user lands here
   // from a recovery email — flip to setPassword mode so they don't get
