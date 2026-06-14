@@ -22101,29 +22101,24 @@ body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-b
  * ========================================================================== */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right {
   border-left: 3px solid #3a3a3a !important;
-  border-top: 3px solid #3a3a3a !important;
 }
-/* Dark slab for every tier + the tier-colored rail along the TOP + LEFT edges. */
+/* Dark slab for every tier + the tier-colored left rail. */
 body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--right {
   background: #141414 !important;
   border-left-color: #2ec4a0 !important;
-  border-top-color: #2ec4a0 !important;
 }
 body.audit-immersive .signal-banner--3zone.signal-watch .signal-banner__zone--right {
   background: #141414 !important;
   border-left-color: #fce066 !important;
-  border-top-color: #fce066 !important;
 }
 body.audit-immersive .signal-banner--3zone.signal-prep .signal-banner__zone--right {
   background: #141414 !important;
   border-left-color: #f5a03b !important;
-  border-top-color: #f5a03b !important;
 }
 body.audit-immersive .signal-banner--3zone.signal-pull_now .signal-banner__zone--right,
 body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone--right {
   background: #141414 !important;
   border-left-color: #e05b4b !important;
-  border-top-color: #e05b4b !important;
 }
 /* The signal WORD now carries the tier color (was PP white). */
 body.audit-immersive .signal-banner--3zone.signal-stay .signal-banner__zone--right .signal-banner__stat-value--signal {
@@ -22143,26 +22138,4 @@ body.audit-immersive .signal-banner--3zone.signal-distress .signal-banner__zone-
  * the former light tiers). */
 body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat--dwell .signal-banner__stat-value {
   color: #d6d6d6 !important;
-}
-/* Pressure value (e.g. "▾ Easing") — currentColor went dark on the new dark
- * slab; render it white and clear the JJ.2 0.85 dim. */
-body.audit-immersive .signal-banner--3zone .signal-banner__zone--right .signal-banner__stat--easing .signal-banner__stat-value {
-  color: #ffffff !important;
-  opacity: 1 !important;
-}
-
-/* ==========================================================================
- * Phase PP.3 — Brand logo: slightly smaller logo + tagline, lifted with more
- * clearance above the nav's bottom (gray) border.
- * ========================================================================== */
-body.audit-immersive .top-nav__brain-svg {
-  width: 196px !important;
-}
-body.audit-immersive .top-nav__tagline {
-  font-size: 9px !important;
-  letter-spacing: 2.6px !important;
-}
-body.audit-immersive .top-nav {
-  padding-top: 4px !important;
-  padding-bottom: 12px !important;
 }
