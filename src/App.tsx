@@ -55,7 +55,7 @@ import type {
   RunSavingBoardPayload,
   TripleAConversionCandidate,
 } from "./types";
-import { teamAccents } from "./teamAccents";
+import { teamAccents, teamLogoIsDark } from "./teamAccents";
 import { useAuth } from "./context/AuthContext";
 import { AdminPage } from "./pages/AdminPage";
 import {
@@ -1859,7 +1859,10 @@ function buildBriefingPlainText(response: PitchingRecapEmailResponse, team: Team
 
 function TeamLogo({ abbr }: { abbr: string }) {
   const src = teamLogoUrl(abbr);
-  return <span className="team-logo">{src ? <img src={src} alt={`${abbr} logo`} /> : abbr}</span>;
+  // Dark team logos (e.g. NYY navy) are barely legible on the dark nav — render
+  // them as a white silhouette so they stay visible.
+  const className = `team-logo${teamLogoIsDark(abbr) ? " team-logo--dark" : ""}`;
+  return <span className={className}>{src ? <img src={src} alt={`${abbr} logo`} /> : abbr}</span>;
 }
 
 function EmptyState({ title, detail }: { title: string; detail: string }) {
@@ -2223,7 +2226,7 @@ function TopNav({
   onSeasonChange: (season: string) => void;
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
-  const teamColor = accents?.primary ?? "#ffffff";
+  const teamColor = accents?.accent ?? "#ffffff";
   const { user, profile, signOut } = useAuth();
   // Phase H.5 — profile dropdown state. Closes on outside-click / Escape.
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -4415,7 +4418,7 @@ function GameAudit({
 
   const accents = teamAccents(team.abbr);
   const themeStyle = {
-    "--team-primary": accents.primary,
+    "--team-primary": accents.accent,
     "--team-label": accents.label,
     "--team-dot": accents.dot,
     "--team-row-bg": accents.rowBg,
@@ -4547,7 +4550,7 @@ function GameAudit({
                * Pitch Window" eyebrow; the pitch-facts grid migrated into a
                * single horizontal strip directly above the strike zone (D.1c).
                */}
-              <aside className="pitch-window-summary pitch-window-summary--compact" style={{ borderTop: `3px solid ${accents.primary}` }}>
+              <aside className="pitch-window-summary pitch-window-summary--compact" style={{ borderTop: `3px solid ${accents.accent}` }}>
                 {/* Phase PP — Starting Pitcher label + name as the first row
                   * of the left column, directly under the team-accent border. */}
                 <section className="pws-section pws-pitcher-head">

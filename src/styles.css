@@ -153,6 +153,12 @@ p {
   height: 100%;
 }
 
+/* Dark team logos (e.g. NYY navy) sit on the transparent dark nav and are
+   barely legible — render them as a white silhouette so they stay visible. */
+.top-nav__team-logo .team-logo--dark img {
+  filter: brightness(0) invert(1);
+}
+
 .top-nav__team-name {
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 32px;

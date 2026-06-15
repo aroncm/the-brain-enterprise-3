@@ -9,7 +9,7 @@ const MLB_TEAM_PRIMARY: Record<string, string> = {
   KC: "#004687", KCR: "#004687", KAN: "#004687", KANS: "#004687",
   LAA: "#BA0021", LAD: "#005A9C",
   MIA: "#EF3340", MIL: "#FFC52F", MIN: "#D31145", NYM: "#FF5910",
-  NYY: "#E4002C", ATH: "#EFB21E", OAK: "#EFB21E", PHI: "#E81828",
+  NYY: "#003087", ATH: "#EFB21E", OAK: "#EFB21E", PHI: "#E81828",
   PIT: "#FDB827", SD: "#FFC425", SDP: "#FFC425", SF: "#FD5A1E",
   SFG: "#FD5A1E", SEA: "#005C5C", STL: "#C41E3A",
   TB: "#8FBCE6", TBR: "#8FBCE6", TAM: "#8FBCE6", TAMP: "#8FBCE6",
@@ -49,6 +49,7 @@ function relativeLuminance(hex: string): number {
 
 export type TeamAccents = {
   primary: string;
+  accent: string;
   label: string;
   dot: string;
   rowBg: string;
@@ -59,11 +60,21 @@ export function teamAccents(team: string | null | undefined): TeamAccents {
   const [r, g, b] = hexToRgb(primary);
   const luminance = relativeLuminance(primary);
   const rowAlpha = luminance >= 0.1 ? 0.1 : 0.25;
-  const label = luminance >= 0.12 ? primary : "#ffffff";
+  // Display-safe accent: a team primary too dark to read on the dark canvas
+  // (NYY/TOR/CHC navy, COL purple, SEA teal, KC blue) falls back to white so
+  // the logo wordmark + accents stay legible instead of rendering dark or wrong.
+  const accent = luminance >= 0.12 ? primary : "#ffffff";
   return {
     primary,
-    label,
-    dot: primary,
+    accent,
+    label: accent,
+    dot: accent,
     rowBg: `rgba(${r}, ${g}, ${b}, ${rowAlpha.toFixed(2)})`,
   };
+}
+
+// True when the team's primary is too dark to read on the dark canvas — used
+// to render the (dark) MLB logo image as a legible white silhouette.
+export function teamLogoIsDark(team: string | null | undefined): boolean {
+  return teamAccents(team).accent === "#ffffff";
 }
