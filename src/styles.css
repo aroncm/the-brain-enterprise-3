@@ -2304,6 +2304,27 @@ select {
   color: #a0a0a0;
 }
 
+.empty-state__action {
+  margin-top: 20px;
+}
+
+.empty-state__retry {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #0a0a0a;
+  background: #2ec4a0;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.empty-state__retry:hover {
+  background: #41d8b4;
+}
+
 .app-footer {
   display: flex;
   flex-wrap: wrap;

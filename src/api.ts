@@ -29,8 +29,15 @@ export class ApiConfigurationError extends Error {
   }
 }
 
-const TRANSIENT_STATUS_CODES = new Set([500, 502, 503, 504]);
-const RETRY_DELAYS_MS = [600, 1500];
+const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
+// Escalating backoff (~30s of delays) so a cold or saturated Modal container —
+// which can take 30-90s to warm up — is ridden out instead of surfacing as a
+// hard "API unavailable" error on the first blip.
+const RETRY_DELAYS_MS = [800, 1500, 3000, 5000, 8000, 12000];
+// Abort a single stalled GET attempt (a connection held open by a cold start)
+// so we retry instead of hanging. Not applied to writes (a recap-email send can
+// legitimately run longer).
+const ATTEMPT_TIMEOUT_MS = 20000;
 
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_BASE) {
@@ -43,10 +50,13 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   let lastError: Error | null = null;
 
   while (true) {
+    const controller = isIdempotent ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS) : null;
     let response: Response;
     try {
       response = await fetch(`${API_BASE}${path}`, {
         ...init,
+        signal: init.signal ?? controller?.signal,
         headers: {
           Accept: "application/json",
           ...(init.body ? { "Content-Type": "application/json" } : {}),
@@ -54,6 +64,7 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
         },
       });
     } catch (caught) {
+      if (timeoutId) clearTimeout(timeoutId);
       lastError = caught instanceof Error ? caught : new Error(String(caught));
       if (isIdempotent && attempt < RETRY_DELAYS_MS.length) {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
@@ -62,6 +73,7 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
       }
       throw lastError;
     }
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (!response.ok) {
       if (isIdempotent && TRANSIENT_STATUS_CODES.has(response.status) && attempt < RETRY_DELAYS_MS.length) {

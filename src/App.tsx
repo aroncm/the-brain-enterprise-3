@@ -1865,11 +1865,12 @@ function TeamLogo({ abbr }: { abbr: string }) {
   return <span className={className}>{src ? <img src={src} alt={`${abbr} logo`} /> : abbr}</span>;
 }
 
-function EmptyState({ title, detail }: { title: string; detail: string }) {
+function EmptyState({ title, detail, action }: { title: string; detail: string; action?: ReactNode }) {
   return (
     <div className="empty-state">
       <strong>{title}</strong>
       <p>{detail}</p>
+      {action ? <div className="empty-state__action">{action}</div> : null}
     </div>
   );
 }
@@ -2338,7 +2339,7 @@ function TopNav({
               * pill only renders for actionable problem states. */}
             {loadState !== "loading" && loadState !== "ready" ? (
               <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
-                {loadState === "missing-config" ? "Setup Required" : "Connection Error"}
+                {loadState === "missing-config" ? "Setup Required" : "Warming up…"}
               </span>
             ) : null}
             {/* Phase H.5 — clickable avatar opens a dropdown menu with the
@@ -6059,11 +6060,21 @@ export default function App() {
           * GameAudit. Other workflows + the Data Ready pill still
           * follow the original loadState semantics. */}
         {workflow === "audit" && games.length === 0 && loadState === "loading" && (
-          <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />
+          <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence — the first load after an idle stretch can take a moment while the service warms up.`} />
         )}
-        {workflow !== "audit" && loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />}
+        {workflow !== "audit" && loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence — the first load after an idle stretch can take a moment while the service warms up.`} />}
         {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Contact your Baseball brAIn admin to enable this workspace." />}
-        {loadState === "error" && <EmptyState title="API source unavailable" detail="The Baseball brAIn API did not respond. Try again in a moment." />}
+        {loadState === "error" && (
+          <EmptyState
+            title="Baseball brAIn API is warming up"
+            detail="The service didn't respond in time — it may be spinning up after an idle period. This usually clears in a few seconds."
+            action={
+              <button type="button" className="empty-state__retry" onClick={() => void reload()}>
+                Retry now
+              </button>
+            }
+          />
+        )}
 
         {workflow === "audit" && games.length > 0 && (
           <GameAudit
