@@ -5816,6 +5816,12 @@ export default function App() {
   const [recap, setRecap] = useState<PitchingGameRecap | null>(null);
   const [recapSettings, setRecapSettings] = useState<PitchingRecapSettings | null>(null);
   const [recapSettingsStatus, setRecapSettingsStatus] = useState<string | null>(null);
+  // TT.1 — the Game Replays view renders off its OWN fast games + replay
+  // fetches, never the slow run-saving board. Track that club-context load
+  // separately so the board's loadState can't cover the replay with a
+  // "warming up" screen.
+  const [clubLoading, setClubLoading] = useState(true);
+  const [clubReloadKey, setClubReloadKey] = useState(0);
 
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
@@ -5872,6 +5878,7 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
+    setClubLoading(true);
     async function loadClubContext() {
       const [gameResult, profileResult, auditResult] = await Promise.allSettled([
         fetchEnterpriseGames({ league: "mlb", team: selectedTeam.abbr, limit: 300 }),
@@ -5901,12 +5908,13 @@ export default function App() {
       } else {
         setAuditSummary(null);
       }
+      setClubLoading(false);
     }
     void loadClubContext();
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam.abbr, season]);
+  }, [selectedTeam.abbr, season, clubReloadKey]);
 
   // Phase R.1 — audit-immersive class application moved from
   // GameAudit's mount-effect to App level so the new Phase H–Q nav
@@ -6059,12 +6067,23 @@ export default function App() {
           * the games list arrives from fetchEnterpriseGames, render
           * GameAudit. Other workflows + the Data Ready pill still
           * follow the original loadState semantics. */}
-        {workflow === "audit" && games.length === 0 && loadState === "loading" && (
-          <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence — the first load after an idle stretch can take a moment while the service warms up.`} />
+        {workflow === "audit" && games.length === 0 && clubLoading && (
+          <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence.`} />
+        )}
+        {workflow === "audit" && games.length === 0 && !clubLoading && (
+          <EmptyState
+            title="Couldn't load this club's games"
+            detail={`We couldn't reach the ${selectedTeam.club} pitching data just now.`}
+            action={
+              <button type="button" className="empty-state__retry" onClick={() => setClubReloadKey((k) => k + 1)}>
+                Retry now
+              </button>
+            }
+          />
         )}
         {workflow !== "audit" && loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence — the first load after an idle stretch can take a moment while the service warms up.`} />}
         {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Contact your Baseball brAIn admin to enable this workspace." />}
-        {loadState === "error" && (
+        {loadState === "error" && workflow !== "audit" && (
           <EmptyState
             title="Baseball brAIn API is warming up"
             detail="The service didn't respond in time — it may be spinning up after an idle period. This usually clears in a few seconds."
