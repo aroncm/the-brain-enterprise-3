@@ -18750,6 +18750,14 @@ body.audit-immersive .app-main {
   margin: 0 !important;
 }
 
+/* Phase SS — the lone nav Team filter puts its "TEAM" eyebrow directly to the
+   LEFT of the dropdown (a row), not stacked above it. */
+.top-nav__actions-primary .audit-filter--team.audit-filter--inline {
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
 .top-nav__actions-primary .audit-filter--game.audit-filter--inline {
   min-width: 240px !important;
 }
@@ -20155,7 +20163,8 @@ body.audit-immersive .top-nav__tagline {
  * looks like a separate UI element from the rest of the nav row. */
 body.audit-immersive .top-nav__profile-wrapper {
   align-self: flex-start !important;
-  margin-top: -8px !important;
+  /* Phase SS — drop the avatar a touch so it isn't flush with the top edge. */
+  margin-top: 8px !important;
   margin-left: 16px !important;
 }
 
@@ -22195,4 +22204,26 @@ body.audit-immersive .top-nav__tagline {
 body.audit-immersive .top-nav {
   padding-top: 4px !important;
   padding-bottom: 12px !important;
+}
+
+/* ---------- Phase SS — nav team-logo: stop the crop / overlap ---------- */
+/* The desktop nav logo overflowed its row — clipped by the base
+   .team-logo overflow:hidden and tucked behind the adjacent sticky banner.
+   Shrink it for clearance, never clip it, keep it contained. Last in the file
+   so it wins across the responsive size variants. */
+body.audit-immersive .top-nav__context .top-nav__team-logo {
+  width: 56px !important;
+  height: 56px !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.top-nav__team-logo,
+.top-nav__team-logo .team-logo {
+  overflow: visible !important;
+}
+
+.top-nav__team-logo .team-logo img {
+  object-fit: contain !important;
 }

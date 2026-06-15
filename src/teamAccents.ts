@@ -28,6 +28,21 @@ export function teamPrimaryHex(team: string | null | undefined): string {
   return FALLBACK_ACCENT;
 }
 
+// Teams whose primary is too dark to read on the dark canvas even at full
+// saturation — their wordmark/accent + MLB logo render in white. Kept to an
+// explicit set (Yankees navy) so the dark-but-legible teams (Cubs, Royals,
+// Dodgers, Mariners, Blue Jays, D-backs, Angels, Nationals…) keep their colors.
+const FORCE_WHITE_TEAMS = new Set(["NYY"]);
+
+export function isForceWhiteTeam(team: string | null | undefined): boolean {
+  const key = (team ?? "").toUpperCase().replace(/[^A-Z]/g, "");
+  if (!key) return false;
+  for (let length = key.length; length >= 2; length--) {
+    if (FORCE_WHITE_TEAMS.has(key.slice(0, length))) return true;
+  }
+  return false;
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const value = hex.replace("#", "");
   if (value.length !== 6) return [46, 196, 160];
@@ -60,21 +75,24 @@ export function teamAccents(team: string | null | undefined): TeamAccents {
   const [r, g, b] = hexToRgb(primary);
   const luminance = relativeLuminance(primary);
   const rowAlpha = luminance >= 0.1 ? 0.1 : 0.25;
-  // Display-safe accent: a team primary too dark to read on the dark canvas
-  // (NYY/TOR/CHC navy, COL purple, SEA teal, KC blue) falls back to white so
-  // the logo wordmark + accents stay legible instead of rendering dark or wrong.
-  const accent = luminance >= 0.12 ? primary : "#ffffff";
+  // Wordmark/accent: native team color for everyone except the force-white set
+  // (Yankees navy), which renders white so it stays legible on the dark canvas.
+  const accent = isForceWhiteTeam(team) ? "#ffffff" : primary;
+  // Team-score color keeps the original legibility fallback (white only when the
+  // primary itself is genuinely too dark), independent of the accent.
+  const label = luminance >= 0.12 ? primary : "#ffffff";
   return {
     primary,
     accent,
-    label: accent,
-    dot: accent,
+    label,
+    dot: primary,
     rowBg: `rgba(${r}, ${g}, ${b}, ${rowAlpha.toFixed(2)})`,
   };
 }
 
-// True when the team's primary is too dark to read on the dark canvas — used
-// to render the (dark) MLB logo image as a legible white silhouette.
+// True only for teams in the force-white set — used to render their (dark) MLB
+// logo image as a legible white silhouette. Other dark teams keep their
+// full-color logo.
 export function teamLogoIsDark(team: string | null | undefined): boolean {
-  return teamAccents(team).accent === "#ffffff";
+  return isForceWhiteTeam(team);
 }

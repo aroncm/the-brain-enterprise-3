@@ -127,7 +127,7 @@ const MLB_TEAMS: Team[] = [
   { abbr: "MIN", name: "Minnesota Twins", club: "Twins", division: "AL Central" },
   { abbr: "NYM", name: "New York Mets", club: "Mets", division: "NL East" },
   { abbr: "NYY", name: "New York Yankees", club: "Yankees", division: "AL East" },
-  { abbr: "OAK", name: "Athletics", club: "Athletics", division: "AL West" },
+  { abbr: "OAK", name: "Oakland Athletics", club: "Oakland Athletics", division: "AL West" },
   { abbr: "PHI", name: "Philadelphia Phillies", club: "Phillies", division: "NL East" },
   { abbr: "PIT", name: "Pittsburgh Pirates", club: "Pirates", division: "NL Central" },
   { abbr: "SD", name: "San Diego Padres", club: "Padres", division: "NL West" },
