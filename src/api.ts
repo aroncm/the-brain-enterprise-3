@@ -30,14 +30,71 @@ export class ApiConfigurationError extends Error {
 }
 
 const TRANSIENT_STATUS_CODES = new Set([408, 425, 429, 500, 502, 503, 504]);
-// Escalating backoff (~30s of delays) so a cold or saturated Modal container —
-// which can take 30-90s to warm up — is ridden out instead of surfacing as a
-// hard "API unavailable" error on the first blip.
-const RETRY_DELAYS_MS = [800, 1500, 3000, 5000, 8000, 12000];
+// Bounded, jittered retry. A brief slow spell — a cold or saturated Modal
+// container warming up — is still ridden out, but capped at 3 attempts with
+// randomized delays. The old config (6 retries, ~30s of fixed delays) meant a
+// single slow spell let every open tab retry in lockstep up to 6×, piling load
+// onto an already-struggling backend and turning a blip into an outage.
+const RETRY_BASE_DELAYS_MS = [1000, 3000, 6000];
+// Cap on honoring a server-sent Retry-After so a bad header can't stall the UI.
+const MAX_RETRY_AFTER_MS = 15000;
 // Abort a single stalled GET attempt (a connection held open by a cold start)
 // so we retry instead of hanging. Not applied to writes (a recap-email send can
 // legitimately run longer).
 const ATTEMPT_TIMEOUT_MS = 20000;
+
+// Shared circuit breaker: if GETs keep failing transiently with no success in
+// between, stop *retrying* for a short cooldown so a slow spell can't snowball
+// into a retry storm that keeps the backend saturated. Requests still go through
+// (a single attempt) — only the amplifying retries are suppressed, and a single
+// success immediately re-arms normal retrying.
+const CIRCUIT_FAILURE_THRESHOLD = 8;
+const CIRCUIT_COOLDOWN_MS = 5000;
+let circuitFailureCount = 0;
+let circuitOpenUntil = 0;
+
+function circuitIsOpen(): boolean {
+  return Date.now() < circuitOpenUntil;
+}
+
+function noteTransientFailure(): void {
+  circuitFailureCount += 1;
+  if (circuitFailureCount >= CIRCUIT_FAILURE_THRESHOLD) {
+    circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+    circuitFailureCount = 0;
+  }
+}
+
+function noteSuccess(): void {
+  circuitFailureCount = 0;
+  circuitOpenUntil = 0;
+}
+
+// Randomized backoff at 50–100% of the base delay — spreading concurrent clients
+// out of lockstep is the key anti-amplification lever (no thundering herd all
+// re-hitting the backend on the same tick).
+function backoffWithJitter(attempt: number): number {
+  const base =
+    RETRY_BASE_DELAYS_MS[attempt] ?? RETRY_BASE_DELAYS_MS[RETRY_BASE_DELAYS_MS.length - 1];
+  return Math.round(base * (0.5 + Math.random() * 0.5));
+}
+
+// Honor a server's Retry-After (delta-seconds or HTTP-date) so the backend can
+// control its own backpressure; otherwise fall back to jittered backoff.
+function retryDelayMs(response: Response, attempt: number): number {
+  const header = response.headers.get("Retry-After");
+  if (header) {
+    const seconds = Number(header);
+    if (Number.isFinite(seconds)) {
+      return Math.min(Math.max(seconds, 0) * 1000, MAX_RETRY_AFTER_MS);
+    }
+    const dateMs = Date.parse(header);
+    if (Number.isFinite(dateMs)) {
+      return Math.min(Math.max(dateMs - Date.now(), 0), MAX_RETRY_AFTER_MS);
+    }
+  }
+  return backoffWithJitter(attempt);
+}
 
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_BASE) {
@@ -66,20 +123,26 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch (caught) {
       if (timeoutId) clearTimeout(timeoutId);
       lastError = caught instanceof Error ? caught : new Error(String(caught));
-      if (isIdempotent && attempt < RETRY_DELAYS_MS.length) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
-        attempt += 1;
-        continue;
+      if (isIdempotent) {
+        noteTransientFailure();
+        if (!circuitIsOpen() && attempt < RETRY_BASE_DELAYS_MS.length) {
+          await new Promise((resolve) => setTimeout(resolve, backoffWithJitter(attempt)));
+          attempt += 1;
+          continue;
+        }
       }
       throw lastError;
     }
     if (timeoutId) clearTimeout(timeoutId);
 
     if (!response.ok) {
-      if (isIdempotent && TRANSIENT_STATUS_CODES.has(response.status) && attempt < RETRY_DELAYS_MS.length) {
-        await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
-        attempt += 1;
-        continue;
+      if (isIdempotent && TRANSIENT_STATUS_CODES.has(response.status)) {
+        noteTransientFailure();
+        if (!circuitIsOpen() && attempt < RETRY_BASE_DELAYS_MS.length) {
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs(response, attempt)));
+          attempt += 1;
+          continue;
+        }
       }
       let detail = `${response.status} ${response.statusText}`;
       try {
@@ -93,6 +156,7 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
       throw new Error(detail);
     }
 
+    if (isIdempotent) noteSuccess();
     return response.json() as Promise<T>;
   }
 }
