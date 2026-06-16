@@ -507,6 +507,17 @@ export type PitchingReplayResponse = {
   entries: PitchingReplayEntry[];
   reliever_entries?: PitchingReplayEntry[];
   reliever_summary?: Array<Record<string, unknown>>;
+  // A team's starter pulled before the decision-snapshot threshold (e.g. yanked
+  // in the 1st). He has no entries, so the UI renders a display-only placeholder
+  // card in the appearance switcher.
+  early_pull_starters?: EarlyPullStarter[];
+};
+
+export type EarlyPullStarter = {
+  pitcher_id: string;
+  pitcher_name: string;
+  fielding_team: string;
+  pitch_count: number;
 };
 
 export type PitchingAuditWindow = Record<string, unknown> & {

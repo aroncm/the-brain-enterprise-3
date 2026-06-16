@@ -4168,7 +4168,7 @@ function GameAudit({
     [replay, team.abbr],
   );
   const appearances = useMemo(() => {
-    const grouped = new Map<string, { key: string; label: string; role: string; count: number; firstPitch: number; pitcherId: string }>();
+    const grouped = new Map<string, { key: string; label: string; role: string; count: number; firstPitch: number; pitcherId: string; name: string; earlyPull?: boolean }>();
     for (const entry of teamReplayEntries) {
       const key = appearanceKey(entry);
       const role = isRelieverReplayEntry(entry) ? "Reliever" : "Starter";
@@ -4188,12 +4188,33 @@ function GameAudit({
         pitcherId: String(entry.snapshot.pitcher_id ?? ""),
       });
     }
-    return Array.from(grouped.values()).sort((a, b) => {
+    const list = Array.from(grouped.values());
+    // Early-pull starters: pulled before the snapshot threshold, so they have no
+    // entries. Add a display-only placeholder (firstPitch -1 sorts it to the
+    // front, where the starter card belongs) so the starter isn't invisible.
+    for (const starter of replay?.early_pull_starters ?? []) {
+      if (starter.fielding_team !== team.abbr) continue;
+      list.push({
+        key: `earlypull:${starter.fielding_team}:${starter.pitcher_id}`,
+        role: "Starter",
+        name: starter.pitcher_name,
+        label: `${starter.pitcher_name} · Starter (Early Pull)`,
+        count: starter.pitch_count,
+        firstPitch: -1,
+        pitcherId: String(starter.pitcher_id ?? ""),
+        earlyPull: true,
+      });
+    }
+    return list.sort((a, b) => {
       const roleOrder = a.role === b.role ? 0 : a.role === "Starter" ? -1 : 1;
       return roleOrder || a.firstPitch - b.firstPitch;
     });
-  }, [teamReplayEntries]);
-  const selectedAppearanceKey = appearances.some((item) => item.key === appearance) ? appearance : appearances[0]?.key ?? null;
+  }, [teamReplayEntries, replay, team.abbr]);
+  // Never default-select an early-pull placeholder (it has no data) — fall back
+  // to the first real appearance (the bulk reliever), keeping its active highlight.
+  const selectedAppearanceKey = appearances.some((item) => item.key === appearance)
+    ? appearance
+    : appearances.find((item) => !item.earlyPull)?.key ?? appearances[0]?.key ?? null;
   const entries = useMemo(
     () =>
       teamReplayEntries
@@ -5103,27 +5124,46 @@ function GameAudit({
             <div className="workflow-sticky-bottom">
               {appearances.length > 1 ? (
                 <div className="appearance-switcher">
-                  {appearances.map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      className={item.key === selectedAppearanceKey ? "active" : ""}
-                      onClick={() => setAppearance(item.key)}
-                      title={item.label}
-                    >
-                      {/* Phase DD.2 — two-line card: name on top, role · count
-                        * below. Each line ellipsizes so long reliever names no
-                        * longer overflow the card. The Phase W.10 Finished Game
-                        * pill becomes a compact green marker in the meta line. */}
-                      <span className="appearance-card__name">{displayPersonName(item.name)}</span>
-                      <span className="appearance-card__meta">
-                        {item.role} · {item.count} pitches
-                        {closerPitcherId && item.pitcherId === closerPitcherId ? (
-                          <span className="appearance-card__finished">✓ Finished</span>
-                        ) : null}
-                      </span>
-                    </button>
-                  ))}
+                  {appearances.map((item) =>
+                    item.earlyPull ? (
+                      // Display-only placeholder for a starter pulled before the
+                      // snapshot threshold — not a selectable filter (no data
+                      // behind it), so it's a disabled card with an Early Pull tag.
+                      <button
+                        key={item.key}
+                        type="button"
+                        className="appearance-card--early-pull"
+                        disabled
+                        title={`${displayPersonName(item.name)} started and was pulled after ${item.count} pitches — below the decision-window threshold`}
+                      >
+                        <span className="appearance-card__name">{displayPersonName(item.name)}</span>
+                        <span className="appearance-card__meta">
+                          {item.role} · {item.count} pitches
+                          <span className="appearance-card__early-pull">Early Pull</span>
+                        </span>
+                      </button>
+                    ) : (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={item.key === selectedAppearanceKey ? "active" : ""}
+                        onClick={() => setAppearance(item.key)}
+                        title={item.label}
+                      >
+                        {/* Phase DD.2 — two-line card: name on top, role · count
+                          * below. Each line ellipsizes so long reliever names no
+                          * longer overflow the card. The Phase W.10 Finished Game
+                          * pill becomes a compact green marker in the meta line. */}
+                        <span className="appearance-card__name">{displayPersonName(item.name)}</span>
+                        <span className="appearance-card__meta">
+                          {item.role} · {item.count} pitches
+                          {closerPitcherId && item.pitcherId === closerPitcherId ? (
+                            <span className="appearance-card__finished">✓ Finished</span>
+                          ) : null}
+                        </span>
+                      </button>
+                    ),
+                  )}
                   {/* Phase Z.4 — CTA card to the right of the last
                     * reliever; smooth-scrolls the Actual Outcome
                     * Summary panel into view. DD.2 restyles it as a
