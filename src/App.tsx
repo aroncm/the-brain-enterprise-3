@@ -4576,7 +4576,7 @@ function GameAudit({
                 {/* Phase PP — Starting Pitcher label + name as the first row
                   * of the left column, directly under the team-accent border. */}
                 <section className="pws-section pws-pitcher-head">
-                  <span className="pws-pitcher-head__eyebrow">Starting Pitcher</span>
+                  <span className="pws-pitcher-head__eyebrow">{selectedIsReliever ? "Reliever" : "Starting Pitcher"}</span>
                   <strong className="pws-pitcher-head__name">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
                 </section>
                 <section className="pws-section pws-pitcher-section">
