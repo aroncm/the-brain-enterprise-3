@@ -4513,6 +4513,16 @@ function GameAudit({
                       </div>
                     </>
                   )}
+                  {replay?.game?.incomplete ? (
+                    <div className="signal-banner__field signal-banner__field--incomplete">
+                      <span
+                        className="replay-incomplete-badge"
+                        title={`Game reached only inning ${replay.game.last_inning} — suspended or shortened, so pitch data is limited.`}
+                      >
+                        Incomplete · {replay.game.last_inning} inn
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
                 {/* Phase Z.5 — center zone removed; pill moved into
                   * the right zone alongside the count badge so they

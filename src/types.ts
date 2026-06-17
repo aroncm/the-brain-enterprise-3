@@ -495,6 +495,10 @@ export type PitchingReplayResponse = {
     date: string;
     home_team: string;
     away_team: string;
+    // Highest inning reached in the raw pitch data; incomplete = ended before
+    // the 9th (suspended/rain-shortened), so the UI can flag the thin data.
+    last_inning?: number;
+    incomplete?: boolean;
   };
   summary: {
     snapshots: number;
