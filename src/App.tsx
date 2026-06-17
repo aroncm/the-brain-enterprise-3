@@ -4321,6 +4321,10 @@ function GameAudit({
   // Headline peak (cumulative max of decision_pressure_score with fallback)
   // — replaces the previous cumulativeSignalAlignedDegradation arithmetic.
   const headlineDegradationPeak = headlinePeak(entries, selectedIndex);
+  // Hook Score is a relative-to-bullpen pull-pressure metric. When a game has no
+  // bullpen roster (zero reliever candidates across the appearance), it can't be
+  // computed — surface it as Unavailable rather than a misleading floored-0%.
+  const hasBullpenData = entries.some((e) => (e.snapshot.reliever_candidates ?? []).length > 0);
   // Kept for SignalTimeline backward compat; the value is now driven by
   // backend pressure scores directly so the math reflects the same peak.
   const cumulativeDegradation = headlineDegradationPeak ?? null;
@@ -4896,7 +4900,7 @@ function GameAudit({
                       <>
                         <div className="signal-summary-rings">
                           {(() => {
-                            const peak = headlineDegradationPeak;
+                            const peak = hasBullpenData ? headlineDegradationPeak : null;
                             const pct = peak == null ? null : Math.round(clamp(peak) * 100);
                             const degColor = signalColor(displayStatus);
                             const degTier = statusRank(displayStatus) >= statusRank("PULL NOW")
@@ -4913,7 +4917,11 @@ function GameAudit({
                                   <strong>{pct == null ? UNAVAILABLE : `${pct}%`}</strong>
                                 </div>
                                 <div className="ring-tip-bubble" role="tooltip">
-                                  <strong>Hook Score.</strong> {decisionPressurePhrase(peak)} Composite: pitcher decay × game leverage × relief edge × opponent context.
+                                  {hasBullpenData ? (
+                                    <><strong>Hook Score.</strong> {decisionPressurePhrase(peak)} Composite: pitcher decay × game leverage × relief edge × opponent context.</>
+                                  ) : (
+                                    <><strong>Hook Score.</strong> Unavailable — no bullpen roster is loaded for this game, so the relief-edge comparison that drives pull pressure can't be computed.</>
+                                  )}
                                 </div>
                               </div>
                             );
