@@ -1503,6 +1503,15 @@ function preventableRunsForPitch(entry: PitchingReplayEntry | null, opportunity:
       "projected_runs_saved",
       "estimatedRunsSaved",
       "estimated_runs_saved",
+    ]) ??
+    // The live replay carries the per-pitch projected preventable runs on the snapshot
+    // (compute_live_replay injects snapshot.projected_preventable_runs), not on the
+    // recommendation — read it here so the live ring isn't perpetually "Unavailable".
+    looseNumber(entry.snapshot, [
+      "projectedPreventableRuns",
+      "projected_preventable_runs",
+      "preventableRuns",
+      "preventable_runs",
     ])
   );
 }
@@ -4127,6 +4136,7 @@ function GameAudit({
   replay,
   recap,
   preventableRows,
+  live = false,
 }: {
   team: Team;
   games: EnterpriseGameSummary[];
@@ -4138,6 +4148,9 @@ function GameAudit({
   replay: PitchingReplayResponse | null;
   recap: PitchingGameRecap | null;
   preventableRows: PreventableRunsOpportunityRow[];
+  // Live Dugout mode: follow the latest pitch on each 30s refresh and hide the
+  // postgame-only Actual Outcome Summary (its data is absent until the game ends).
+  live?: boolean;
 }) {
   const [pitchIndex, setPitchIndex] = useState(0);
   const [appearance, setAppearance] = useState<string | null>(null);
@@ -4429,6 +4442,14 @@ function GameAudit({
     setPitchIndex(0);
     setAutoplay(false);
   }, [selectedAppearanceKey]);
+
+  // Live Dugout: follow the most recent pitch. Each 30s refresh appends new entries;
+  // snap to the latest so the view always reflects the current game state. Defined
+  // after the reset effects so it wins on the initial live mount as well.
+  useEffect(() => {
+    if (!live) return;
+    setPitchIndex(Math.max(0, entries.length - 1));
+  }, [live, entries.length]);
 
   useEffect(() => {
     if (!autoplay || entries.length <= 1) return;
@@ -5232,6 +5253,7 @@ function GameAudit({
             * Summary tab (RSS Score + components + handoff/usage) and
             * Outcome tab (postgame IP / pitches / runs / exit inning). */}
 
+          {!live && (
           <article ref={aosRef} className={`panel counterfactual-panel${outcomeOpen ? "" : " panel--collapsed"}`}>
             <div className="panel__header">
               <p className="eyebrow model-signal-eyebrow">
@@ -5397,6 +5419,7 @@ function GameAudit({
             ) : null}
             </div>
           </article>
+          )}
 
         </>
       )}
@@ -6197,6 +6220,7 @@ export default function App() {
               replay={live.replay}
               recap={null}
               preventableRows={[]}
+              live
             />
           </>
         )}
