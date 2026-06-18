@@ -1,5 +1,6 @@
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Activity as Broadcast,
   ArrowDown,
   ArrowRight,
   ArrowUp,
@@ -35,6 +36,7 @@ import {
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
 } from "./api";
+import LiveDugout from "./LiveDugout";
 import type {
   BullpenOption,
   EnterpriseGameSummary,
@@ -66,7 +68,7 @@ import {
 } from "./cache";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
-type Workflow = "audit" | "briefings" | "admin";
+type Workflow = "audit" | "live" | "briefings" | "admin";
 type Team = { abbr: string; name: string; club: string; division: string };
 type MatrixCell = "standard" | "tandem" | "push" | "workload";
 
@@ -142,11 +144,13 @@ const MLB_TEAMS: Team[] = [
 
 const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
   { id: "audit", label: "Game Replays" },
+  { id: "live", label: "Live Dugout" },
   { id: "briefings", label: "Game Briefings" },
 ];
 
 const WORKFLOW_ICONS: Record<Workflow, Icon> = {
   audit: MagnifyingGlass,
+  live: Broadcast,
   briefings: PresentationChart,
   // Admin is reached via the profile-menu, not the nav tab row — but the
   // Record type requires every Workflow value, so use the Users icon as
@@ -6139,9 +6143,9 @@ export default function App() {
             }
           />
         )}
-        {workflow !== "audit" && loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence — the first load after an idle stretch can take a moment while the service warms up.`} />}
-        {loadState === "missing-config" && <EmptyState title="API source not configured" detail="Contact your Baseball brAIn admin to enable this workspace." />}
-        {loadState === "error" && workflow !== "audit" && (
+        {workflow !== "audit" && workflow !== "live" && loadState === "loading" && <EmptyState title="Loading club intelligence" detail={`Retrieving ${selectedTeam.club} pitching evidence — the first load after an idle stretch can take a moment while the service warms up.`} />}
+        {workflow !== "live" && loadState === "missing-config" && <EmptyState title="API source not configured" detail="Contact your Baseball brAIn admin to enable this workspace." />}
+        {loadState === "error" && workflow !== "audit" && workflow !== "live" && (
           <EmptyState
             title="Baseball brAIn API is warming up"
             detail="The service didn't respond in time — it may be spinning up after an idle period. This usually clears in a few seconds."
@@ -6166,6 +6170,24 @@ export default function App() {
             recap={recap}
             preventableRows={auditPreventableRuns?.rows ?? []}
           />
+        )}
+
+        {workflow === "live" && (
+          <LiveDugout team={selectedTeam}>
+            {({ replay: liveReplay, games: liveGames, selectedGameId: livePk, onGameChange: onLiveGameChange }) => (
+              <GameAudit
+                team={selectedTeam}
+                games={liveGames}
+                selectedGameId={livePk}
+                season={season}
+                onSeasonChange={setSeason}
+                onGameChange={onLiveGameChange}
+                replay={liveReplay}
+                recap={null}
+                preventableRows={[]}
+              />
+            )}
+          </LiveDugout>
         )}
 
         {loadState === "ready" && workflow === "briefings" && (
