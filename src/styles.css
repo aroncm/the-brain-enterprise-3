@@ -22296,3 +22296,4 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
 @media (max-width: 1024px) {
   .live-statusbar { font-size: 0.72rem; }
 }
+.live-dot--final { background: #98a2b3; box-shadow: none; }

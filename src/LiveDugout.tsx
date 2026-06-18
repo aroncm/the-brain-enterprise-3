@@ -8,8 +8,18 @@ const viteEnv = (import.meta as unknown as { env?: Record<string, string | undef
 const LIVE_API_BASE = (
   viteEnv.VITE_LIVE_SIGNAL_API_BASE ?? "https://aroncm--abs-live-signal-fastapi-live-app.modal.run"
 ).replace(/\/+$/, "");
-const SCHEDULE_URL = "https://statsapi.mlb.com/api/v1/schedule?sportId=1";
 const REFRESH_MS = 30_000;
+
+function ymd(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+// Yesterday..today so the picker has games to render even before first pitch
+// (recently-finished games replay fine; in-progress games are prioritized).
+function scheduleUrl(): string {
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  return `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${ymd(yesterday)}&endDate=${ymd(today)}`;
+}
 
 type LiveRender = (args: {
   replay: PitchingReplayResponse | null;
@@ -20,6 +30,7 @@ type LiveRender = (args: {
 
 export default function LiveDugout({ team, children }: { team: { abbr: string }; children: LiveRender }) {
   const [games, setGames] = useState<EnterpriseGameSummary[]>([]);
+  const [liveIds, setLiveIds] = useState<Set<string>>(new Set());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [replay, setReplay] = useState<PitchingReplayResponse | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -28,25 +39,36 @@ export default function LiveDugout({ team, children }: { team: { abbr: string };
   const [refreshing, setRefreshing] = useState(false);
   const pollRef = useRef<number | null>(null);
 
-  // Discover today's in-progress games; default to the one involving the club in focus.
+  // Discover in-progress + recently-finished games; default to a live game
+  // involving the club in focus (else any live game, else the most recent final).
   const loadGames = useCallback(async () => {
     try {
-      const res = await fetch(SCHEDULE_URL, { headers: { Accept: "application/json" } });
+      const res = await fetch(scheduleUrl(), { headers: { Accept: "application/json" } });
       const data = (await res.json()) as { dates?: Array<{ games?: any[] }> };
       const all = (data.dates ?? []).flatMap((d) => d.games ?? []);
-      const live: EnterpriseGameSummary[] = all
-        .filter((g) => String(g.status?.detailedState ?? "").includes("In Progress"))
-        .map((g) => ({
-          game_id: String(g.gamePk),
-          date: String(g.gameDate ?? "").slice(0, 10),
-          home_team: g.teams?.home?.team?.abbreviation ?? "HOME",
-          away_team: g.teams?.away?.team?.abbreviation ?? "AWAY",
-        }));
-      setGames(live);
+      const isLive = (g: any) => String(g.status?.detailedState ?? "").includes("In Progress");
+      const isFinal = (g: any) => ["Final", "Game Over"].includes(String(g.status?.detailedState ?? ""));
+      const usable = all.filter((g) => isLive(g) || isFinal(g));
+      const summaries: EnterpriseGameSummary[] = usable.map((g) => ({
+        game_id: String(g.gamePk),
+        date: String(g.gameDate ?? "").slice(0, 10),
+        home_team: g.teams?.home?.team?.abbreviation ?? "HOME",
+        away_team: g.teams?.away?.team?.abbreviation ?? "AWAY",
+      }));
+      // Live games first, then most-recent finals.
+      summaries.sort((a, b) => {
+        const al = usable.find((g) => String(g.gamePk) === a.game_id && isLive(g)) ? 0 : 1;
+        const bl = usable.find((g) => String(g.gamePk) === b.game_id && isLive(g)) ? 0 : 1;
+        return al - bl || b.date.localeCompare(a.date);
+      });
+      setLiveIds(new Set(usable.filter(isLive).map((g) => String(g.gamePk))));
+      setGames(summaries);
       setSelectedGameId((cur) => {
-        if (cur && live.some((g) => g.game_id === cur)) return cur;
-        const mine = live.find((g) => g.home_team === team.abbr || g.away_team === team.abbr);
-        return (mine ?? live[0])?.game_id ?? cur ?? null;
+        if (cur && summaries.some((g) => g.game_id === cur)) return cur;
+        const liveSet = new Set(usable.filter(isLive).map((g) => String(g.gamePk)));
+        const mineLive = summaries.find((g) => liveSet.has(g.game_id) && (g.home_team === team.abbr || g.away_team === team.abbr));
+        const anyLive = summaries.find((g) => liveSet.has(g.game_id));
+        return (mineLive ?? anyLive ?? summaries[0])?.game_id ?? cur ?? null;
       });
     } catch {
       /* schedule is best-effort */
@@ -100,16 +122,23 @@ export default function LiveDugout({ team, children }: { team: { abbr: string };
   return (
     <div className="live-dugout">
       <div className="live-statusbar">
-        <span className={`live-dot${refreshing ? " live-dot--pulse" : ""}`} aria-hidden />
-        <span>
-          {!selectedGameId
-            ? games.length
-              ? "Select a live game"
-              : "No games in progress"
-            : lastUpdated
-              ? `LIVE · updated ${lastUpdated.toLocaleTimeString()} · auto-refresh 30s`
-              : "Loading live game…"}
-        </span>
+        {(() => {
+          const isLive = selectedGameId != null && liveIds.has(selectedGameId);
+          return (
+            <>
+              <span className={`live-dot${isLive ? "" : " live-dot--final"}${refreshing ? " live-dot--pulse" : ""}`} aria-hidden />
+              <span>
+                {!selectedGameId
+                  ? games.length
+                    ? "Select a game"
+                    : "No recent games"
+                  : lastUpdated
+                    ? `${isLive ? "LIVE" : "FINAL · review"} · updated ${lastUpdated.toLocaleTimeString()}${isLive ? " · auto-refresh 30s" : ""}`
+                    : "Loading game…"}
+              </span>
+            </>
+          );
+        })()}
       </div>
       {status === "error" ? <p className="live-message live-message--error">Live signal unavailable: {reason}</p> : null}
       {status === "ready" && !replay && reason ? <p className="live-message">{reason}</p> : null}
