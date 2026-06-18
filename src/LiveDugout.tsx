@@ -18,7 +18,9 @@ function ymd(d: Date): string {
 function scheduleUrl(): string {
   const today = new Date();
   const yesterday = new Date(today.getTime() - 86_400_000);
-  return `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${ymd(yesterday)}&endDate=${ymd(today)}`;
+  // hydrate=team so each game carries team.abbreviation (the bare schedule embeds
+  // only {id, name, link}); we filter the picker to the selected club by abbr.
+  return `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${ymd(yesterday)}&endDate=${ymd(today)}&hydrate=team`;
 }
 
 type LiveRender = (args: {
