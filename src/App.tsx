@@ -36,7 +36,7 @@ import {
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
 } from "./api";
-import { LiveBadge, LiveOutcomeSummary, useLiveDugout } from "./LiveDugout";
+import { LiveBadge, summarizeLiveOutcome, useLiveDugout } from "./LiveDugout";
 import type {
   BullpenOption,
   EnterpriseGameSummary,
@@ -5986,8 +5986,11 @@ export default function App() {
   // GameAudit has rendered with loadState === "ready").
   // Phase MM.2 — also applied to the Game Briefings workflow so it uses
   // the same compact nav as Game Replays (not the taller default nav).
+  // Live Dugout shares the same immersive dark chrome (it reuses GameAudit
+  // for live games and the Mobian panel/outcome-card styling for completed
+  // ones), so the background + nav must match Game Replays here too.
   useEffect(() => {
-    if (workflow !== "audit" && workflow !== "briefings") return;
+    if (workflow !== "audit" && workflow !== "briefings" && workflow !== "live") return;
     document.body.classList.add("audit-immersive");
     return () => {
       document.body.classList.remove("audit-immersive");
@@ -6174,12 +6177,6 @@ export default function App() {
           />
         )}
 
-        {workflow === "live" && live.selectedGameId == null && (
-          <EmptyState
-            title={live.games.length ? "Select a game" : "No live or recent games"}
-            detail={`The Live Dugout shows ${selectedTeam.club} games that are in progress (or recently final).`}
-          />
-        )}
         {workflow === "live" && live.selectedGameId != null && live.isLive && (
           // Live in-progress game → the full Game Replays screen, rendered as a direct
           // child of .app-main (same as the audit tab) so the sticky banner/grid lay
@@ -6199,21 +6196,112 @@ export default function App() {
             />
           </>
         )}
-        {workflow === "live" && live.selectedGameId != null && !live.isLive && (
-          // Completed game → don't duplicate the replay; show an outcome summary and
-          // send the user to the full Game Replays for the pitch-by-pitch breakdown.
-          <LiveOutcomeSummary
-            replay={live.replay}
-            teamAbbr={selectedTeam.abbr}
-            games={live.games}
-            selectedGameId={live.selectedGameId}
-            onGameChange={live.setSelectedGameId}
-            onViewReplay={() => {
-              setSelectedGameId(live.selectedGameId);
-              setWorkflow("audit");
-            }}
-          />
-        )}
+        {workflow === "live" && !live.isLive && (() => {
+          // No game selected OR a completed game → the Mobian "Live Dugout" panel:
+          // the same dark immersive chrome + game picker (CustomSelect) used by Game
+          // Briefings, and a 3-card outcome grid that reuses the Actual Outcome
+          // Summary styling. We do NOT duplicate the full replay for completed games;
+          // the "View full replay" CTA jumps to Game Replays for the pitch-by-pitch
+          // breakdown.
+          const hasGames = live.games.length > 0;
+          const summary = summarizeLiveOutcome(live.replay, selectedTeam.abbr);
+          return (
+            <section className="workflow theme-mobian briefing-workflow live-workflow">
+              <article className="panel briefing-panel">
+                <div className="briefing-heading-row">
+                  <div className="briefing-heading">
+                    <h2 className="briefing-heading__title">Live Dugout</h2>
+                    <p className="briefing-heading__sub">
+                      In-progress {selectedTeam.club} games stream the live signal here. Recently completed games show
+                      their outcome below.
+                    </p>
+                  </div>
+                  {hasGames && (
+                    <div className="briefing-game-select">
+                      <span className="briefing-game-select__label">Game</span>
+                      <CustomSelect
+                        ariaLabel="Select game"
+                        minWidth={260}
+                        value={live.selectedGameId ?? ""}
+                        options={live.games.map((g) => ({ value: g.game_id, label: gameLabel(g) }))}
+                        onChange={live.setSelectedGameId}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {!hasGames ? (
+                  <div className="live-empty">
+                    <p className="live-empty__title">No live or recent games</p>
+                    <p className="live-empty__detail">
+                      The Live Dugout follows {selectedTeam.club} games that are in progress or recently final. Check
+                      back at game time and the live signal will appear here automatically.
+                    </p>
+                  </div>
+                ) : live.status === "loading" || !summary ? (
+                  <div className="live-empty">
+                    <p className="live-empty__detail">Loading game outcome…</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="live-outcome-head">
+                      <p className="eyebrow model-signal-eyebrow">
+                        <span className="model-signal-dot model-signal-dot--outcome" aria-hidden="true" />
+                        Game Outcome
+                        <span className="appearance-pill appearance-pill--finished">Final</span>
+                      </p>
+                      {summary.awayScore != null && summary.homeScore != null ? (
+                        <h3 className="live-outcome-score">
+                          {summary.awayTeam} {summary.awayScore}
+                          <span className="live-outcome-score__dash">—</span>
+                          {summary.homeScore} {summary.homeTeam}
+                        </h3>
+                      ) : (
+                        <h3 className="live-outcome-score">
+                          {summary.awayTeam} <span className="live-outcome-score__dash">@</span> {summary.homeTeam}
+                        </h3>
+                      )}
+                    </div>
+                    <div className="counterfactual-grid">
+                      <div className="outcome-card">
+                        <strong className="outcome-card__title">Starter</strong>
+                        <p>{summary.starterName || "—"}</p>
+                      </div>
+                      <div className="outcome-card">
+                        <strong className="outcome-card__title">Model Signal</strong>
+                        <p>
+                          {summary.peakStatus === "STAY" ? (
+                            "The model never signaled a pull."
+                          ) : (
+                            <>
+                              Peaked at <strong>{summary.peakStatus}</strong>
+                              {summary.peakInning ? ` in the ${ordinal(summary.peakInning)}` : ""}
+                              {summary.peakHook != null ? ` · Hook ${summary.peakHook}%` : ""}.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div className="outcome-card">
+                        <strong className="outcome-card__title">Full Breakdown</strong>
+                        <p>Open the full replay for the pitch-by-pitch signal and the outcome audit.</p>
+                        <button
+                          type="button"
+                          className="briefing-action briefing-action--primary live-outcome-cta"
+                          onClick={() => {
+                            if (live.selectedGameId) setSelectedGameId(live.selectedGameId);
+                            setWorkflow("audit");
+                          }}
+                        >
+                          View full replay →
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </article>
+            </section>
+          );
+        })()}
 
         {loadState === "ready" && workflow === "briefings" && (
           <BriefingSettings

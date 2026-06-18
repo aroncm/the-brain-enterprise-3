@@ -22310,67 +22310,52 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
   100% { box-shadow: 0 0 0 0 rgba(46, 196, 160, 0); }
 }
 
-/* Completed-game outcome card. */
-.live-outcome {
-  max-width: 760px;
-  margin: 48px auto;
-  padding: 28px 32px;
-  background: var(--surface-card, #14141a);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
+/* Live Dugout — completed-game / empty states. These render inside
+ * `.workflow.theme-mobian.briefing-workflow` (same shell + CustomSelect picker as
+ * Game Briefings) so the chrome, dropdown, and outcome cards match Game Replays.
+ * Only the score header + empty state need bespoke rules; the outcome cards reuse
+ * `.counterfactual-grid` / `.outcome-card` (colored left borders, dark legible cards). */
+.theme-mobian .live-outcome-head {
+  margin: 4px 0 18px;
 }
-.live-outcome--empty { color: var(--ink-muted, #98a2b3); }
-.live-outcome__picker {
-  display: inline-flex;
+.theme-mobian .live-outcome-head .model-signal-eyebrow {
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 18px;
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-muted, #98a2b3);
+  gap: 8px;
 }
-.live-outcome__picker select {
-  padding: 7px 10px;
-  font-size: 0.85rem;
-  text-transform: none;
-  letter-spacing: 0;
-  color: #f4f4f6;
-  background: #0c0c10;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+.theme-mobian .live-outcome-score {
+  margin: 12px 0 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #ffffff;
 }
-.live-outcome__eyebrow {
+.theme-mobian .live-outcome-score__dash {
+  margin: 0 10px;
+  color: #6a6a6a;
+}
+.theme-mobian .live-outcome-cta {
+  margin-top: 14px;
+}
+.theme-mobian .live-empty {
+  padding: 40px 4px 8px;
+}
+.theme-mobian .live-empty__title {
   margin: 0 0 6px;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-muted, #98a2b3);
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
 }
-.live-outcome__score {
-  margin: 0 0 14px;
-  font-size: 1.9rem;
-  font-weight: 700;
-  color: #f7f7f9;
+.theme-mobian .live-empty__detail {
+  margin: 0;
+  max-width: 560px;
+  color: #a0a0a0;
+  font-size: 13px;
+  line-height: 1.6;
 }
-.live-outcome__dash { color: var(--ink-muted, #98a2b3); }
-.live-outcome__detail { margin: 0 0 10px; font-size: 1rem; color: #e6e6ea; }
-.live-outcome__hint { margin: 0 0 22px; font-size: 0.9rem; color: var(--ink-muted, #98a2b3); }
-.live-outcome__cta {
-  display: inline-flex;
-  align-items: center;
-  padding: 11px 18px;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: #0a0a0a;
-  background: #2ec4a0;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-}
-.live-outcome__cta:hover { background: #3ad3ae; }
-@media (max-width: 1024px) {
+@media (max-width: 900px) {
   .live-badge { top: 56px; right: 12px; }
-  .live-outcome { margin: 28px 16px; padding: 22px; }
-  .live-outcome__score { font-size: 1.6rem; }
+  .theme-mobian .live-workflow .counterfactual-grid { grid-template-columns: 1fr; }
+  .theme-mobian .live-outcome-score { font-size: 24px; }
 }

@@ -170,24 +170,36 @@ function pct(v: unknown): number | null {
   return Number.isFinite(n) ? Math.round(Math.max(0, Math.min(1, n)) * 100) : null;
 }
 
-// Compact outcome card for a COMPLETED game (the Live Dugout does NOT duplicate the
-// full replay). Built from the live replay payload; links to the full Game Replays.
-export function LiveOutcomeSummary({
-  replay,
-  teamAbbr,
-  games,
-  selectedGameId,
-  onGameChange,
-  onViewReplay,
-}: {
-  replay: PitchingReplayResponse | null;
-  teamAbbr: string;
-  games: EnterpriseGameSummary[];
-  selectedGameId: string | null;
-  onGameChange: (id: string) => void;
-  onViewReplay: () => void;
-}) {
-  const game = replay?.game;
+export type LiveOutcomeSummaryData = {
+  awayTeam: string;
+  homeTeam: string;
+  awayScore: number | null;
+  homeScore: number | null;
+  starterName: string;
+  peakStatus: string;
+  peakInning: number | null;
+  peakHook: number | null;
+};
+
+function finalScore(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Derives the COMPLETED-game outcome (final score + the starter's peak model signal)
+// from the live replay payload. Pure data only — App renders it inline with the shared
+// Mobian panel/outcome-card styling (and CustomSelect picker), so the Live Dugout
+// matches Game Replays without a circular import. The live replay `game` block carries
+// final_{home,away}_score at runtime (the frontend type doesn't declare them, hence the
+// cast). Returns null until the payload (and its game block) is available.
+export function summarizeLiveOutcome(
+  replay: PitchingReplayResponse | null,
+  teamAbbr: string,
+): LiveOutcomeSummaryData | null {
+  const game = replay?.game as
+    | (PitchingReplayResponse["game"] & { final_home_score?: unknown; final_away_score?: unknown })
+    | undefined;
+  if (!game) return null;
   const entries = ((replay?.entries ?? []) as any[]).filter((e) => e?.snapshot?.fielding_team === teamAbbr);
   let starterName = "";
   let peakStatus = "STAY";
@@ -205,55 +217,14 @@ export function LiveOutcomeSummary({
     const h = pct(rec.decision_pressure_score);
     if (h != null && (peakHook == null || h > peakHook)) peakHook = h;
   }
-
-  if (!game) {
-    return (
-      <section className="workflow theme-mobian">
-        <article className="live-outcome live-outcome--empty">
-          <p>No game loaded. Pick a recent game above, or wait for a live one.</p>
-        </article>
-      </section>
-    );
-  }
-  return (
-    <section className="workflow theme-mobian">
-      <article className="live-outcome">
-        {games.length > 1 ? (
-          <label className="live-outcome__picker">
-            <span>Game</span>
-            <select value={selectedGameId ?? ""} onChange={(e) => onGameChange(e.target.value)}>
-              {games.map((g) => (
-                <option key={g.game_id} value={g.game_id}>
-                  {g.away_team} @ {g.home_team} · {g.date}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <p className="live-outcome__eyebrow">Game Outcome · Final</p>
-        <h2 className="live-outcome__score">
-          {game.away_team} {game.final_away_score ?? 0} <span className="live-outcome__dash">—</span> {game.final_home_score ?? 0} {game.home_team}
-        </h2>
-        <p className="live-outcome__detail">
-          {starterName ? <strong>{starterName}</strong> : "Starter"} ·{" "}
-          {peakStatus === "STAY" ? (
-            <>the model never signaled a pull.</>
-          ) : (
-            <>
-              model peaked at <strong>{peakStatus}</strong>
-              {peakInning ? ` in the ${peakInning}` : ""}
-              {peakHook != null ? ` · Hook ${peakHook}%` : ""}.
-            </>
-          )}
-        </p>
-        <p className="live-outcome__hint">
-          The Live Dugout tracks in‑progress games. This game is final — open the full replay for the pitch‑by‑pitch
-          breakdown and the outcome audit.
-        </p>
-        <button type="button" className="live-outcome__cta" onClick={onViewReplay}>
-          View full replay →
-        </button>
-      </article>
-    </section>
-  );
+  return {
+    awayTeam: game.away_team,
+    homeTeam: game.home_team,
+    awayScore: finalScore(game.final_away_score),
+    homeScore: finalScore(game.final_home_score),
+    starterName,
+    peakStatus,
+    peakInning,
+    peakHook,
+  };
 }
