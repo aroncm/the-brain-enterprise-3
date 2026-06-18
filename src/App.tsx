@@ -36,7 +36,7 @@ import {
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
 } from "./api";
-import LiveDugout from "./LiveDugout";
+import { LiveBadge, LiveOutcomeSummary, useLiveDugout } from "./LiveDugout";
 import type {
   BullpenOption,
   EnterpriseGameSummary,
@@ -5886,6 +5886,8 @@ export default function App() {
   const [clubReloadKey, setClubReloadKey] = useState(0);
 
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
+  // Live Dugout: discovery + 30s polling of /v1/live/replay, active only on the live tab.
+  const live = useLiveDugout(selectedTeam.abbr, workflow === "live");
   const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
   const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50 });
   const {
@@ -6172,22 +6174,45 @@ export default function App() {
           />
         )}
 
-        {workflow === "live" && (
-          <LiveDugout team={selectedTeam}>
-            {({ replay: liveReplay, games: liveGames, selectedGameId: livePk, onGameChange: onLiveGameChange }) => (
-              <GameAudit
-                team={selectedTeam}
-                games={liveGames}
-                selectedGameId={livePk}
-                season={season}
-                onSeasonChange={setSeason}
-                onGameChange={onLiveGameChange}
-                replay={liveReplay}
-                recap={null}
-                preventableRows={[]}
-              />
-            )}
-          </LiveDugout>
+        {workflow === "live" && live.selectedGameId == null && (
+          <EmptyState
+            title={live.games.length ? "Select a game" : "No live or recent games"}
+            detail={`The Live Dugout shows ${selectedTeam.club} games that are in progress (or recently final).`}
+          />
+        )}
+        {workflow === "live" && live.selectedGameId != null && live.isLive && (
+          // Live in-progress game → the full Game Replays screen, rendered as a direct
+          // child of .app-main (same as the audit tab) so the sticky banner/grid lay
+          // out correctly. The LIVE pill is fixed-position and does not affect layout.
+          <>
+            <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} />
+            <GameAudit
+              team={selectedTeam}
+              games={live.games}
+              selectedGameId={live.selectedGameId}
+              season={season}
+              onSeasonChange={setSeason}
+              onGameChange={live.setSelectedGameId}
+              replay={live.replay}
+              recap={null}
+              preventableRows={[]}
+            />
+          </>
+        )}
+        {workflow === "live" && live.selectedGameId != null && !live.isLive && (
+          // Completed game → don't duplicate the replay; show an outcome summary and
+          // send the user to the full Game Replays for the pitch-by-pitch breakdown.
+          <LiveOutcomeSummary
+            replay={live.replay}
+            teamAbbr={selectedTeam.abbr}
+            games={live.games}
+            selectedGameId={live.selectedGameId}
+            onGameChange={live.setSelectedGameId}
+            onViewReplay={() => {
+              setSelectedGameId(live.selectedGameId);
+              setWorkflow("audit");
+            }}
+          />
         )}
 
         {loadState === "ready" && workflow === "briefings" && (
@@ -6209,7 +6234,7 @@ export default function App() {
         )}
       </div>
 
-      {workflow !== "audit" ? (
+      {workflow !== "audit" && workflow !== "live" ? (
         <footer className="app-footer">
           <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
           <span>Confidential · Baseball brAIn, Inc.</span>
