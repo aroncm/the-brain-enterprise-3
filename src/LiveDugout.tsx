@@ -99,8 +99,15 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
   }, [enabled, loadGames]);
 
   const fetchReplay = useCallback(async (pk: string, initial: boolean) => {
-    if (initial) setStatus("loading");
-    else setRefreshing(true);
+    if (initial) {
+      // Switching games: drop the prior game's payload so its replay can't flash in
+      // the new game's view while the new fetch is in flight.
+      setReplay(null);
+      setReason(null);
+      setStatus("loading");
+    } else {
+      setRefreshing(true);
+    }
     try {
       const res = await fetch(`${LIVE_API_BASE}/v1/live/replay/${pk}`, { headers: { Accept: "application/json" } });
       if (!res.ok) throw new Error(`replay ${res.status}`);

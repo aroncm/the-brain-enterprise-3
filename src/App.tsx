@@ -6177,10 +6177,14 @@ export default function App() {
           />
         )}
 
-        {workflow === "live" && live.selectedGameId != null && live.isLive && (
-          // Live in-progress game → the full Game Replays screen, rendered as a direct
-          // child of .app-main (same as the audit tab) so the sticky banner/grid lay
-          // out correctly. The LIVE pill is fixed-position and does not affect layout.
+        {workflow === "live" && live.isLive && live.replay != null && (
+          // Live in-progress game WITH a scoreable signal → the full Game Replays
+          // screen, rendered as a direct child of .app-main (same as the audit tab) so
+          // the sticky banner/grid lay out correctly. The LIVE pill is fixed-position
+          // and does not affect layout. When the game is live but the model has no
+          // scoreable snapshot yet (replay null / available:false), we fall through to
+          // the "waiting for the first signal" panel below instead of letting GameAudit
+          // hang on its own "LOADING REPLAY…" state.
           <>
             <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} />
             <GameAudit
@@ -6196,17 +6200,20 @@ export default function App() {
             />
           </>
         )}
-        {workflow === "live" && !live.isLive && (() => {
-          // No game selected OR a completed game → the Mobian "Live Dugout" panel:
-          // the same dark immersive chrome + game picker (CustomSelect) used by Game
-          // Briefings, and a 3-card outcome grid that reuses the Actual Outcome
-          // Summary styling. We do NOT duplicate the full replay for completed games;
-          // the "View full replay" CTA jumps to Game Replays for the pitch-by-pitch
-          // breakdown.
+        {workflow === "live" && !(live.isLive && live.replay != null) && (() => {
+          // Everything that is NOT "live with a signal": a live game still warming up
+          // (no scoreable snapshot yet), a completed game (Outcome Summary), or no game
+          // at all. All share the Mobian "Live Dugout" panel — the same dark immersive
+          // chrome + game picker (CustomSelect) used by Game Briefings. Completed games
+          // get the 3-card outcome grid (reusing the Actual Outcome Summary styling); we
+          // do NOT duplicate the full replay — the CTA jumps to Game Replays for the
+          // pitch-by-pitch breakdown.
           const hasGames = live.games.length > 0;
           const summary = summarizeLiveOutcome(live.replay, selectedTeam.abbr);
+          const liveWaiting = live.isLive; // selected game is in progress but has no scoreable signal yet
           return (
             <section className="workflow theme-mobian briefing-workflow live-workflow">
+              {liveWaiting && <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} />}
               <article className="panel briefing-panel">
                 <div className="briefing-heading-row">
                   <div className="briefing-heading">
@@ -6230,7 +6237,23 @@ export default function App() {
                   )}
                 </div>
 
-                {!hasGames ? (
+                {liveWaiting ? (
+                  <div className="live-empty">
+                    <p className="live-empty__title">
+                      {live.status === "loading"
+                        ? "Loading the live signal…"
+                        : live.status === "error"
+                          ? "Couldn't reach the live signal"
+                          : "Waiting for the first signal"}
+                    </p>
+                    <p className="live-empty__detail">
+                      {live.status === "error"
+                        ? live.reason ||
+                          "The live signal service didn't respond. This view retries automatically every 30 seconds."
+                        : "The model starts scoring once the starter clears the minimum pitch count. This view auto-refreshes every 30 seconds — the live read appears here the moment it's available."}
+                    </p>
+                  </div>
+                ) : !hasGames ? (
                   <div className="live-empty">
                     <p className="live-empty__title">No live or recent games</p>
                     <p className="live-empty__detail">
