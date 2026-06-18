@@ -48,7 +48,11 @@ export default function LiveDugout({ team, children }: { team: { abbr: string };
       const all = (data.dates ?? []).flatMap((d) => d.games ?? []);
       const isLive = (g: any) => String(g.status?.detailedState ?? "").includes("In Progress");
       const isFinal = (g: any) => ["Final", "Game Over"].includes(String(g.status?.detailedState ?? ""));
-      const usable = all.filter((g) => isLive(g) || isFinal(g));
+      // Only THIS club's games — GameAudit filters entries to team.abbr, so a game
+      // that doesn't involve the selected team would render nothing.
+      const isOurs = (g: any) =>
+        g.teams?.home?.team?.abbreviation === team.abbr || g.teams?.away?.team?.abbreviation === team.abbr;
+      const usable = all.filter((g) => (isLive(g) || isFinal(g)) && isOurs(g));
       const summaries: EnterpriseGameSummary[] = usable.map((g) => ({
         game_id: String(g.gamePk),
         date: String(g.gameDate ?? "").slice(0, 10),
