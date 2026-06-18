@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { fetchPitchingReplay } from "./api";
 import type { EnterpriseGameSummary, PitchingReplayResponse } from "./types";
 
 // The live replay payload is served by the standalone abs-live-signal Modal app
@@ -98,36 +99,58 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
     return () => window.clearInterval(id);
   }, [enabled, loadGames]);
 
-  const fetchReplay = useCallback(async (pk: string, initial: boolean) => {
-    if (initial) {
-      // Switching games: drop the prior game's payload so its replay can't flash in
-      // the new game's view while the new fetch is in flight.
+  // Live in-progress game → the live signal endpoint (CORS-open, on-the-fly compute).
+  const fetchLiveEndpoint = useCallback(async (pk: string) => {
+    const res = await fetch(`${LIVE_API_BASE}/v1/live/replay/${pk}`, { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(`replay ${res.status}`);
+    const payload = (await res.json()) as PitchingReplayResponse & { available?: boolean; reason?: string };
+    if (payload && payload.available === false) {
       setReplay(null);
-      setReason(null);
-      setStatus("loading");
+      setReason(payload.reason ?? "No live signal yet for this game.");
     } else {
-      setRefreshing(true);
-    }
-    try {
-      const res = await fetch(`${LIVE_API_BASE}/v1/live/replay/${pk}`, { headers: { Accept: "application/json" } });
-      if (!res.ok) throw new Error(`replay ${res.status}`);
-      const payload = (await res.json()) as PitchingReplayResponse & { available?: boolean; reason?: string };
-      if (payload && payload.available === false) {
-        setReplay(null);
-        setReason(payload.reason ?? "No live signal yet for this game.");
-      } else {
-        setReplay(payload as PitchingReplayResponse);
-        setReason(null);
-      }
-      setStatus("ready");
-      setLastUpdated(new Date());
-    } catch (caught) {
-      setReason(caught instanceof Error ? caught.message : String(caught));
-      if (initial) setStatus("error");
-    } finally {
-      setRefreshing(false);
+      setReplay(payload as PitchingReplayResponse);
+      setReason(null);
     }
   }, []);
+
+  const fetchReplay = useCallback(
+    async (pk: string, initial: boolean, live: boolean) => {
+      if (initial) {
+        // Switching games: drop the prior game's payload so its replay can't flash in
+        // the new game's view while the new fetch is in flight.
+        setReplay(null);
+        setReason(null);
+        setStatus("loading");
+      } else {
+        setRefreshing(true);
+      }
+      try {
+        if (live) {
+          await fetchLiveEndpoint(pk);
+        } else {
+          // Completed game → read the POSTGAME replay (the exact source the Game Replays
+          // tab renders) so the Outcome Summary matches it. The live endpoint computes
+          // on-the-fly and can diverge by a pitch or two; the nightly postgame artifact
+          // is the accurate one. If it isn't built yet for a just-finished game, fall
+          // back to the live endpoint's final data.
+          try {
+            setReplay(await fetchPitchingReplay(pk));
+            setReason(null);
+          } catch {
+            await fetchLiveEndpoint(pk);
+          }
+        }
+        setStatus("ready");
+        setLastUpdated(new Date());
+      } catch (caught) {
+        setReason(caught instanceof Error ? caught.message : String(caught));
+        if (initial) setStatus("error");
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [fetchLiveEndpoint],
+  );
 
   // Only the LIVE selected game keeps polling. A completed game is fetched once
   // (so the Outcome Summary has data) but not re-polled.
@@ -141,9 +164,9 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
       }
       return;
     }
-    void fetchReplay(selectedGameId, true);
+    void fetchReplay(selectedGameId, true, selectedIsLive);
     if (selectedIsLive) {
-      pollRef.current = window.setInterval(() => void fetchReplay(selectedGameId, false), REFRESH_MS);
+      pollRef.current = window.setInterval(() => void fetchReplay(selectedGameId, false, true), REFRESH_MS);
     }
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
@@ -179,9 +202,52 @@ const STATUS_RANK: Record<string, number> = { DISTRESS: 4, "PULL NOW": 3, PREP: 
 function statusLabel(s: unknown): string {
   return String(s || "STAY").replace(/_/g, " ").toUpperCase();
 }
-function pct(v: unknown): number | null {
+function rank(s: unknown): number {
+  return STATUS_RANK[statusLabel(s)] ?? 0;
+}
+function finalScore(v: unknown): number | null {
   const n = Number(v);
-  return Number.isFinite(n) ? Math.round(Math.max(0, Math.min(1, n)) * 100) : null;
+  return Number.isFinite(n) ? n : null;
+}
+// Postgame artifacts store names as "Last, First"; the live feed gives "First Last".
+// Normalize to "First Last" so the Starter card reads the same from either source.
+function personName(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  const m = s.match(/^([^,]+),\s*(.+)$/);
+  return m ? `${m[2]} ${m[1]}`.trim() : s;
+}
+
+// Mirror of App's isRelieverReplayEntry / pitchCount so the starter scope + ordering
+// match Game Replays exactly. The live payload keeps relievers in reliever_entries, so
+// `entries` is starters-only; this is belt-and-suspenders.
+function isReliever(e: any): boolean {
+  return e?.entry_type === "reliever_rss" || statusLabel(e?.snapshot?.role) === "RELIEVER" || !!e?.snapshot?.reliever_state;
+}
+function pitchCountOf(e: any): number {
+  const st = e?.snapshot?.reliever_state ?? e?.snapshot?.starter_state ?? {};
+  return st.official_pitch_count_in_game ?? st.pitch_count_in_game ?? st.replay_pitch_count_in_game ?? 0;
+}
+// Mirror of App's headlinePeak: cumulative max of decision_pressure_score (floored at 0,
+// falling back to starter_state.normalized_degradation_score) THROUGH `idx`. This is the
+// "Hook Score at Pull" the Game Replays Actual Outcome Summary shows — a peak *up to* the
+// pull pitch, NOT the global game max.
+function headlinePeakThrough(entries: any[], idx: number): number | null {
+  let peak: number | null = null;
+  const cap = Math.min(idx + 1, entries.length);
+  for (let i = 0; i < cap; i++) {
+    const dps = entries[i]?.recommendation?.decision_pressure_score;
+    const fb = entries[i]?.snapshot?.starter_state?.normalized_degradation_score;
+    const raw =
+      typeof dps === "number" && Number.isFinite(dps)
+        ? dps
+        : typeof fb === "number" && Number.isFinite(fb)
+          ? fb
+          : null;
+    if (raw == null) continue;
+    const score = Math.max(0, raw);
+    peak = peak == null ? score : Math.max(peak, score);
+  }
+  return peak;
 }
 
 export type LiveOutcomeSummaryData = {
@@ -195,17 +261,15 @@ export type LiveOutcomeSummaryData = {
   peakHook: number | null;
 };
 
-function finalScore(v: unknown): number | null {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
 // Derives the COMPLETED-game outcome (final score + the starter's peak model signal)
 // from the live replay payload. Pure data only — App renders it inline with the shared
-// Mobian panel/outcome-card styling (and CustomSelect picker), so the Live Dugout
-// matches Game Replays without a circular import. The live replay `game` block carries
-// final_{home,away}_score at runtime (the frontend type doesn't declare them, hence the
-// cast). Returns null until the payload (and its game block) is available.
+// Mobian panel/outcome-card styling (and CustomSelect picker), so the Live Dugout matches
+// Game Replays without a circular import. The peak signal + Hook are computed the SAME way
+// the Game Replays Actual Outcome Summary computes them: monotonic statuses (a signal can't
+// downgrade once it fires), anchored on the FIRST pitch window that reached the peak signal
+// (the pull pitch), with Hook = the cumulative pull-pressure peak THROUGH that window — not
+// the global game max. The `game` block carries final_{home,away}_score at runtime (the
+// frontend type doesn't declare them, hence the cast). Returns null until available.
 export function summarizeLiveOutcome(
   replay: PitchingReplayResponse | null,
   teamAbbr: string,
@@ -214,23 +278,29 @@ export function summarizeLiveOutcome(
     | (PitchingReplayResponse["game"] & { final_home_score?: unknown; final_away_score?: unknown })
     | undefined;
   if (!game) return null;
-  const entries = ((replay?.entries ?? []) as any[]).filter((e) => e?.snapshot?.fielding_team === teamAbbr);
-  let starterName = "";
-  let peakStatus = "STAY";
-  let peakInning: number | null = null;
-  let peakHook: number | null = null;
-  for (const e of entries) {
-    const snap = e.snapshot ?? {};
-    const rec = e.recommendation ?? {};
-    if (!starterName) starterName = snap.pitcher_name ?? "";
-    const st = statusLabel(rec.status);
-    if ((STATUS_RANK[st] ?? 0) > (STATUS_RANK[peakStatus] ?? 0)) {
-      peakStatus = st;
-      peakInning = snap.inning ?? null;
-    }
-    const h = pct(rec.decision_pressure_score);
-    if (h != null && (peakHook == null || h > peakHook)) peakHook = h;
-  }
+
+  // Our team's STARTER entries, ordered by pitch count (matches Game Replays' starterEntries).
+  const starterEntries = ((replay?.entries ?? []) as any[])
+    .filter((e) => e?.snapshot?.fielding_team === teamAbbr && !isReliever(e))
+    .sort((a, b) => pitchCountOf(a) - pitchCountOf(b));
+
+  const starterName = personName(starterEntries[0]?.snapshot?.pitcher_name);
+
+  // monotonicStatuses: running max status across the appearance.
+  let running = "STAY";
+  const mono = starterEntries.map((e) => {
+    const s = statusLabel(e?.recommendation?.status);
+    if (rank(s) > rank(running)) running = s;
+    return running;
+  });
+
+  const peakStatus = mono.length ? mono[mono.length - 1] : "STAY";
+  // First window that reached the peak signal — the pull pitch for a PULL NOW peak.
+  const anchorIndex = mono.findIndex((s) => rank(s) >= rank(peakStatus));
+  const peakInning = anchorIndex >= 0 ? (starterEntries[anchorIndex]?.snapshot?.inning ?? null) : null;
+  const hookRaw = anchorIndex >= 0 ? headlinePeakThrough(starterEntries, anchorIndex) : null;
+  const peakHook = hookRaw == null ? null : Math.round(Math.max(0, Math.min(1, hookRaw)) * 100);
+
   return {
     awayTeam: game.away_team,
     homeTeam: game.home_team,
