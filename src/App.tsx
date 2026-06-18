@@ -143,8 +143,8 @@ const MLB_TEAMS: Team[] = [
 ];
 
 const WORKFLOWS: Array<{ id: Workflow; label: string }> = [
-  { id: "audit", label: "Game Replays" },
   { id: "live", label: "Live Dugout" },
+  { id: "audit", label: "Game Replays" },
   { id: "briefings", label: "Game Briefings" },
 ];
 
