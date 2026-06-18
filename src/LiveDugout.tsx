@@ -13,13 +13,16 @@ const REFRESH_MS = 30_000;
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
-// yesterday..today so the picker has the club's games even before first pitch;
+// A handful of recent days so the picker has several completed games to choose
+// from (plus any live game today). The StatsAPI filters startDate/endDate by
+// officialDate, so a generous lookback captures the club's recent slate.
+const LOOKBACK_DAYS = 5;
 // hydrate=team so each game carries team.abbreviation (the bare schedule embeds
 // only {id, name, link}).
 function scheduleUrl(): string {
   const today = new Date();
-  const yesterday = new Date(today.getTime() - 86_400_000);
-  return `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${ymd(yesterday)}&endDate=${ymd(today)}&hydrate=team`;
+  const start = new Date(today.getTime() - LOOKBACK_DAYS * 86_400_000);
+  return `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${ymd(start)}&endDate=${ymd(today)}&hydrate=team`;
 }
 
 export type LiveDugoutState = {
@@ -59,9 +62,13 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
       const isOurs = (g: any) =>
         g.teams?.home?.team?.abbreviation === teamAbbr || g.teams?.away?.team?.abbreviation === teamAbbr;
       const usable = all.filter((g) => (isLive(g) || isFinal(g)) && isOurs(g));
+      // officialDate is the game's local calendar date; gameDate is the UTC start
+      // instant, which rolls a night game over to the next day (a 7pm ET game reads
+      // as tomorrow in UTC). Always label by officialDate so a completed game isn't
+      // mislabeled as a future date.
       const summaries: EnterpriseGameSummary[] = usable.map((g) => ({
         game_id: String(g.gamePk),
-        date: String(g.gameDate ?? "").slice(0, 10),
+        date: String(g.officialDate ?? String(g.gameDate ?? "").slice(0, 10)),
         home_team: g.teams?.home?.team?.abbreviation ?? "HOME",
         away_team: g.teams?.away?.team?.abbreviation ?? "AWAY",
       }));
