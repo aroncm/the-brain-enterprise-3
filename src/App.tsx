@@ -4640,10 +4640,11 @@ function GameAudit({
                 </div>
               </div>
             </div>
-            {/* Interim (Batch 1): live games don't yet carry reliever entries, so once the
-              * starter is hooked, tell the user the reliever signal is coming. Replaced by
-              * the live reliever appearance in Batch 2. */}
-            {live && starterPullIndex >= 0 ? (
+            {/* Live: once the starter is hooked but the bullpen hasn't thrown yet (no
+              * reliever entries), tell the user the reliever signal is coming. As soon as
+              * a reliever appears in the payload, this hides and the reliever shows up in
+              * the appearance switcher (the seamless transition). */}
+            {live && starterPullIndex >= 0 && !(replay?.reliever_entries?.length) ? (
               <div className="live-hook-notice" role="status">
                 <strong>
                   Hook fired{starterEntries[starterPullIndex]?.snapshot?.inning ? ` in the ${ordinal(starterEntries[starterPullIndex].snapshot.inning)}` : ""}.
