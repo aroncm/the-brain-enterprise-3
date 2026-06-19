@@ -687,12 +687,39 @@ function workloadBandPhrase(percent: number | null | undefined): string {
 // pitcher decay + game leverage + relief edge + opponent context, so the
 // phrasing here is operational (what should you do?) not diagnostic
 // (what's the pitcher's state?).
-function decisionPressurePhrase(percent: number | null | undefined): string {
-  if (percent == null || !Number.isFinite(percent)) return "Signal read unavailable.";
-  if (percent >= 0.69) return "Pull now — change is overdue.";
-  if (percent >= 0.42) return "Prep — get someone throwing.";
-  if (percent >= 0.15) return "Watch — start tracking bullpen options.";
-  return "Holding. No change indicated.";
+// Operational directive shown as a small eyebrow under the banner STATUS. Keyed
+// on the DISPLAYED status (not the Hook% peak) so it always matches the shown
+// signal — even when a guardrail promotes the status independent of the ring %s.
+function statusDirective(status: string, isReliever: boolean): string {
+  const s = statusLabel(status);
+  if (isReliever) {
+    if (s === "DISTRESS") return "Get the next arm up";
+    if (s === "WATCH") return "Watch the workload";
+    return "Holding — let him work";
+  }
+  if (s === "PULL NOW") return "Change is overdue";
+  if (s === "PREP") return "Get someone throwing";
+  if (s === "WATCH") return "Start tracking bullpen options";
+  return "Holding — no change indicated";
+}
+
+// Short "what changed" driver for the banner — explains an escalation when the
+// ring percentages didn't move (the status can be promoted by a guardrail / the
+// raw model independent of the cumulative-peak ring normalization). Sourced from
+// the recommendation's existing trigger_driver_type / top_reason_codes.
+function signalDriverShort(recommendation: PitchingReplayEntry["recommendation"] | null | undefined): string | null {
+  if (!recommendation) return null;
+  const driver = String((recommendation as { trigger_driver_type?: string | null }).trigger_driver_type ?? "").trim();
+  const driverLabels: Record<string, string> = {
+    game_context: "Game leverage",
+    pitcher_degradation: "Pitcher decay",
+    relief_alternative: "Relief edge",
+    workload_guardrail: "Workload guardrail",
+  };
+  if (driverLabels[driver]) return driverLabels[driver];
+  const codes = (recommendation as { top_reason_codes?: string[] }).top_reason_codes;
+  const top = Array.isArray(codes) && codes.length ? String(codes[0]).toLowerCase() : null;
+  return top ? featureLabel(top) : null;
 }
 
 // Diagnostic comparison of a current factor value vs a reference (league
@@ -4578,6 +4605,14 @@ function GameAudit({
                           <strong className="signal-banner__stat-value signal-banner__stat-value--signal">
                             {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
                           </strong>
+                          {/* Directive eyebrow — keyed on the displayed status so it always matches
+                            * the signal (replaces the old Hook-Score-tooltip directive). */}
+                          <span className="signal-banner__directive">{statusDirective(displayStatus, selectedIsReliever)}</span>
+                          {/* "What changed" — names the trigger when the signal is PREP+; explains an
+                            * escalation even if the ring %s didn't move. */}
+                          {!selectedIsReliever && statusRank(displayStatus) >= statusRank("PREP") && signalDriverShort(selected?.recommendation) ? (
+                            <span className="signal-banner__driver">Driver: {signalDriverShort(selected?.recommendation)}</span>
+                          ) : null}
                         </div>
                         {count > 0 ? (
                           <div
@@ -4605,6 +4640,17 @@ function GameAudit({
                 </div>
               </div>
             </div>
+            {/* Interim (Batch 1): live games don't yet carry reliever entries, so once the
+              * starter is hooked, tell the user the reliever signal is coming. Replaced by
+              * the live reliever appearance in Batch 2. */}
+            {live && starterPullIndex >= 0 ? (
+              <div className="live-hook-notice" role="status">
+                <strong>
+                  Hook fired{starterEntries[starterPullIndex]?.snapshot?.inning ? ` in the ${ordinal(starterEntries[starterPullIndex].snapshot.inning)}` : ""}.
+                </strong>{" "}
+                The model signaled PULL NOW for the starter — live reliever tracking follows here as the bullpen takes over.
+              </div>
+            ) : null}
             <div className="replay-layout">
               {/* Phase D.1b — Pitch Window Summary sidebar trim. Dropped the
                * redundant "Pitch Window Summary" heading and the "Current
@@ -4762,9 +4808,12 @@ function GameAudit({
                                 return (
                                   <>
                                     <span className={`pws-score__team pws-score__team--${awayTone}`} style={ownIsAway ? { color: accents.label } : undefined}>{replay.game.away_team}</span>
-                                    <strong className="pws-score__num">{selected.snapshot.away_score ?? 0}</strong>
+                                    {/* The per-pitch running score lives on `current_*_score` (always
+                                      * populated, live + postgame). `*_score` is null on many games
+                                      * (all live + some postgame) — reading it showed a fixed 0–0. */}
+                                    <strong className="pws-score__num">{selected.snapshot.current_away_score ?? selected.snapshot.away_score ?? 0}</strong>
                                     <span className="pws-score__dash">—</span>
-                                    <strong className="pws-score__num">{selected.snapshot.home_score ?? 0}</strong>
+                                    <strong className="pws-score__num">{selected.snapshot.current_home_score ?? selected.snapshot.home_score ?? 0}</strong>
                                     <span className={`pws-score__team pws-score__team--${homeTone}`} style={!ownIsAway ? { color: accents.label } : undefined}>{replay.game.home_team}</span>
                                   </>
                                 );
@@ -4943,7 +4992,7 @@ function GameAudit({
                                 </div>
                                 <div className="ring-tip-bubble" role="tooltip">
                                   {hasBullpenData ? (
-                                    <><strong>Hook Score.</strong> {decisionPressurePhrase(peak)} Composite: pitcher decay × game leverage × relief edge × opponent context.</>
+                                    <><strong>Hook Score.</strong> Composite: pitcher decay × game leverage × relief edge × opponent context.</>
                                   ) : (
                                     <><strong>Hook Score.</strong> Unavailable — no bullpen roster is loaded for this game, so the relief-edge comparison that drives pull pressure can't be computed.</>
                                   )}
@@ -5088,7 +5137,7 @@ function GameAudit({
                 ) : null}
 
                 {rightTab === "relief" && !selectedIsReliever ? (
-                  <div className="replay-tab-panel">
+                  <div className="replay-tab-panel replay-tab-panel--relief">
                         {/* S.6 — Relief Edge banner at top, then full
                           * (uncapped) Relief Options list below. */}
                         <div className={`decision-delta decision-delta--${hasWatchSignal ? "active" : "locked"}`}>

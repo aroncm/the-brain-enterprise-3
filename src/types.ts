@@ -402,6 +402,10 @@ export type PitchingReplayEntry = {
     score_diff: number;
     home_score?: number | null;
     away_score?: number | null;
+    // Running score at this pitch — the reliable per-pitch source (home_score/away_score
+    // are null on many games). UI reads current_* first.
+    current_home_score?: number | null;
+    current_away_score?: number | null;
     leverage_index: number;
     px?: number | null;
     pz?: number | null;

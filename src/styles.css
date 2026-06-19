@@ -20731,6 +20731,17 @@ body.audit-immersive .replay-layout {
   overflow: visible !important;
 }
 
+/* Relief Edge tab only: the expanded "Show all" reliever list overflowed the
+ * panel and rendered BEHIND the sticky timeline/controls (z-index 50). Scroll
+ * the relief list internally so every row clears the sticky footer. Scoped to
+ * --relief so the Signal Summary ring tooltips (which intentionally overflow the
+ * panel) are untouched. */
+.theme-mobian .replay-tab-panel--relief {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding-bottom: 12px;
+}
+
 /* T.5 — Pitch detail bar: drop the surrounding container chrome.
  * Each fact card stands on its own with dark fill + radius. */
 .theme-mobian .cpw-strip--two-row {
@@ -22048,6 +22059,40 @@ body.audit-immersive .signal-banner__stat-value--signal {
   letter-spacing: 0.4px !important;
 }
 
+/* Directive eyebrow under the STATUS word (white, small) — the operational read
+ * ("Change is overdue", etc.). Allowed to wrap so longer directives don't blow
+ * out the banner cell. */
+body.audit-immersive .signal-banner__directive {
+  display: block !important;
+  margin-top: 3px !important;
+  max-width: 220px !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  color: #ffffff !important;
+  opacity: 0.92 !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+}
+/* "Driver: …" — even smaller, muted white; explains an escalation when the rings
+ * didn't move. */
+body.audit-immersive .signal-banner__driver {
+  display: block !important;
+  margin-top: 2px !important;
+  max-width: 220px !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+  font-size: 9px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.4px !important;
+  text-transform: uppercase !important;
+  color: #ffffff !important;
+  opacity: 0.58 !important;
+  line-height: 1.2 !important;
+  white-space: normal !important;
+}
+
 body.audit-immersive .signal-banner__stat--easing .signal-banner__stat-value {
   opacity: 0.85 !important;
 }
@@ -22275,6 +22320,23 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
  * The live screen reuses GameAudit verbatim (rendered as a direct child of
  * .app-main, exactly like the audit tab — no wrapper). These styles cover only
  * the small extras: the fixed LIVE pill and the completed-game outcome card. */
+
+/* Interim live "hook fired" notice — shown once the starter is hooked, until live
+ * reliever entries land (Batch 2). Sits between the sticky banner and the layout. */
+.theme-mobian .live-hook-notice {
+  margin: 8px 0 10px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: rgba(224, 91, 75, 0.12);
+  border: 1px solid rgba(224, 91, 75, 0.42);
+  color: #f0f0f0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.theme-mobian .live-hook-notice strong {
+  color: #ff7a66;
+  font-weight: 800;
+}
 
 /* Fixed, layout-neutral LIVE indicator — sits below the top nav, doesn't disturb
  * GameAudit's sticky banner. */
