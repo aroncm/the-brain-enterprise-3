@@ -9,7 +9,10 @@ const viteEnv = (import.meta as unknown as { env?: Record<string, string | undef
 const LIVE_API_BASE = (
   viteEnv.VITE_LIVE_SIGNAL_API_BASE ?? "https://aroncm--abs-live-signal-fastapi-live-app.modal.run"
 ).replace(/\/+$/, "");
-const REFRESH_MS = 30_000;
+// ~5s poll for near-real-time hook latency. Cheap on the server: the endpoint
+// returns 304 (no body, no recompute) unless a new pitch has arrived, and gzips
+// the changed payload. See the live-replay endpoint in live_signal_app.py.
+const REFRESH_MS = 5_000;
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -52,6 +55,9 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const pollRef = useRef<number | null>(null);
+  // ETag of the current game's last live payload → sent as If-None-Match so an
+  // unchanged poll comes back as a tiny 304. Reset when the selected game changes.
+  const etagRef = useRef<string | null>(null);
 
   const loadGames = useCallback(async () => {
     try {
@@ -101,8 +107,13 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
 
   // Live in-progress game → the live signal endpoint (CORS-open, on-the-fly compute).
   const fetchLiveEndpoint = useCallback(async (pk: string) => {
-    const res = await fetch(`${LIVE_API_BASE}/v1/live/replay/${pk}`, { headers: { Accept: "application/json" } });
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (etagRef.current) headers["If-None-Match"] = etagRef.current;
+    const res = await fetch(`${LIVE_API_BASE}/v1/live/replay/${pk}`, { headers });
+    // 304 → no new pitch since the last poll; keep the current replay as-is.
+    if (res.status === 304) return;
     if (!res.ok) throw new Error(`replay ${res.status}`);
+    etagRef.current = res.headers.get("ETag");
     const payload = (await res.json()) as PitchingReplayResponse & { available?: boolean; reason?: string };
     if (payload && payload.available === false) {
       setReplay(null);
@@ -117,7 +128,9 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
     async (pk: string, initial: boolean, live: boolean) => {
       if (initial) {
         // Switching games: drop the prior game's payload so its replay can't flash in
-        // the new game's view while the new fetch is in flight.
+        // the new game's view while the new fetch is in flight, and clear the ETag so
+        // the first fetch is unconditional (not a 304 against the old game).
+        etagRef.current = null;
         setReplay(null);
         setReason(null);
         setStatus("loading");
