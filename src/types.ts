@@ -504,6 +504,17 @@ export type PitchingReplayResponse = {
     last_inning?: number;
     incomplete?: boolean;
   };
+  // Live games only: current game state from the StatsAPI feed. Drives the
+  // "pitcher idle / team batting" indicator. Absent on postgame replays.
+  game_state?: {
+    status?: string;
+    inning?: number;
+    inning_ordinal?: string;
+    half?: string;
+    outs?: number;
+    home_runs?: number;
+    away_runs?: number;
+  };
   summary: {
     snapshots: number;
     stay_count: number;

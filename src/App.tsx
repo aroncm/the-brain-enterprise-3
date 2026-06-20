@@ -4260,7 +4260,19 @@ function GameAudit({
   const latestAppearanceKey = useMemo(() => {
     const real = appearances.filter((item) => !item.earlyPull && item.firstPitch >= 0);
     if (!real.length) return null;
-    return real.reduce((latest, item) => (item.firstPitch > latest.firstPitch ? item : latest), real[0]).key;
+    // The current pitcher = the highest team_appearance_order (the last segment of
+    // appearanceKey: starter=1, relievers 2,3,…), with cumulative first-pitch as a
+    // tiebreak. Ranking by firstPitch ALONE was wrong live: reliever entries can
+    // report pitch_count_in_game = 0, so the starter (firstPitch ≥ 1) stayed
+    // "latest" and the view never followed a relief change — leaving the wrong
+    // pitcher and a stale base/out state on screen.
+    const order = (key: string) => Number(key.split(":").pop()) || 0;
+    return real.reduce((latest, item) => {
+      const io = order(item.key);
+      const lo = order(latest.key);
+      if (io !== lo) return io > lo ? item : latest;
+      return item.firstPitch > latest.firstPitch ? item : latest;
+    }, real[0]).key;
   }, [appearances]);
   // Never default-select an early-pull placeholder (it has no data) — fall back
   // to the first real appearance (the bulk reliever), keeping its active highlight.
@@ -4279,6 +4291,16 @@ function GameAudit({
   const selected = entries[selectedIndex] ?? null;
   const displayStatus = selected ? displayStatuses[selectedIndex] ?? statusLabel(selected.recommendation.status) : "STAY";
   const selectedGame = games.find((game) => game.game_id === selectedGameId) ?? games[0] ?? null;
+  // Live "pitcher idle" state: when the tracked club is at bat, none of its
+  // pitchers is on the mound, so the last pitch on screen is stale by design.
+  // Surface it so the live view isn't mistaken for a live pitch.
+  const liveGameState = replay?.game_state ?? null;
+  const liveInProgress = !!live && String(liveGameState?.status ?? "").toLowerCase().includes("progress");
+  const liveHalf = String(liveGameState?.half ?? "").toLowerCase();
+  const trackedIsHome = replay?.game?.home_team === team.abbr;
+  // The tracked club pitches the Top half if it's the home team, the Bottom half if away.
+  const trackedPitchingNow = liveHalf === "top" ? trackedIsHome : liveHalf === "bottom" ? !trackedIsHome : true;
+  const trackedBattingNow = liveInProgress && liveHalf !== "" && !trackedPitchingNow;
   const teamPitchers = selectedTeamPitchers(recap, team);
   const teamStarters = teamPitchers.filter((pitcher) => statusLabel(pitcher.role) !== "RELIEVER");
   const teamRelievers = teamPitchers.filter((pitcher) => statusLabel(pitcher.role) === "RELIEVER");
@@ -4594,6 +4616,16 @@ function GameAudit({
                         title={`Game reached only inning ${replay.game.last_inning} — suspended or shortened, so pitch data is limited.`}
                       >
                         Incomplete · {replay.game.last_inning} inn
+                      </span>
+                    </div>
+                  ) : null}
+                  {trackedBattingNow ? (
+                    <div className="signal-banner__field signal-banner__field--incomplete">
+                      <span
+                        className="replay-incomplete-badge"
+                        title={`${team.abbr} is at bat (${halfInningLabel(liveGameState?.half, liveGameState?.inning)}). No one of theirs is on the mound — the pitch shown is their last from the field. Live signal resumes when ${team.abbr} retakes the field.`}
+                      >
+                        ● {team.abbr} batting · pitcher idle
                       </span>
                     </div>
                   ) : null}
