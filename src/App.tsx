@@ -4254,6 +4254,14 @@ function GameAudit({
       return roleOrder || a.firstPitch - b.firstPitch;
     });
   }, [teamReplayEntries, replay, team.abbr]);
+  // The current pitcher = the appearance with the most recent first pitch (relievers
+  // sort after the starter). Live mode auto-follows this so the view tracks the game
+  // across pitching changes (see the effect below).
+  const latestAppearanceKey = useMemo(() => {
+    const real = appearances.filter((item) => !item.earlyPull && item.firstPitch >= 0);
+    if (!real.length) return null;
+    return real.reduce((latest, item) => (item.firstPitch > latest.firstPitch ? item : latest), real[0]).key;
+  }, [appearances]);
   // Never default-select an early-pull placeholder (it has no data) — fall back
   // to the first real appearance (the bulk reliever), keeping its active highlight.
   const selectedAppearanceKey = appearances.some((item) => item.key === appearance)
@@ -4470,7 +4478,17 @@ function GameAudit({
     setAutoplay(false);
   }, [selectedAppearanceKey]);
 
-  // Live Dugout: follow the most recent pitch. Each 30s refresh appends new entries;
+  // Live Dugout: auto-follow the CURRENT pitcher. When the club changes pitchers a
+  // new appearance (higher firstPitch) becomes the latest; snap the selected
+  // appearance to it so the view tracks whoever is on the mound — fixes the live
+  // view going stale on a pitching change. (Manually selecting an earlier appearance
+  // sticks until the next pitching change, since latestAppearanceKey is unchanged.)
+  useEffect(() => {
+    if (!live || !latestAppearanceKey) return;
+    setAppearance(latestAppearanceKey);
+  }, [live, latestAppearanceKey]);
+
+  // Live Dugout: follow the most recent pitch. Each refresh appends new entries;
   // snap to the latest so the view always reflects the current game state. Defined
   // after the reset effects so it wins on the initial live mount as well.
   useEffect(() => {
@@ -5260,19 +5278,24 @@ function GameAudit({
                   {/* Phase Z.4 — CTA card to the right of the last
                     * reliever; smooth-scrolls the Actual Outcome
                     * Summary panel into view. DD.2 restyles it as a
-                    * green action: green title + down arrow. */}
-                  <button
-                    type="button"
-                    className="appearance-switcher__outcome-cta"
-                    onClick={scrollToAos}
-                    aria-label="Scroll to Actual Outcome Summary"
-                  >
-                    <span className="appearance-card__name appearance-card__name--cta">
-                      Game Outcome Summary
-                      <ArrowDown size={13} aria-hidden="true" />
-                    </span>
-                    <span className="appearance-card__meta">Jump to summary</span>
-                  </button>
+                    * green action: green title + down arrow.
+                    * Hidden in live mode — the Actual Outcome Summary panel
+                    * doesn't exist until the game is final, so there's nothing
+                    * to jump to. */}
+                  {!live ? (
+                    <button
+                      type="button"
+                      className="appearance-switcher__outcome-cta"
+                      onClick={scrollToAos}
+                      aria-label="Scroll to Actual Outcome Summary"
+                    >
+                      <span className="appearance-card__name appearance-card__name--cta">
+                        Game Outcome Summary
+                        <ArrowDown size={13} aria-hidden="true" />
+                      </span>
+                      <span className="appearance-card__meta">Jump to summary</span>
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
 
