@@ -206,7 +206,7 @@ export function LiveBadge({ lastUpdated, refreshing }: { lastUpdated: Date | nul
   return (
     <div className="live-badge" aria-live="polite">
       <span className={`live-badge__dot${refreshing ? " live-badge__dot--pulse" : ""}`} aria-hidden />
-      LIVE · auto-refresh 30s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}
+      LIVE · auto-refresh {Math.round(REFRESH_MS / 1000)}s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}
     </div>
   );
 }
