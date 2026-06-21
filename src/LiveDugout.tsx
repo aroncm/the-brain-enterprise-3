@@ -178,11 +178,24 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
       return;
     }
     void fetchReplay(selectedGameId, true, selectedIsLive);
-    if (selectedIsLive) {
-      pollRef.current = window.setInterval(() => void fetchReplay(selectedGameId, false, true), REFRESH_MS);
+    if (!selectedIsLive) {
+      return () => {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+      };
     }
+    pollRef.current = window.setInterval(() => void fetchReplay(selectedGameId, false, true), REFRESH_MS);
+    // Browsers throttle setInterval in a backgrounded tab (often to ~1/min), so a
+    // live view left open behind the game broadcast drifts minutes behind real
+    // time. Snap it back to current the instant the tab/window regains focus.
+    const refreshNow = () => {
+      if (document.visibilityState === "visible") void fetchReplay(selectedGameId, false, true);
+    };
+    document.addEventListener("visibilitychange", refreshNow);
+    window.addEventListener("focus", refreshNow);
     return () => {
       if (pollRef.current) window.clearInterval(pollRef.current);
+      document.removeEventListener("visibilitychange", refreshNow);
+      window.removeEventListener("focus", refreshNow);
     };
   }, [enabled, selectedGameId, selectedIsLive, fetchReplay]);
 
