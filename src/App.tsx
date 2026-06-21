@@ -6314,7 +6314,7 @@ export default function App() {
           // the "waiting for the first signal" panel below instead of letting GameAudit
           // hang on its own "LOADING REPLAY…" state.
           <>
-            <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} />
+            <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} feedAsOf={live.feedAsOf} />
             <GameAudit
               team={selectedTeam}
               games={live.games}
@@ -6342,7 +6342,7 @@ export default function App() {
           const liveWaiting = live.isLive; // selected game is in progress but has no scoreable signal yet
           return (
             <section className="workflow theme-mobian briefing-workflow live-workflow">
-              {liveWaiting && <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} />}
+              {liveWaiting && <LiveBadge lastUpdated={live.lastUpdated} refreshing={live.refreshing} feedAsOf={live.feedAsOf} />}
               <article className="panel briefing-panel">
                 <div className="briefing-heading-row">
                   <div className="briefing-heading">

@@ -54,6 +54,9 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
   const [reason, setReason] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // StatsAPI feed's own data timestamp (X-Feed-As-Of header) — captured on every
+  // poll incl. 304s, so the freshness stamp keeps tracking even between pitches.
+  const [feedAsOf, setFeedAsOf] = useState<string | null>(null);
   const pollRef = useRef<number | null>(null);
   // ETag of the current game's last live payload → sent as If-None-Match so an
   // unchanged poll comes back as a tiny 304. Reset when the selected game changes.
@@ -110,6 +113,10 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
     const headers: Record<string, string> = { Accept: "application/json" };
     if (etagRef.current) headers["If-None-Match"] = etagRef.current;
     const res = await fetch(`${LIVE_API_BASE}/v1/live/replay/${pk}`, { headers });
+    // Feed freshness comes back on EVERY response (incl. 304), so the stamp keeps
+    // advancing during quiet stretches and freezes only on a real feed stall.
+    const fa = res.headers.get("X-Feed-As-Of");
+    if (fa) setFeedAsOf(fa);
     // 304 → no new pitch since the last poll; keep the current replay as-is.
     if (res.status === 304) return;
     if (!res.ok) throw new Error(`replay ${res.status}`);
@@ -208,18 +215,65 @@ export function useLiveDugout(teamAbbr: string, enabled: boolean): LiveDugoutSta
     reason,
     lastUpdated,
     refreshing,
+    feedAsOf,
     isLive: selectedIsLive,
   };
+}
+
+// Parse the StatsAPI feed timestamp ("YYYYMMDD_HHMMSS", UTC) → Date.
+function parseFeedAsOf(asOf?: string | null): Date | null {
+  if (!asOf) return null;
+  const m = /^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/.exec(asOf);
+  if (!m) return null;
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]));
+}
+
+function formatLag(sec: number): string {
+  if (sec < 90) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  const rem = sec % 60;
+  return rem ? `${min}m ${rem}s` : `${min}m`;
 }
 
 // ── Small presentational pieces ──────────────────────────────────────────────
 
 // A subtle, layout-neutral LIVE indicator (fixed-position pill, below the navbar).
-export function LiveBadge({ lastUpdated, refreshing }: { lastUpdated: Date | null; refreshing: boolean }) {
+export function LiveBadge({
+  lastUpdated,
+  refreshing,
+  feedAsOf,
+}: {
+  lastUpdated: Date | null;
+  refreshing: boolean;
+  feedAsOf?: string | null;
+}) {
+  // Tick every second so the staleness reads live and a feed stall surfaces
+  // within ~1s of crossing the threshold (not only when a poll lands).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const feedDate = parseFeedAsOf(feedAsOf);
+  const lagSec = feedDate ? Math.max(0, Math.round((now - feedDate.getTime()) / 1000)) : null;
+  // Normal StatsAPI lag is ~20–40s; > 2 min means MLB's feed itself is stalled.
+  const delayed = lagSec != null && lagSec > 120;
   return (
     <div className="live-badge" aria-live="polite">
       <span className={`live-badge__dot${refreshing ? " live-badge__dot--pulse" : ""}`} aria-hidden />
-      LIVE · auto-refresh {Math.round(REFRESH_MS / 1000)}s{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString()}` : ""}
+      LIVE · auto-refresh {Math.round(REFRESH_MS / 1000)}s
+      {feedDate ? (
+        <span
+          style={delayed ? { color: "#f59e0b", fontWeight: 600 } : undefined}
+          title={`MLB StatsAPI feed last updated ${feedDate.toLocaleTimeString()} (${lagSec}s ago). Normal lag is ~20–40s; a larger gap means MLB's feed is delayed at the source, not the app.`}
+        >
+          {delayed ? ` · ⚠ MLB feed delayed ${formatLag(lagSec!)}` : ` · feed ${feedDate.toLocaleTimeString()}`}
+        </span>
+      ) : lastUpdated ? (
+        ` · ${lastUpdated.toLocaleTimeString()}`
+      ) : (
+        ""
+      )}
     </div>
   );
 }
