@@ -68,6 +68,10 @@ import {
   setCachedRecap,
   getCachedClubContext,
   setCachedClubContext,
+  getCachedRunSavingBoard,
+  setCachedRunSavingBoard,
+  getCachedPreventableRuns,
+  setCachedPreventableRuns,
 } from "./cache";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
@@ -2439,36 +2443,50 @@ function TopNav({
 }
 
 function useRunSavingBoard({ league, team, limit, enabled = true }: { league: "mlb" | "triple_a"; team?: string; limit?: number; enabled?: boolean }) {
+  const cacheKey = `${league}:${team ?? ""}:${limit ?? ""}`;
   const [loadState, setLoadState] = useState<LoadState>(enabled ? "loading" : "ready");
   const [payload, setPayload] = useState<RunSavingBoardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoadState("loading");
+  // `showLoading` distinguishes a first load / explicit refresh (flip to the
+  // loading state) from a silent background revalidation behind a cache hit
+  // (keep the cached board on screen; don't surface a transient error).
+  const fetchAndStore = useCallback(async (showLoading: boolean) => {
+    if (showLoading) setLoadState("loading");
     setError(null);
     try {
       const data = await fetchRunSavingBoard({ league, team, limit });
       setPayload(data);
+      setCachedRunSavingBoard(cacheKey, data);
       setLoadState("ready");
     } catch (caught) {
       if (caught instanceof ApiConfigurationError) {
         setLoadState("missing-config");
-      } else {
+      } else if (showLoading) {
         setError(caught instanceof Error ? caught.message : String(caught));
         setLoadState("error");
       }
     }
-  }, [league, team, limit]);
+  }, [league, team, limit, cacheKey]);
 
   useEffect(() => {
     if (!enabled) {
       setLoadState("ready");
       return;
     }
-    void load();
-  }, [load, enabled]);
+    // Re-selecting a team loaded this session: render its board instantly from
+    // cache and revalidate in the background; first visit waits on the network.
+    const cached = getCachedRunSavingBoard(cacheKey);
+    if (cached) {
+      setPayload(cached);
+      setLoadState("ready");
+      void fetchAndStore(false);
+    } else {
+      void fetchAndStore(true);
+    }
+  }, [fetchAndStore, enabled, cacheKey]);
 
-  return { loadState, payload, error, reload: load };
+  return { loadState, payload, error, reload: () => fetchAndStore(true) };
 }
 
 function usePreventableRunsOpportunities({
@@ -2486,33 +2504,48 @@ function usePreventableRunsOpportunities({
   scope?: "top" | "game_matrix" | "all_games";
   enabled?: boolean;
 }) {
+  const cacheKey = `${season}:${team}:${gameId ?? ""}:${limit}:${scope ?? ""}`;
   const [payload, setPayload] = useState<PreventableRunsOpportunitiesPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(enabled);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // `showLoading` keeps a cached payload on screen during a silent background
+  // revalidation (and suppresses its transient errors); a first load / explicit
+  // refresh flips the loading state and surfaces failures normally.
+  const fetchAndStore = useCallback(async (showLoading: boolean) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const data = await fetchPreventableRunsOpportunities({ season, team, gameId, limit, scope });
       setPayload(data);
+      setCachedPreventableRuns(cacheKey, data);
     } catch (caught) {
-      setPayload(null);
-      setError(caught instanceof Error ? caught.message : String(caught));
+      if (showLoading) {
+        setPayload(null);
+        setError(caught instanceof Error ? caught.message : String(caught));
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }, [season, team, gameId, limit, scope]);
+  }, [season, team, gameId, limit, scope, cacheKey]);
 
   useEffect(() => {
     if (!enabled) {
       setLoading(false);
       return;
     }
-    void load();
-  }, [load, enabled]);
+    // Cache-first with background revalidation (see useRunSavingBoard).
+    const cached = getCachedPreventableRuns(cacheKey);
+    if (cached) {
+      setPayload(cached);
+      setLoading(false);
+      void fetchAndStore(false);
+    } else {
+      void fetchAndStore(true);
+    }
+  }, [fetchAndStore, enabled, cacheKey]);
 
-  return { payload, error, loading, reload: load };
+  return { payload, error, loading, reload: () => fetchAndStore(true) };
 }
 
 type RunExposureLabel = "run exposure" | "decision edge" | "impact";
