@@ -2377,7 +2377,7 @@ function TopNav({
             {/* Phase EE.6 — the Loading Data / Data Ready states are
               * redundant with the full-screen loading treatment, so the
               * pill only renders for actionable problem states. */}
-            {loadState !== "loading" && loadState !== "ready" ? (
+            {!shareMode && loadState !== "loading" && loadState !== "ready" ? (
               <span className={`top-nav__status-pill top-nav__status-pill--${loadState}`}>
                 {loadState === "missing-config" ? "Setup Required" : "Warming up…"}
               </span>
@@ -2435,8 +2435,8 @@ function TopNav({
   );
 }
 
-function useRunSavingBoard({ league, team, limit }: { league: "mlb" | "triple_a"; team?: string; limit?: number }) {
-  const [loadState, setLoadState] = useState<LoadState>("loading");
+function useRunSavingBoard({ league, team, limit, enabled = true }: { league: "mlb" | "triple_a"; team?: string; limit?: number; enabled?: boolean }) {
+  const [loadState, setLoadState] = useState<LoadState>(enabled ? "loading" : "ready");
   const [payload, setPayload] = useState<RunSavingBoardPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -2458,8 +2458,12 @@ function useRunSavingBoard({ league, team, limit }: { league: "mlb" | "triple_a"
   }, [league, team, limit]);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoadState("ready");
+      return;
+    }
     void load();
-  }, [load]);
+  }, [load, enabled]);
 
   return { loadState, payload, error, reload: load };
 }
@@ -2470,16 +2474,18 @@ function usePreventableRunsOpportunities({
   gameId,
   limit,
   scope,
+  enabled = true,
 }: {
   season: string;
   team: string;
   gameId?: string | null;
   limit: number;
   scope?: "top" | "game_matrix" | "all_games";
+  enabled?: boolean;
 }) {
   const [payload, setPayload] = useState<PreventableRunsOpportunitiesPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2496,8 +2502,12 @@ function usePreventableRunsOpportunities({
   }, [season, team, gameId, limit, scope]);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [load, enabled]);
 
   return { payload, error, loading, reload: load };
 }
@@ -5990,6 +6000,22 @@ export default function App() {
         if (grantTeam) setSelectedTeamAbbr(grantTeam.abbr);
         setWorkflow("audit");
         setSelectedGameId(String(grant.game_id));
+        // Share mode renders ONLY this one game. Synthesize a single-element games
+        // list from the grant so the `games.length > 0` render gate passes WITHOUT
+        // loading the club's full games catalog — that club-wide load can be slow
+        // or fail for an un-warmed team and is irrelevant to a single shared replay
+        // (it produced "Couldn't load this club's games" for recipients). The
+        // single game's replay + recap still load on selectedGameId.
+        setGames([
+          {
+            game_id: String(grant.game_id),
+            date: String(grant.date || ""),
+            home_team: String(grant.home_team || "").toUpperCase(),
+            away_team: String(grant.away_team || "").toUpperCase(),
+            matchup: grant.matchup,
+          },
+        ]);
+        setClubLoading(false);
         setShareGrantStatus("active");
       } catch {
         if (!cancelled) setShareGrantStatus("inactive");
@@ -6016,8 +6042,8 @@ export default function App() {
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   // Live Dugout: discovery + 30s polling of /v1/live/replay, active only on the live tab.
   const live = useLiveDugout(selectedTeam.abbr, workflow === "live");
-  const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50 });
-  const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50 });
+  const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50, enabled: !shareMode });
+  const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50, enabled: !shareMode });
   const {
     payload: dashboardPreventableRuns,
     error: dashboardPreventableRunsError,
@@ -6028,6 +6054,7 @@ export default function App() {
     team: selectedTeam.abbr,
     limit: 5000,
     scope: "game_matrix",
+    enabled: !shareMode,
   });
   const {
     payload: auditPreventableRuns,
@@ -6069,6 +6096,10 @@ export default function App() {
   }
 
   useEffect(() => {
+    // Share mode renders only the single granted game; skip the entire club-wide
+    // context load (games catalog + pitcher profiles + audit summary). The grant
+    // effect already synthesized the one-game `games` list and cleared clubLoading.
+    if (shareMode) return;
     let cancelled = false;
     setClubLoading(true);
     async function loadClubContext() {
