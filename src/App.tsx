@@ -4668,11 +4668,6 @@ function GameAudit({
                           {/* Directive eyebrow — keyed on the displayed status so it always matches
                             * the signal (replaces the old Hook-Score-tooltip directive). */}
                           <span className="signal-banner__directive">{statusDirective(displayStatus, selectedIsReliever)}</span>
-                          {/* "What changed" — names the trigger when the signal is PREP+; explains an
-                            * escalation even if the ring %s didn't move. */}
-                          {!selectedIsReliever && statusRank(displayStatus) >= statusRank("PREP") && signalDriverShort(selected?.recommendation) ? (
-                            <span className="signal-banner__driver">Driver: {signalDriverShort(selected?.recommendation)}</span>
-                          ) : null}
                         </div>
                         {count > 0 ? (
                           <div
