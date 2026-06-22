@@ -61,10 +61,13 @@ import { teamAccents, teamLogoIsDark } from "./teamAccents";
 import { useAuth } from "./context/AuthContext";
 import { AdminPage } from "./pages/AdminPage";
 import {
+  type ClubContextPayload,
   getCachedReplay,
   setCachedReplay,
   getCachedRecap,
   setCachedRecap,
+  getCachedClubContext,
+  setCachedClubContext,
 } from "./cache";
 
 type LoadState = "loading" | "ready" | "error" | "missing-config";
@@ -6096,7 +6099,34 @@ export default function App() {
     // effect already synthesized the one-game `games` list and cleared clubLoading.
     if (shareMode) return;
     let cancelled = false;
-    setClubLoading(true);
+    const cacheKey = `${selectedTeam.abbr}:${season}`;
+
+    // Apply a club-context payload to component state. Shared by the synchronous
+    // cache-hit path and the network path so both behave identically.
+    const applyClubContext = (ctx: ClubContextPayload) => {
+      setGames(ctx.games);
+      setSelectedGameId((current) => {
+        // Keep the current game if it belongs to this club (e.g. the user
+        // already drilled in); otherwise default to the most-recent game.
+        if (current && (shareMode || ctx.games.some((game) => game.game_id === current))) return current;
+        return ctx.games[0]?.game_id ?? null;
+      });
+      setProfilesPayload(ctx.profiles);
+      setAuditSummary(ctx.auditSummary);
+    };
+
+    // Re-selecting a team already loaded this session: render its context
+    // INSTANTLY from cache, then revalidate in the background (no "warming up"
+    // screen, no flipping clubLoading back to true). First visit: show the
+    // loading state and wait for the network.
+    const cached = getCachedClubContext(cacheKey);
+    if (cached) {
+      applyClubContext(cached);
+      setClubLoading(false);
+    } else {
+      setClubLoading(true);
+    }
+
     async function loadClubContext() {
       const [gameResult, profileResult, auditResult] = await Promise.allSettled([
         fetchEnterpriseGames({ league: "mlb", team: selectedTeam.abbr, limit: 300 }),
@@ -6104,28 +6134,19 @@ export default function App() {
         fetchPitchingAuditSummary({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 1000 }),
       ]);
       if (cancelled) return;
+      // Fall back to the cached slice for any leg that failed, so a transient
+      // revalidation error never blanks out a working view.
+      const next: ClubContextPayload = {
+        games: gameResult.status === "fulfilled" ? gameResult.value.games : (cached?.games ?? []),
+        profiles: profileResult.status === "fulfilled" ? profileResult.value : (cached?.profiles ?? null),
+        auditSummary: auditResult.status === "fulfilled" ? auditResult.value : (cached?.auditSummary ?? null),
+      };
+      // Only cache once the primary games fetch succeeds, so a failed load never
+      // poisons the cache with an empty catalog (and a retry re-fetches cleanly).
       if (gameResult.status === "fulfilled") {
-        const gamePayload = gameResult.value;
-        setGames(gamePayload.games);
-        setSelectedGameId((current) => {
-          // Share mode pins the granted game even if it's outside the
-          // recent-games window (Phase JJ.3b).
-          if (current && (shareMode || gamePayload.games.some((game) => game.game_id === current))) return current;
-          return gamePayload.games[0]?.game_id ?? null;
-        });
-      } else {
-        setGames([]);
+        setCachedClubContext(cacheKey, next);
       }
-      if (profileResult.status === "fulfilled") {
-        setProfilesPayload(profileResult.value);
-      } else {
-        setProfilesPayload(null);
-      }
-      if (auditResult.status === "fulfilled") {
-        setAuditSummary(auditResult.value);
-      } else {
-        setAuditSummary(null);
-      }
+      applyClubContext(next);
       setClubLoading(false);
     }
     void loadClubContext();

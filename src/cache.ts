@@ -11,12 +11,37 @@
 // the user picked the in-memory option for simplicity and freshness).
 
 import type {
+  EnterpriseGameSummary,
+  PitcherProfilesPayload,
+  PitchingAuditSummaryPayload,
   PitchingGameRecap,
   PitchingReplayResponse,
 } from "./types";
 
 const replayCache = new Map<string, PitchingReplayResponse>();
 const recapCache = new Map<string, PitchingGameRecap>();
+
+// Per-team (keyed by `${team}:${season}`) club context — the games catalog +
+// pitcher profiles + audit summary loaded on every team switch. These are
+// stable enough within a session that re-selecting a team should render
+// instantly from cache while a background revalidation refreshes it
+// (stale-while-revalidate). Same module-scoped, cleared-on-reload lifetime as
+// the replay/recap caches above.
+export interface ClubContextPayload {
+  games: EnterpriseGameSummary[];
+  profiles: PitcherProfilesPayload | null;
+  auditSummary: PitchingAuditSummaryPayload | null;
+}
+
+const clubContextCache = new Map<string, ClubContextPayload>();
+
+export function getCachedClubContext(key: string): ClubContextPayload | undefined {
+  return clubContextCache.get(key);
+}
+
+export function setCachedClubContext(key: string, payload: ClubContextPayload): void {
+  clubContextCache.set(key, payload);
+}
 
 export function getCachedReplay(gameId: string): PitchingReplayResponse | undefined {
   return replayCache.get(gameId);
