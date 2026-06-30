@@ -463,8 +463,13 @@ function normalizedPitchKey(value: string | null | undefined): string {
 function scorebookChain(description: string | null | undefined): string | null {
   const text = String(description || "").toLowerCase();
   if (!text) return null;
+  // Order fielders by where they appear in the play description (the order the ball
+  // traveled), NOT by position number — so a 3B->1B groundout reads "5-3" (not "3-5")
+  // and a SS->2B->1B double play reads "6-4-3" (not "3-4-6").
   const matches = Object.entries(POSITION_CODES)
-    .filter(([label]) => text.includes(label))
+    .map(([label, code]): [number, string] => [text.indexOf(label), code])
+    .filter(([index]) => index >= 0)
+    .sort((a, b) => a[0] - b[0])
     .map(([, code]) => code);
   const unique = matches.filter((code, index) => matches.indexOf(code) === index);
   if (unique.length >= 2) return `${unique.slice(0, 3).join("-")} putout`;
