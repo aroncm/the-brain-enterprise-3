@@ -761,12 +761,14 @@ function factorVsLeague(
   const a = num(actual);
   if (a == null || reference <= 0) return null;
   const delta = (a - reference) / reference;
-  // Bar fill stays league-anchored: how far below (high-good) or above
-  // (low-good) the league reference. 0 = at or better; 1 = significantly
-  // worse. Clamp to ±0.5 so the bar doesn't peg on single-pitch noise.
+  // Bar/tick axis is centered on the league (0.5): everything BETTER than the
+  // league fills the left half, everything WORSE fills the right half. This
+  // gives the better-than-league side real width so good values are visible
+  // and better-than-league baseline ticks no longer collapse onto the league
+  // tick. Clamp delta to ±0.5 so a single-pitch outlier doesn't peg the bar.
   const clamped = Math.max(-0.5, Math.min(0.5, delta));
   const concern = direction === "high-good" ? -clamped : clamped;
-  const scaledPercent = Math.max(0, Math.min(1, concern + 0.1));
+  const scaledPercent = Math.max(0, Math.min(1, concern + 0.5));
   // Color: when the backend has surfaced the pitcher's OWN season baseline,
   // grade the color against it first — green = at/above his baseline
   // (performing at or above his own norm), red = below the league average,
@@ -824,7 +826,7 @@ function dualTicks(
   leagueRef: number,
   direction: "high-good" | "low-good",
 ): Array<{ percent: number; label?: string }> {
-  const LEAGUE_PERCENT = 0.1;
+  const LEAGUE_PERCENT = 0.5;
   const baselineCmp = factorVsLeague(pitcherNorm, leagueRef, direction);
   if (baselineCmp == null) {
     return [{ percent: LEAGUE_PERCENT, label: "league" }];
@@ -2019,7 +2021,7 @@ function GaugeMetric({
           <span>{label}</span>
           {roleClass && resolvedRole ? <b className={roleClass}>{factorRoleLabel(resolvedRole)}</b> : null}
         </div>
-        <strong>{value}</strong>
+        <strong style={tone !== "neutral" ? { color: factorToneColor(tone) } : undefined}>{value}</strong>
       </div>
       {percent != null ? (
         <div className={trackClass} aria-hidden="true">
