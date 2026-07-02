@@ -4283,6 +4283,7 @@ function GameAudit({
   replay,
   recap,
   preventableRows,
+  preventableRowsLoading = false,
   live = false,
 }: {
   team: Team;
@@ -4295,6 +4296,7 @@ function GameAudit({
   replay: PitchingReplayResponse | null;
   recap: PitchingGameRecap | null;
   preventableRows: PreventableRunsOpportunityRow[];
+  preventableRowsLoading?: boolean;
   // Live Dugout mode: follow the latest pitch on each 30s refresh and hide the
   // postgame-only Actual Outcome Summary (its data is absent until the game ends).
   live?: boolean;
@@ -5231,7 +5233,7 @@ function GameAudit({
                           })()}
                           <div className="signal-summary-preventable ring-tip-host" tabIndex={0}>
                             <span className="signal-summary-ring__label">Preventable Runs</span>
-                            <strong className="decision-score-value decision-score-value--amber">{fmtRuns(selectedPreventableRuns)}</strong>
+                            <strong className="decision-score-value decision-score-value--amber">{selectedPreventableRuns == null && preventableRowsLoading ? "Loading…" : fmtRuns(selectedPreventableRuns)}</strong>
                             <div className="ring-tip-bubble" role="tooltip">
                               <strong>Preventable Runs.</strong> {selectedOpportunity ? "Estimated runs saved by pulling at this pitch versus letting the appearance continue." : "Not attached to this pitch window."}
                             </div>
@@ -6188,6 +6190,7 @@ export default function App() {
   });
   const {
     payload: auditPreventableRuns,
+    loading: auditPreventableRunsLoading,
     reload: reloadAuditPreventableRuns,
   } = usePreventableRunsOpportunities({
     season,
@@ -6481,6 +6484,7 @@ export default function App() {
             replay={replay}
             recap={recap}
             preventableRows={auditPreventableRuns?.rows ?? []}
+            preventableRowsLoading={auditPreventableRunsLoading}
           />
         )}
 
