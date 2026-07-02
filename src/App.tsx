@@ -1450,6 +1450,28 @@ function batterHandedness(snapshot: PitchingReplayEntry["snapshot"]): "L" | "R" 
   return null;
 }
 
+// Pitcher throwing hand from the active pitcher state (starter/reliever), so the
+// pitcher name can carry the same L/R badge as the batter.
+function pitcherHandedness(entry: PitchingReplayEntry): "L" | "R" | null {
+  const raw = ((replayState(entry) as { pitcher_hand?: string | null } | null)?.pitcher_hand || "")
+    .trim()
+    .toUpperCase();
+  if (raw === "L" || raw === "R") return raw;
+  return null;
+}
+
+// Current batter's lineup slot. The at-bat batter isn't in the upcoming pocket,
+// but the pocket's next hitter carries batting_order_slot and the order cycles
+// 1..9 — so the current slot is the next slot minus one (wrapping 1 -> 9).
+function batterBattingOrder(entry: PitchingReplayEntry): number | null {
+  const hitters = (entry.snapshot.upcoming_hitter_pocket?.hitters ?? []) as Array<{
+    batting_order_slot?: number | null;
+  }>;
+  const nextSlot = hitters.length ? num(hitters[0]?.batting_order_slot) : null;
+  if (nextSlot == null || nextSlot < 1 || nextSlot > 9) return null;
+  return nextSlot === 1 ? 9 : nextSlot - 1;
+}
+
 function gameSituationLabel(entry: PitchingReplayEntry): string {
   return `${halfInningLabel(entry.snapshot.half, entry.snapshot.inning)} · ${outsLabel(entry.snapshot.outs)} · ${baseStateLabel(entry.snapshot.base_state)}`;
 }
@@ -4855,7 +4877,7 @@ function GameAudit({
                   * of the left column, directly under the team-accent border. */}
                 <section className="pws-section pws-pitcher-head">
                   <span className="pws-pitcher-head__eyebrow">{selectedIsReliever ? "Reliever" : "Starting Pitcher"}</span>
-                  <strong className="pws-pitcher-head__name">{displayPersonName(selected.snapshot.pitcher_name)}</strong>
+                  <strong className="pws-pitcher-head__name">{displayPersonName(selected.snapshot.pitcher_name)}{pitcherHandedness(selected) ? <span className="pws-batter__hand" style={{ marginLeft: 8 }}>{pitcherHandedness(selected)}H</span> : null}</strong>
                 </section>
                 <section className="pws-section pws-pitcher-section">
                   <div className="pws-stats">
@@ -4889,6 +4911,14 @@ function GameAudit({
                     {batterHandedness(selected.snapshot) ? (
                       <span className="pws-batter__hand">{batterHandedness(selected.snapshot)}H</span>
                     ) : null}
+                    {(() => {
+                      const slot = batterBattingOrder(selected);
+                      return slot != null ? (
+                        <span className="pws-batter__order" style={{ marginLeft: 8, fontWeight: 500, opacity: 0.8 }}>
+                          Batting {ordinal(slot)}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                 </section>
 
