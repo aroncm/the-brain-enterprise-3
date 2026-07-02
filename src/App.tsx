@@ -1646,7 +1646,9 @@ function exitAndDamageCopy(pitcher: PitchingRecapPitcher | null): string {
       : `Starter was pulled in the ${ordinal(pitcher.actual_exit_inning)} at pitch ${pitcher.actual_exit_pitch_count ?? "—"}`;
   const runs =
     pitcher.runs_allowed_after_signal == null
-      ? "runs after the model signal unavailable"
+      ? pitcher.first_pull_now_inning == null
+        ? "runs after the model signal are N/A (no Pull Now fired)"
+        : "runs after the model signal unavailable"
       : `${pitcher.runs_allowed_after_signal} run${pitcher.runs_allowed_after_signal === 1 ? "" : "s"} scored after the model signal`;
   const pitchesAfter = looseNumber(pitcher, ["pitches_after_signal", "pitchesAfterSignal"]);
   const battersAfter = looseNumber(pitcher, ["batters_after_signal", "battersAfterSignal"]);
@@ -4448,6 +4450,31 @@ function GameAudit({
   const starterDisplayStatuses = useMemo(() => monotonicStatuses(starterEntries), [starterEntries]);
   const starterPullIndex = starterDisplayStatuses.findIndex((status) => statusRank(status) >= statusRank("PULL NOW"));
   const starterPullEntry = starterPullIndex >= 0 ? starterEntries[starterPullIndex] ?? null : null;
+  // Plain-English "Why It Fired" copy for a starter the model never flagged for
+  // a pull, so the card reads as a legitimate "no Pull Now" outcome (N/A) rather
+  // than an error. Peak signal = the top status reached across the outing.
+  const noPullNowExplanation = ((): string => {
+    let peakIdx = -1;
+    let peakRank = -1;
+    starterDisplayStatuses.forEach((status, i) => {
+      const r = statusRank(status);
+      if (r > peakRank) {
+        peakRank = r;
+        peakIdx = i;
+      }
+    });
+    const peakStatus = peakIdx >= 0 ? starterDisplayStatuses[peakIdx] : null;
+    const peakInning = peakIdx >= 0 ? num(starterEntries[peakIdx]?.snapshot?.inning) : null;
+    const peakClause =
+      peakStatus && statusRank(peakStatus) >= statusRank("WATCH")
+        ? `peak signal was ${statusLabel(peakStatus)}${peakInning != null ? ` in the ${ordinal(peakInning)}` : ""}`
+        : "the model never flagged pull pressure";
+    const pullClause =
+      keyPitcher?.actual_exit_inning != null
+        ? ` He was pulled in the ${ordinal(keyPitcher.actual_exit_inning)} at pitch ${keyPitcher.actual_exit_pitch_count ?? "—"}.`
+        : "";
+    return `The model never reached Pull Now for this starter — ${peakClause}.${pullClause}`;
+  })();
   const hasWatchSignal = statusRank(displayStatus) >= statusRank("WATCH");
   const reliefOptions = reliefCandidatesThroughPitch(entries, selectedIndex, selected);
   const bestCandidate = reliefOptions.find((candidate) => candidate.available) ?? reliefOptions[0] ?? null;
@@ -5527,7 +5554,7 @@ function GameAudit({
                           <div className="pull-meter-track" aria-hidden="true">
                             <i style={{ width: `${hookPct ?? 0}%` }} />
                           </div>
-                          <b className="pull-meter-value">{hookPct == null ? UNAVAILABLE : `${hookPct}%`}</b>
+                          <b className="pull-meter-value">{hookPct == null ? (starterPullIndex < 0 ? "N/A" : UNAVAILABLE) : `${hookPct}%`}</b>
                           <em className="pull-meter-tagline">Cumulative peak of the pull-pressure composite through the pull pitch. Same value as the Signal Summary Hook Score ring at that moment.</em>
                         </li>
                         <li>
@@ -5535,7 +5562,7 @@ function GameAudit({
                           <div className="pull-meter-track" aria-hidden="true">
                             <i style={{ width: `${degPct ?? 0}%` }} />
                           </div>
-                          <b className="pull-meter-value">{degPct == null ? UNAVAILABLE : `${degPct}%`}</b>
+                          <b className="pull-meter-value">{degPct == null ? (starterPullIndex < 0 ? "N/A" : UNAVAILABLE) : `${degPct}%`}</b>
                           <em className="pull-meter-tagline">Pitcher-only degradation cumulative peak through the pull pitch. Ignores leverage and relief alternatives.</em>
                         </li>
                         <li>
@@ -5543,7 +5570,7 @@ function GameAudit({
                           <div className="pull-meter-track" aria-hidden="true">
                             <i style={{ width: `${adjPct ?? 0}%` }} />
                           </div>
-                          <b className="pull-meter-value">{adjPct == null ? UNAVAILABLE : `${adjPct}%`}</b>
+                          <b className="pull-meter-value">{adjPct == null ? (starterPullIndex < 0 ? "N/A" : UNAVAILABLE) : `${adjPct}%`}</b>
                           {/* Phase FF.2 — the "If left in: peak by end of
                             * appearance N%" suffix is gone; its <strong>
                             * rendered as a huge unattached percentage at the
@@ -5559,7 +5586,7 @@ function GameAudit({
               </div>
               <div className="outcome-card">
                 <strong className="outcome-card__title">Why It Fired</strong>
-                <p>{replayRecommendationSummary(starterPullEntry ?? null)}</p>
+                <p>{starterPullIndex >= 0 ? replayRecommendationSummary(starterPullEntry ?? null) : noPullNowExplanation}</p>
               </div>
               <div className="outcome-card">
                 <strong className="outcome-card__title">Actual Result</strong>
