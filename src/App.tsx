@@ -756,19 +756,24 @@ function factorVsLeague(
   reference: number,
   direction: "high-good" | "low-good",
   pitcherNorm: number | null | undefined = null,
+  axisMax: number | null = null,
   graceFraction: number = 0.1,
 ): FactorVsReference | null {
   const a = num(actual);
   if (a == null || reference <= 0) return null;
   const delta = (a - reference) / reference;
-  // Bar/tick axis is centered on the league (0.5): everything BETTER than the
-  // league fills the left half, everything WORSE fills the right half. This
-  // gives the better-than-league side real width so good values are visible
-  // and better-than-league baseline ticks no longer collapse onto the league
-  // tick. Clamp delta to ±0.5 so a single-pitch outlier doesn't peg the bar.
+  // Bar/tick axis is a FACTUAL value scale: position = value / axisMax, so the
+  // fill and every tick sit at their real magnitude (a 7% whiff is near the
+  // left; its 11% league tick and 8% baseline tick land at their true spots).
+  // The league therefore sits at its real fraction of the scale, never a forced
+  // midpoint. When no axisMax is supplied we fall back to a league-centered
+  // deviation axis (clamped ±0.5 so a single-pitch outlier can't peg the bar).
   const clamped = Math.max(-0.5, Math.min(0.5, delta));
   const concern = direction === "high-good" ? -clamped : clamped;
-  const scaledPercent = Math.max(0, Math.min(1, concern + 0.5));
+  const scaledPercent =
+    axisMax && axisMax > 0
+      ? Math.max(0, Math.min(1, a / axisMax))
+      : Math.max(0, Math.min(1, concern + 0.5));
   // Color: when the backend has surfaced the pitcher's OWN season baseline,
   // grade the color against it first — green = at/above his baseline
   // (performing at or above his own norm), red = below the league average,
@@ -824,17 +829,24 @@ function factorVsLeagueTone(
 function dualTicks(
   pitcherNorm: number | null | undefined,
   leagueRef: number,
-  direction: "high-good" | "low-good",
+  axisMax: number,
 ): Array<{ percent: number; label?: string }> {
-  const LEAGUE_PERCENT = 0.5;
-  const baselineCmp = factorVsLeague(pitcherNorm, leagueRef, direction);
-  if (baselineCmp == null) {
-    return [{ percent: LEAGUE_PERCENT, label: "league" }];
+  // Factual placement: each tick sits at its real value / axisMax, matching the
+  // bar fill. The league tick lands wherever the league number actually falls
+  // on the scale (e.g. 11% whiff → 44% of a 0.25 scale), not a fixed midpoint.
+  const pos = (v: number) => Math.max(0, Math.min(1, v / axisMax));
+  const leaguePercent = pos(leagueRef);
+  const n = num(pitcherNorm);
+  if (n == null) {
+    return [{ percent: leaguePercent, label: "league" }];
   }
-  const overlap = Math.abs(baselineCmp.scaledPercent - LEAGUE_PERCENT) < 0.10;
+  const basePercent = pos(n);
+  // When the two ticks land within ~8% of the bar their ::after labels would
+  // overlap — keep both ticks but drop the league LABEL so they stay legible.
+  const overlap = Math.abs(basePercent - leaguePercent) < 0.08;
   return [
-    { percent: LEAGUE_PERCENT, label: overlap ? "" : "league" },
-    { percent: baselineCmp.scaledPercent, label: "baseline" },
+    { percent: leaguePercent, label: overlap ? "" : "league" },
+    { percent: basePercent, label: "baseline" },
   ];
 }
 
@@ -1225,6 +1237,21 @@ const REPLAY_RATE_BENCHMARKS = {
   zoneMiss: 0.35,
   commandSpread: 0.55,
   pitchMixDrift: 0.30,
+};
+
+// Factual full-scale ceiling per factor: the meter plots value / ceiling, so
+// fill + ticks sit at their true magnitude and the league lands at its real
+// fraction of the scale (not a forced midpoint). Ceilings are set a comfortable
+// margin above the realistic max so the working range (league ± baseline ±
+// current) spreads across the bar instead of clustering.
+const FACTOR_AXIS_MAX = {
+  swingingStrike: 0.25,
+  strike: 1.0,
+  calledStrike: 0.3,
+  chase: 0.45,
+  hardContact: 0.75,
+  zoneMiss: 1.2,
+  commandSpread: 2.5,
 };
 
 function highGoodTone(value: number | null | undefined, benchmark: number): "neutral" | "good" | "gold" | "prep" | "bad" {
@@ -5209,46 +5236,46 @@ function GameAudit({
                           // pitcher-norm tick is dropped here because the exposed norm
                           // is called-strike-based and would mislead on this scale.
                           const trueStrikeRate = selectedState?.ball_rate_10 == null ? null : Math.max(0, Math.min(1, 1 - selectedState.ball_rate_10));
-                          const cmp = factorVsLeague(trueStrikeRate, REPLAY_RATE_BENCHMARKS.strike, "high-good");
-                          return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(trueStrikeRate)} detail={`Share of the last 10 pitches not taken for balls. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.`} percent={cmp?.scaledPercent} benchmarks={dualTicks(null, REPLAY_RATE_BENCHMARKS.strike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          const cmp = factorVsLeague(trueStrikeRate, REPLAY_RATE_BENCHMARKS.strike, "high-good", null, FACTOR_AXIS_MAX.strike);
+                          return <GaugeMetric label="Strike Rate (last 10 pitches)" value={fmtRate(trueStrikeRate)} detail={`Share of the last 10 pitches not taken for balls. League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.strike)}.`} percent={cmp?.scaledPercent} benchmarks={dualTicks(null, REPLAY_RATE_BENCHMARKS.strike, FACTOR_AXIS_MAX.strike)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good", selectedState?.pitcher_norm_called_strike_rate);
+                          const cmp = factorVsLeague(selectedState?.called_strike_rate_15, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good", selectedState?.pitcher_norm_called_strike_rate, FACTOR_AXIS_MAX.calledStrike);
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, fmtRate);
-                          return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Called-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.called_strike_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.calledStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_called_strike_rate, REPLAY_RATE_BENCHMARKS.calledStrike, FACTOR_AXIS_MAX.calledStrike)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good", selectedState?.pitcher_norm_whiff_rate);
+                          const cmp = factorVsLeague(selectedState?.whiff_rate_15, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good", selectedState?.pitcher_norm_whiff_rate, FACTOR_AXIS_MAX.swingingStrike);
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, fmtRate);
-                          return <GaugeMetric label="Swinging-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.whiff_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Swinging-Strike Rate (last 15 pitches)" value={fmtRate(selectedState?.whiff_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.swingingStrike)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_whiff_rate, REPLAY_RATE_BENCHMARKS.swingingStrike, FACTOR_AXIS_MAX.swingingStrike)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                       </div>
                       <div className="model-detail-col">
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact, "low-good", selectedState?.pitcher_norm_hard_contact_rate);
+                          const cmp = factorVsLeague(selectedState?.hard_contact_rate_15, REPLAY_RATE_BENCHMARKS.hardContact, "low-good", selectedState?.pitcher_norm_hard_contact_rate, FACTOR_AXIS_MAX.hardContact);
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, fmtRate);
-                          return <GaugeMetric label="Hard Contact (last 15 pitches)" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Hard Contact (last 15 pitches)" value={fmtRate(selectedState?.hard_contact_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.hardContact)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_hard_contact_rate, REPLAY_RATE_BENCHMARKS.hardContact, FACTOR_AXIS_MAX.hardContact)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good", selectedState?.pitcher_norm_zone_miss_distance);
+                          const cmp = factorVsLeague(selectedState?.zone_miss_distance_10, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good", selectedState?.pitcher_norm_zone_miss_distance, FACTOR_AXIS_MAX.zoneMiss);
                           const zoneFmt = (v: number) => `${fmtNumber(v, 2)} ft`;
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, zoneFmt);
-                          return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Zone Miss (last 10 pitches)" value={`${fmtNumber(selectedState?.zone_miss_distance_10, 2)} ft`} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.zoneMiss, 2)} ft.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_zone_miss_distance, REPLAY_RATE_BENCHMARKS.zoneMiss, FACTOR_AXIS_MAX.zoneMiss)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.location_dispersion_10, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good", selectedState?.pitcher_norm_location_dispersion);
+                          const cmp = factorVsLeague(selectedState?.location_dispersion_10, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good", selectedState?.pitcher_norm_location_dispersion, FACTOR_AXIS_MAX.commandSpread);
                           const dispFmt = (v: number) => fmtNumber(v, 2);
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, dispFmt);
-                          return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, "low-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Command Spread (last 10 pitches)" value={fmtNumber(selectedState?.location_dispersion_10, 2)} detail={`League avg ${fmtNumber(REPLAY_RATE_BENCHMARKS.commandSpread, 2)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_location_dispersion, REPLAY_RATE_BENCHMARKS.commandSpread, FACTOR_AXIS_MAX.commandSpread)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                         {/* Phase V.11 — Chase Rate Proxy moved from the
                           * left column to the right column so columns
                           * split 3/4 and Command Spread (right row 3)
                           * aligns with Swinging-Strike (left row 3). */}
                         {(() => {
-                          const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good", selectedState?.pitcher_norm_chase_proxy_rate);
+                          const cmp = factorVsLeague(selectedState?.chase_proxy_rate_15, REPLAY_RATE_BENCHMARKS.chase, "high-good", selectedState?.pitcher_norm_chase_proxy_rate, FACTOR_AXIS_MAX.chase);
                           const baselinePhrase = pitcherBaselinePhrase(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, fmtRate);
-                          return <GaugeMetric label="Chase Rate Proxy (last 15 pitches)" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, "high-good")} tone={factorVsLeagueTone(cmp)} role={null} />;
+                          return <GaugeMetric label="Chase Rate Proxy (last 15 pitches)" value={fmtRate(selectedState?.chase_proxy_rate_15)} detail={`League avg ${fmtRate(REPLAY_RATE_BENCHMARKS.chase)}.${baselinePhrase}`} percent={cmp?.scaledPercent} benchmarks={dualTicks(selectedState?.pitcher_norm_chase_proxy_rate, REPLAY_RATE_BENCHMARKS.chase, FACTOR_AXIS_MAX.chase)} tone={factorVsLeagueTone(cmp)} role={null} />;
                         })()}
                       </div>
                     </div>
