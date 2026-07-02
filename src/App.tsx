@@ -2513,6 +2513,7 @@ function useRunSavingBoard({ league, team, limit, enabled = true }: { league: "m
       setPayload(data);
       setCachedRunSavingBoard(cacheKey, data);
       setLoadState("ready");
+      return true;
     } catch (caught) {
       if (caught instanceof ApiConfigurationError) {
         setLoadState("missing-config");
@@ -2520,6 +2521,7 @@ function useRunSavingBoard({ league, team, limit, enabled = true }: { league: "m
         setError(caught instanceof Error ? caught.message : String(caught));
         setLoadState("error");
       }
+      return false;
     }
   }, [league, team, limit, cacheKey]);
 
@@ -2535,9 +2537,25 @@ function useRunSavingBoard({ league, team, limit, enabled = true }: { league: "m
       setPayload(cached);
       setLoadState("ready");
       void fetchAndStore(false);
-    } else {
-      void fetchAndStore(true);
+      return;
     }
+    // First visit: a cold Modal start can time the board fetch out and leave the
+    // "error"/"Warming up…" pill stuck on an otherwise-loaded page. Retry in the
+    // background (only the first attempt surfaces the pill) so it self-heals once
+    // the service warms, instead of lingering until a manual refresh.
+    let cancelled = false;
+    let attempt = 0;
+    const run = async () => {
+      const ok = await fetchAndStore(attempt === 0);
+      attempt += 1;
+      if (!ok && !cancelled && attempt <= 4) {
+        window.setTimeout(run, Math.min(8000, 1500 * attempt));
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchAndStore, enabled, cacheKey]);
 
   return { loadState, payload, error, reload: () => fetchAndStore(true) };
