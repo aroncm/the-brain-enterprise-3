@@ -436,7 +436,7 @@ export function savePitchingRecapSettings(
 }
 
 export function sendPitchingRecapEmail(
-  params: { game_id: string; team: string; recipient?: string; send?: boolean },
+  params: { game_id: string; team: string; recipient?: string; recipients?: string[]; send?: boolean },
   league: "mlb" | "triple_a" = "mlb",
 ): Promise<PitchingRecapEmailResponse> {
   return fetchJson<PitchingRecapEmailResponse>(`/v1/pitching/recap-email?league=${league}`, {

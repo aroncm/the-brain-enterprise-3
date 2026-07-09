@@ -6004,6 +6004,43 @@ function BriefingSettings({
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
+  // Manual one-off send: a popup collects explicit addresses so the send goes
+  // ONLY to them, never the team's automated recipient list.
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [recipientInput, setRecipientInput] = useState("");
+  const [recipientError, setRecipientError] = useState<string | null>(null);
+
+  async function handleSendCustom() {
+    if (!selectedGameId) return;
+    const addresses = recipientInput.split(/[,\n;]+/).map((s: string) => s.trim()).filter(Boolean);
+    if (addresses.length === 0) {
+      setRecipientError("Enter at least one email address.");
+      return;
+    }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = addresses.filter((a: string) => !emailPattern.test(a));
+    if (invalid.length > 0) {
+      setRecipientError(`Invalid address${invalid.length > 1 ? "es" : ""}: ${invalid.join(", ")}`);
+      return;
+    }
+    setRecipientError(null);
+    setSending(true);
+    setPreviewStatus(`Sending briefing to ${addresses.join(", ")}...`);
+    try {
+      const response = await sendPitchingRecapEmail(
+        { game_id: selectedGameId, team: team.abbr, recipients: addresses, send: true },
+        "mlb",
+      );
+      setPreviewResponse(response);
+      const sentTo = response.sent_to?.length ? response.sent_to.join(", ") : addresses.join(", ");
+      setPreviewStatus(response.sent ? `Briefing sent to ${sentTo}.` : "Briefing generated, but no email was sent.");
+      setShowSendModal(false);
+    } catch (caught) {
+      setRecipientError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function handleGenerate(send: boolean) {
     if (!selectedGameId) return;
@@ -6093,10 +6130,14 @@ function BriefingSettings({
           <button
             type="button"
             className="briefing-action"
-            onClick={() => void handleGenerate(true)}
+            onClick={() => {
+              setRecipientInput("");
+              setRecipientError(null);
+              setShowSendModal(true);
+            }}
             disabled={generating || sending || !selectedGameId}
           >
-            {sending ? "Sending..." : "Send Email"}
+            Send Email
           </button>
           <button
             type="button"
@@ -6125,6 +6166,53 @@ function BriefingSettings({
           {/* Phase MM.1 — delivery settings moved to Admin → Recipients
             * (Supabase). The old in-page settings panel was removed. */}
         </div>
+
+        {showSendModal ? (
+          <div
+            className="briefing-modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Send briefing to specific addresses"
+            onClick={() => {
+              if (!sending) setShowSendModal(false);
+            }}
+          >
+            <div className="briefing-modal" onClick={(e) => e.stopPropagation()}>
+              <h3 className="briefing-modal__title">Send Briefing</h3>
+              <p className="briefing-modal__sub">
+                Sends only to the addresses below — not the team's automated recipient list. Separate multiple
+                addresses with commas or new lines.
+              </p>
+              <textarea
+                className="briefing-modal__input"
+                placeholder="email@example.com, another@example.com"
+                value={recipientInput}
+                onChange={(e) => setRecipientInput(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+              {recipientError ? <p className="briefing-modal__error">{recipientError}</p> : null}
+              <div className="briefing-modal__actions">
+                <button
+                  type="button"
+                  className="briefing-action"
+                  onClick={() => setShowSendModal(false)}
+                  disabled={sending}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="briefing-action briefing-action--primary"
+                  onClick={() => void handleSendCustom()}
+                  disabled={sending}
+                >
+                  {sending ? "Sending..." : "Send"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {previewStatus ? <p className="briefing-status">{previewStatus}</p> : null}
 

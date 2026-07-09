@@ -18163,6 +18163,77 @@ body.audit-immersive .app-main {
   color: #a0a0a0;
 }
 
+/* Manual "Send Email" recipient popup — one-off sends to explicit addresses,
+ * never the team's automated recipient list. */
+.theme-mobian .briefing-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.theme-mobian .briefing-modal {
+  width: 100%;
+  max-width: 460px;
+  padding: 22px 22px 18px;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+  background: #101010;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-mobian .briefing-modal__title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.theme-mobian .briefing-modal__sub {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #9a9a9a;
+}
+
+.theme-mobian .briefing-modal__input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.theme-mobian .briefing-modal__input:focus {
+  outline: none;
+  border-color: #2ec4a0;
+}
+
+.theme-mobian .briefing-modal__error {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: #e0705f;
+}
+
+.theme-mobian .briefing-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 /* Delivery Settings (rendered behind the Delivery Settings tab) */
 .theme-mobian .legacy-settings-form {
   display: flex;
