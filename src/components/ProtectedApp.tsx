@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Login } from "../pages/Login";
+import { ScorecardShare } from "./ScorecardShare";
 
 export function ProtectedApp({ children }: { children: ReactNode }) {
   const { session, profile, loading, profileLoading, needsPasswordSetup } = useAuth();
@@ -12,6 +13,15 @@ export function ProtectedApp({ children }: { children: ReactNode }) {
   const shareParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   if (shareParams.get("view") === "shared-replay" && (shareParams.get("grant") || "").trim()) {
     return <>{children}</>;
+  }
+
+  // Model Scorecard share link — public, no-login embed of the standalone
+  // abs-live-signal dashboard. Unlike shared-replay above, this never renders
+  // App/children at all: it's a flat iframe onto a separate, self-contained
+  // Modal-hosted page, so no platform chrome, nav, or session state is ever
+  // reachable through this URL.
+  if (shareParams.get("view") === "scorecard") {
+    return <ScorecardShare token={shareParams.get("token") || ""} />;
   }
 
   if (loading) {

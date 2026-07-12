@@ -16,7 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 type Team = { abbr: string; name: string };
-type Tab = "users" | "recipients";
+type Tab = "users" | "recipients" | "scorecard";
 
 export function AdminPage({ allTeams }: { allTeams: Team[] }) {
   const [tab, setTab] = useState<Tab>("users");
@@ -42,10 +42,63 @@ export function AdminPage({ allTeams }: { allTeams: Team[] }) {
           >
             Recipients
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "scorecard"}
+            className={`admin-tab${tab === "scorecard" ? " admin-tab--active" : ""}`}
+            onClick={() => setTab("scorecard")}
+          >
+            Scorecard
+          </button>
         </header>
-        {tab === "users" ? <UsersTab allTeams={allTeams} /> : <RecipientsTab allTeams={allTeams} />}
+        {tab === "users" ? <UsersTab allTeams={allTeams} /> : null}
+        {tab === "recipients" ? <RecipientsTab allTeams={allTeams} /> : null}
+        {tab === "scorecard" ? <ScorecardTab /> : null}
       </article>
     </section>
+  );
+}
+
+// Public, no-login share link for the Model Scorecard — a flat iframe onto the
+// standalone abs-live-signal Modal dashboard (see ScorecardShare.tsx / the
+// `?view=scorecard&token=` bypass in ProtectedApp). Sharing this URL never
+// exposes anything else on the platform: the bypass renders ScorecardShare
+// directly and skips App/session state entirely.
+const SCORECARD_SHARE_TOKEN = "wRrlQUytXqd9qbLF6Pk6yA";
+
+function ScorecardTab() {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = `${window.location.origin}/?view=scorecard&token=${SCORECARD_SHARE_TOKEN}`;
+
+  const copyLink = useCallback(() => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [shareUrl]);
+
+  return (
+    <div className="admin-scorecard-tab">
+      <p>
+        Share this link with anyone who needs the Model Scorecard — it needs no login and shows
+        only the scorecard dashboard, never the rest of the platform.
+      </p>
+      <div className="admin-scorecard-link-row">
+        <input type="text" readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
+        <button type="button" onClick={copyLink}>
+          {copied ? "Copied!" : "Copy link"}
+        </button>
+        <a href={shareUrl} target="_blank" rel="noopener noreferrer">
+          Open
+        </a>
+      </div>
+      <iframe
+        src={shareUrl}
+        title="Model Scorecard preview"
+        style={{ width: "100%", height: "70vh", border: "1px solid #2A2A2A", borderRadius: 8, marginTop: 12 }}
+      />
+    </div>
   );
 }
 
