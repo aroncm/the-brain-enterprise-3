@@ -70,6 +70,10 @@ const SCORECARD_SHARE_TOKEN = "wRrlQUytXqd9qbLF6Pk6yA";
 function ScorecardTab() {
   const [copied, setCopied] = useState(false);
   const shareUrl = `${window.location.origin}/?view=scorecard&token=${SCORECARD_SHARE_TOKEN}`;
+  // The preview must embed the Modal dashboard DIRECTLY: this app's own host
+  // refuses to be iframed, so pointing the preview at shareUrl renders a
+  // browser "refused to connect" placeholder instead of the scorecard.
+  const dashboardUrl = scorecardDashboardUrl(SCORECARD_SHARE_TOKEN);
 
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -78,25 +82,46 @@ function ScorecardTab() {
     });
   }, [shareUrl]);
 
+  const controlStyle = {
+    background: "var(--paper-2)",
+    border: "1px solid var(--line-strong)",
+    borderRadius: 8,
+    color: "var(--navy)",
+    padding: "9px 14px",
+    font: "inherit",
+    fontSize: 13,
+  } as const;
+
   return (
-    <div className="admin-scorecard-tab">
-      <p>
+    <div className="admin-scorecard-tab" style={{ display: "grid", gap: 12 }}>
+      <p style={{ color: "var(--muted)", margin: 0 }}>
         Share this link with anyone who needs the Model Scorecard — it needs no login and shows
         only the scorecard dashboard, never the rest of the platform.
       </p>
-      <div className="admin-scorecard-link-row">
-        <input type="text" readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} />
-        <button type="button" onClick={copyLink}>
+      <div className="admin-scorecard-link-row" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <input
+          type="text"
+          readOnly
+          value={shareUrl}
+          onFocus={(e) => e.currentTarget.select()}
+          style={{ ...controlStyle, flex: "1 1 340px", minWidth: 260 }}
+        />
+        <button type="button" onClick={copyLink} style={{ ...controlStyle, cursor: "pointer", fontWeight: 600 }}>
           {copied ? "Copied!" : "Copy link"}
         </button>
-        <a href={shareUrl} target="_blank" rel="noopener noreferrer">
+        <a
+          href={shareUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ ...controlStyle, color: "var(--gold)", textDecoration: "none", fontWeight: 600 }}
+        >
           Open
         </a>
       </div>
       <iframe
-        src={shareUrl}
+        src={dashboardUrl}
         title="Model Scorecard preview"
-        style={{ width: "100%", height: "70vh", border: "1px solid #2A2A2A", borderRadius: 8, marginTop: 12 }}
+        style={{ width: "100%", height: "70vh", border: "1px solid var(--line-strong)", borderRadius: 12, background: "#0A0A0A" }}
       />
     </div>
   );

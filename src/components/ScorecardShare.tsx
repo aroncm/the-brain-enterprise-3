@@ -7,6 +7,14 @@ const LIVE_API_BASE = (
   viteEnv.VITE_LIVE_SIGNAL_API_BASE ?? "https://aroncm--abs-live-signal-fastapi-live-app.modal.run"
 ).replace(/\/+$/, "");
 
+// Direct URL of the Modal-hosted dashboard. The dashboard sends no
+// frame-blocking headers, so it can be iframed from anywhere; this app's own
+// host CANNOT be iframed (e.g. inside the Admin preview) — always embed this
+// URL, never the ?view=scorecard app URL.
+export function scorecardDashboardUrl(token: string): string {
+  return `${LIVE_API_BASE}/scorecard/shared/${encodeURIComponent(token.trim())}`;
+}
+
 export function ScorecardShare({ token }: { token: string }) {
   const cleanToken = token.trim();
 
@@ -23,9 +31,9 @@ export function ScorecardShare({ token }: { token: string }) {
 
   return (
     <iframe
-      src={`${LIVE_API_BASE}/scorecard/shared/${encodeURIComponent(cleanToken)}`}
+      src={scorecardDashboardUrl(cleanToken)}
       title="Baseball brAIn Model Scorecard"
-      style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh", border: "none" }}
+      style={{ position: "fixed", inset: 0, width: "100vw", height: "100vh", border: "none", background: "#0A0A0A" }}
     />
   );
 }
