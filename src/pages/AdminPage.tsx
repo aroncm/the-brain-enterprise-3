@@ -14,6 +14,7 @@ import {
   updateTeamRecipient,
 } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { scorecardDashboardUrl } from "../components/ScorecardShare";
 
 type Team = { abbr: string; name: string };
 type Tab = "users" | "recipients" | "scorecard";
