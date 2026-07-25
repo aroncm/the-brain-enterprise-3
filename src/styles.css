@@ -22492,3 +22492,195 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
   .theme-mobian .live-workflow .counterfactual-grid { grid-template-columns: 1fr; }
   .theme-mobian .live-outcome-score { font-size: 24px; }
 }
+
+/* ============================================================
+   M1 — Mobile Game Replay layer (phones, ≤640px).
+   The app's smallest pre-existing breakpoint is 760px, so nothing
+   in this block can change the current desktop/tablet experience.
+   Primary target: the shared-replay view opened from briefing
+   emails on a phone; applies to the logged-in audit view too.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* --- 1. Layout: release the fixed 520px center track and stack
+     the three replay columns into one, edge to edge. --- */
+  body.audit-immersive {
+    --replay-center-col: minmax(0, 1fr);
+  }
+  body.audit-immersive .replay-layout,
+  .theme-mobian .replay-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+    padding: 10px !important;
+  }
+  body.audit-immersive .replay-layout > *,
+  .theme-mobian .replay-layout > * {
+    min-width: 0 !important;
+  }
+
+  /* --- 2. Sticky top banner: wrap instead of 3 rigid zones so the
+     header stays short. Pitcher/season/game fields take the first
+     row; signal pill + dwell share the second. --- */
+  body.audit-immersive .signal-banner--3zone,
+  .signal-banner.signal-banner--3zone {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 6px 12px !important;
+    padding: 8px 12px !important;
+  }
+  .signal-banner--3zone .signal-banner__zone--left {
+    flex: 1 1 100%;
+    gap: 10px !important;
+  }
+  .signal-banner--3zone .signal-banner__zone--center {
+    flex: 1 1 auto;
+    justify-content: flex-start !important;
+  }
+  .signal-banner--3zone .signal-banner__zone--right {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  .signal-banner strong {
+    font-size: 26px !important;
+  }
+
+  /* --- 3. Rings: 4-across 152px row -> 2x2 with 96px rings. --- */
+  body.audit-immersive .signal-summary-rings,
+  .theme-mobian .signal-summary-rings {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px 8px !important;
+  }
+  body.audit-immersive .signal-summary-ring,
+  body.audit-immersive .signal-summary-preventable {
+    grid-template-rows: auto 110px !important;
+  }
+  .theme-mobian .degradation-ring,
+  .theme-mobian .degradation-ring--md,
+  .theme-mobian .degradation-ring--lg {
+    width: 96px !important;
+    height: 96px !important;
+  }
+  .theme-mobian .degradation-ring strong {
+    font-size: 20px !important;
+  }
+  body.audit-immersive .signal-summary-preventable .decision-score-value {
+    font-size: 24px !important;
+  }
+
+  /* --- 4. Factor gauges: single column for label/bar legibility. --- */
+  .theme-mobian .decision-gauge-grid,
+  .decision-gauge-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* --- 5. Transport controls: slider becomes a full-width top row
+     with a taller hit area; the four buttons form a 44px-minimum
+     second row. DOM order (Prev, slider, Autoplay, Next, Jump) is
+     re-placed via explicit rows, no markup change. --- */
+  .theme-mobian .pitch-controls,
+  .pitch-controls {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+    padding: 6px 10px 10px !important;
+  }
+  .pitch-controls input[type="range"] {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    width: 100% !important;
+    height: 32px;
+    margin: 0;
+  }
+  .pitch-controls button {
+    grid-row: 2;
+    min-height: 44px;
+    padding: 6px 4px !important;
+    font-size: 12px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* --- 6. Timeline: the desktop grid is repeat(auto-fit, minmax(8px,1fr)),
+     which imposes an ~8px-per-pitch MINIMUM width — ~710px for a 71-pitch
+     start. That single rule props the whole page open past the phone
+     viewport; everything else then lays out at that width. Flex with
+     min-width:0 lets segments compress to any pitch count; the slider
+     below is the precise scrubber. Segments grow 8px -> 16px tall for
+     touch. --- */
+  .signal-timeline {
+    display: flex !important;
+    gap: 1px !important;
+    padding: 0 10px 8px !important;
+  }
+  .theme-mobian .timeline-segment,
+  .timeline-segment {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    height: 16px !important;
+  }
+
+  /* --- 7. Sticky bottom bar: tighten padding, respect the iPhone
+     home-indicator safe area. --- */
+  .theme-mobian .workflow-sticky-bottom {
+    padding: 4px 8px calc(6px + env(safe-area-inset-bottom)) !important;
+  }
+  .appearance-switcher {
+    padding: 0 10px 8px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* --- 8. Density trims that only matter at phone width. --- */
+  .theme-mobian .cpw-strip {
+    gap: 4px 12px !important;
+    padding: 6px 10px !important;
+  }
+  .theme-mobian .pitch-window-summary,
+  .theme-mobian .model-synthesis-card {
+    padding: 10px !important;
+  }
+
+  /* --- 9. Measured intrinsic-width offenders (harness audit at 390px):
+     the pull-decision counterfactual grid, the reliever-outcome rows
+     (180px min name column), and the panel header's no-wrap flex row.
+     Each gets a shrinkable mobile shape. --- */
+  .theme-mobian .counterfactual-grid,
+  .counterfactual-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .theme-mobian .reliever-outcome-row,
+  .reliever-outcome-row {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+  .theme-mobian .panel__header {
+    flex-wrap: wrap !important;
+  }
+
+  /* --- 10. THE root overflow fix: .replay-panel is a grid item of the
+     workflow section, and grid/flex items default to min-width:auto —
+     each level expands to its content's min-width (~840px) instead of
+     shrinking into the 390px track, and the trap repeats at every
+     nested grid (pws-stats cards, cob row, model card). min-width:0,
+     scoped to the replay containers at phone width only, restores
+     track sizing at every level; elements with explicit widths are
+     unaffected. --- */
+  .theme-mobian.workflow-audit > * {
+    max-width: 100% !important;
+  }
+  .theme-mobian.workflow-audit > *,
+  .theme-mobian .replay-layout *,
+  .theme-mobian .workflow-sticky-top *,
+  .theme-mobian .workflow-sticky-bottom * {
+    min-width: 0 !important;
+  }
+
+  /* Belt and braces: overflow-x clip (NOT hidden/auto — clip does not
+     create a scroll container, so the sticky top/bottom bars keep
+     working) so no residual wide leaf can prop the page open. --- */
+  .theme-mobian.workflow-audit,
+  .theme-mobian .replay-panel {
+    overflow-x: clip !important;
+  }
+}
