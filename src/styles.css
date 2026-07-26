@@ -22839,3 +22839,130 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     padding: 0 8px 4px !important;
   }
 }
+
+
+/* ============================================================
+   M2.1 — iPhone-verified refinements (≤640px). From a real
+   16 Pro Max screenshot: Safari chrome leaves ~540pt of usable
+   height, so every sticky pt matters.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* --- 1. Top nav scrolls away on phones (it is branding, not
+     controls) and loses its grid dead-band. --- */
+  body.audit-immersive .top-nav,
+  html body .top-nav {
+    position: static !important;
+    padding: 4px 12px !important;
+  }
+  body.audit-immersive .top-nav__row--primary,
+  html body .top-nav__row--primary {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 2px 12px !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  body.audit-immersive .top-nav__context,
+  html body .top-nav__context {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* --- 2. Signal banner: zones may wrap (live WATCH states add a
+     dwell chip that widens the right zone past the viewport and it
+     was overlapping the game label); everything stays in flow. --- */
+  body.audit-immersive .signal-banner--inline,
+  html body .signal-banner--inline {
+    flex-wrap: wrap !important;
+    overflow: hidden !important;
+    padding: 4px 10px !important;
+  }
+  body.audit-immersive .signal-banner--inline .signal-banner__zone--left,
+  html body .signal-banner--inline .signal-banner__zone--left {
+    flex: 1 1 140px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+  body.audit-immersive .signal-banner--inline .signal-banner__zone--right,
+  html body .signal-banner--inline .signal-banner__zone--right {
+    flex: 0 1 auto !important;
+    margin: 0 0 0 auto !important;
+    position: static !important;
+    max-width: 100% !important;
+  }
+  body.audit-immersive .signal-banner--inline .signal-banner__stat,
+  html body .signal-banner--inline .signal-banner__stat {
+    margin: 0 !important;
+    position: static !important;
+  }
+
+  /* --- 3. The plate zone is square and sized by column width, so
+     on wide phones it swallowed the viewport. Cap by height and
+     keep it centered; aspect-ratio keeps it square. --- */
+  body.audit-immersive .plate-zone,
+  html body .plate-zone {
+    max-width: min(88vw, 34vh) !important;
+    max-width: min(88vw, 34dvh) !important;
+    max-height: 34vh !important;
+    max-height: 34dvh !important;
+    margin: 0 auto !important;
+  }
+  body.audit-immersive .strike-zone-wrap,
+  html body .strike-zone-wrap {
+    justify-content: center !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  /* --- 4. Sticky bottom on a 540pt-usable screen: single-line
+     pitcher chips (role sub-label hidden), tighter timeline. --- */
+  body.audit-immersive .appearance-switcher button,
+  .theme-mobian .appearance-switcher button {
+    padding: 8px 12px !important;
+  }
+  body.audit-immersive .appearance-switcher button span + span,
+  html body .appearance-switcher button span + span {
+    display: none !important;
+  }
+  body.audit-immersive .appearance-switcher,
+  html body .appearance-switcher {
+    padding: 0 8px 3px !important;
+  }
+  .theme-mobian .timeline-segment,
+  .timeline-segment {
+    height: 12px !important;
+  }
+
+  /* --- 5. Facts strip: tighter two-row (score stays visible). --- */
+  body.audit-immersive .cpw-strip,
+  .theme-mobian .cpw-strip {
+    padding: 4px 8px !important;
+    gap: 2px 10px !important;
+    margin-bottom: 4px !important;
+  }
+  body.audit-immersive .cpw-strip__fact strong,
+  html body .cpw-strip__fact strong {
+    font-size: 12px !important;
+  }
+  body.audit-immersive .cpw-strip__fact em,
+  html body .cpw-strip__fact em {
+    font-size: 8px !important;
+  }
+
+  /* --- 6. Transport: last few pts. --- */
+  body.audit-immersive .pitch-controls button,
+  .theme-mobian .pitch-controls button {
+    min-height: 38px !important;
+  }
+  body.audit-immersive .pitch-controls,
+  .theme-mobian .pitch-controls,
+  .pitch-controls {
+    padding: 4px 8px 6px !important;
+    gap: 6px !important;
+  }
+  body.audit-immersive .pitch-controls input[type="range"],
+  html body .pitch-controls input[type="range"] {
+    height: 20px !important;
+  }
+}
