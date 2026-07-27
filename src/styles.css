@@ -22676,11 +22676,15 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     min-width: 0 !important;
   }
 
-  /* Belt and braces: overflow-x clip (NOT hidden/auto — clip does not
-     create a scroll container, so the sticky top/bottom bars keep
-     working) so no residual wide leaf can prop the page open. --- */
-  .theme-mobian.workflow-audit,
-  .theme-mobian .replay-panel {
+  /* Belt and braces: overflow-x clip on the CONTENT region only.
+     iOS Safari breaks position:sticky when ANY ancestor has
+     non-visible overflow, so the guard must not sit on
+     .workflow-audit / .replay-panel (ancestors of the sticky
+     top/bottom bars) — Chrome tolerated it, iPhones did not.
+     The wide-leaf risk lives inside .replay-layout, which is a
+     sibling of the sticky bars, so clip there guards the same
+     content without touching the sticky chain. --- */
+  .theme-mobian .replay-layout {
     overflow-x: clip !important;
   }
 }
@@ -22902,10 +22906,10 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
      keep it centered; aspect-ratio keeps it square. --- */
   body.audit-immersive .plate-zone,
   html body .plate-zone {
-    max-width: min(88vw, 34vh) !important;
-    max-width: min(88vw, 34dvh) !important;
-    max-height: 34vh !important;
-    max-height: 34dvh !important;
+    max-width: min(85vw, 28vh, 300px) !important;
+    max-width: min(85vw, 28dvh, 300px) !important;
+    max-height: min(28vh, 300px) !important;
+    max-height: min(28dvh, 300px) !important;
     margin: 0 auto !important;
   }
   body.audit-immersive .strike-zone-wrap,
@@ -22913,6 +22917,13 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     justify-content: center !important;
     height: auto !important;
     min-height: 0 !important;
+  }
+  /* The zone frame card holds a desktop min-height: 320px; release
+     it so the capped plate sizes the card. --- */
+  body.audit-immersive .strike-zone-card,
+  .theme-mobian .strike-zone-card {
+    min-height: 0 !important;
+    padding: 6px 8px !important;
   }
 
   /* --- 4. Sticky bottom on a 540pt-usable screen: single-line
