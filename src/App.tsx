@@ -4341,6 +4341,10 @@ function GameAudit({
   // is removed and its cards relocated either into the left sidebar or
   // into one of these four tabs.
   const [rightTab, setRightTab] = useState<"signal" | "model" | "relief">("signal");
+  // M3 — mobile section view: "synth" shows the tabbed synthesis card,
+  // "pitcher" swaps in the pitch-window summary. Only consulted by the
+  // mobile-only m3 bar + 640px CSS; harmless on desktop.
+  const [mobileView, setMobileView] = useState<"synth" | "pitcher">("synth");
   // Phase T.10 — re-introduce the 3-up + Show All cap so the Relief
   // Edge tab doesn't need internal scrolling on bullpens with 5–8
   // available candidates.
@@ -4866,7 +4870,26 @@ function GameAudit({
                 The model signaled PULL NOW for the starter — live reliever tracking follows here as the bullpen takes over.
               </div>
             ) : null}
-            <div className="replay-layout">
+            <div className={`replay-layout${mobileView === "pitcher" ? " m3-pitcher" : ""}`}>
+              {/* M3 — mobile-only section bar (display:none ≥641px). Drives the
+                * existing rightTab state plus a Pitcher view that swaps the
+                * pitch-window summary in for the synthesis card. The chip keeps
+                * inning/count/outs visible while the pitcher panel is hidden.
+                * Desktop rendering is untouched: every rule lives inside the
+                * 640px media query. */}
+              <div className="m3-tabs" role="tablist" aria-label="Replay sections">
+                <span className="m3-chip">
+                  {selected
+                    ? `${String(selected.snapshot.half ?? "").toLowerCase().startsWith("t") ? "T" : "B"}${selected.snapshot.inning ?? ""} · ${selected.snapshot.balls ?? 0}-${selected.snapshot.strikes ?? 0} · ${selected.snapshot.outs ?? 0} out`
+                    : ""}
+                </span>
+                <button type="button" role="tab" aria-selected={mobileView === "synth" && rightTab === "signal"} className={`m3-tab${mobileView === "synth" && rightTab === "signal" ? " m3-tab--active" : ""}`} onClick={() => { setMobileView("synth"); setRightTab("signal"); }}>Signal</button>
+                <button type="button" role="tab" aria-selected={mobileView === "synth" && rightTab === "model"} className={`m3-tab${mobileView === "synth" && rightTab === "model" ? " m3-tab--active" : ""}`} onClick={() => { setMobileView("synth"); setRightTab("model"); }}>Detail</button>
+                {!selectedIsReliever ? (
+                  <button type="button" role="tab" aria-selected={mobileView === "synth" && rightTab === "relief"} className={`m3-tab${mobileView === "synth" && rightTab === "relief" ? " m3-tab--active" : ""}`} onClick={() => { setMobileView("synth"); setRightTab("relief"); }}>Relief</button>
+                ) : null}
+                <button type="button" role="tab" aria-selected={mobileView === "pitcher"} className={`m3-tab${mobileView === "pitcher" ? " m3-tab--active" : ""}`} onClick={() => setMobileView("pitcher")}>Pitcher</button>
+              </div>
               {/* Phase D.1b — Pitch Window Summary sidebar trim. Dropped the
                * redundant "Pitch Window Summary" heading and the "Current
                * Pitch Window" eyebrow; the pitch-facts grid migrated into a

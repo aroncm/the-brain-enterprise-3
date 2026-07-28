@@ -22999,3 +22999,78 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     height: 20px !important;
   }
 }
+
+/* ============================================================
+   M3 — Mobile section tabs for Game Replay (≤640px). The m3 bar
+   drives the existing rightTab state plus a Pitcher view. Hidden
+   entirely on desktop; every behavioral rule is media-scoped.
+   ============================================================ */
+.m3-tabs { display: none; }
+
+@media (max-width: 640px) {
+  .m3-tabs {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    order: -3;  /* above the zone: chip + tabs read as the section header */
+    padding: 2px 2px 4px;
+    min-width: 0;
+  }
+  .m3-chip {
+    margin-right: auto;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #a0a0a0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .m3-tab {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 8px 13px;
+    border-radius: 8px;
+    background: #1a1a1a;
+    border: 1px solid #1e1e1e;
+    color: #a0a0a0;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+  }
+  .m3-tab--active {
+    background: #f0f0f0;
+    color: #000000;
+    border-color: #f0f0f0;
+  }
+
+  /* Views: default shows the tabbed synthesis card; Pitcher swaps in
+     the pitch-window summary. The card's internal tab strip is hidden
+     on phones (the m3 bar is the affordance). */
+  body.audit-immersive .replay-layout > .pitch-window-summary,
+  .theme-mobian .replay-layout > .pitch-window-summary {
+    display: none !important;
+  }
+  body.audit-immersive .replay-layout.m3-pitcher > .pitch-window-summary,
+  .theme-mobian .replay-layout.m3-pitcher > .pitch-window-summary {
+    display: flex !important;
+    order: 0 !important;
+  }
+  body.audit-immersive .replay-layout.m3-pitcher > .model-synthesis-card,
+  .theme-mobian .replay-layout.m3-pitcher > .model-synthesis-card {
+    display: none !important;
+  }
+  body.audit-immersive .replay-tabs,
+  .theme-mobian .replay-tabs {
+    display: none !important;
+  }
+  /* Final mobile order: zone -2 (M2), m3 bar -1, synthesis/pitcher 0.
+     Overrides M2's order:-1 on the synthesis card (this block is later
+     in the file at equal specificity). */
+  body.audit-immersive .replay-layout > .model-synthesis-card,
+  .theme-mobian .replay-layout > .model-synthesis-card {
+    order: 0 !important;
+  }
+}
