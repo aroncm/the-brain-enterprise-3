@@ -2375,6 +2375,15 @@ function TopNav({
       document.removeEventListener("keydown", handleKey);
     };
   }, [profileMenuOpen]);
+  // M3.1 — mobile hamburger for the immersive workflows (Game Replays,
+  // Live Dugout, Briefings). Closed = slim brand bar; open = full-screen
+  // overlay with the tabs/team/selector stacked. Desktop never renders
+  // the burger (display:none outside the 640px query) and the menu
+  // auto-closes after any selection.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [workflow, team?.abbr, selectedGameId]);
   const handleLogout = async () => {
     setProfileMenuOpen(false);
     try {
@@ -2391,7 +2400,7 @@ function TopNav({
   // inline-styling each consumer.
   const headerStyle = { "--team-accent": teamColor } as CSSProperties;
   return (
-    <header className="top-nav" style={headerStyle}>
+    <header className={`top-nav${mobileNavOpen ? " top-nav--menu-open" : ""}`} style={headerStyle}>
       <div className="top-nav__row top-nav__row--primary">
         <a className="top-nav__brand" href={shareMode ? undefined : "/"} aria-label="Baseball brAIn">
           <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
@@ -2407,6 +2416,19 @@ function TopNav({
           </svg>
           <span className="top-nav__tagline">Advanced Baseball Intelligence</span>
         </a>
+
+        {/* M3.1 — mobile-only hamburger (hidden ≥641px and in share mode). */}
+        {!shareMode ? (
+          <button
+            type="button"
+            className="m3-burger"
+            aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((current) => !current)}
+          >
+            {mobileNavOpen ? "✕" : "☰"}
+          </button>
+        ) : null}
 
         {/* Phase JJ.3b — share mode strips every navigation affordance:
           * the briefing recipient sees this one game's replay and nothing

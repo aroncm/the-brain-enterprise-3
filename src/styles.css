@@ -23074,3 +23074,84 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     order: 0 !important;
   }
 }
+
+/* ============================================================
+   M3.1 — Mobile hamburger nav for the immersive workflows
+   (Game Replays, Live Dugout, Briefings). Closed: slim brand bar.
+   Open: full-screen overlay with tabs/team/selector stacked.
+   Desktop never shows the burger; all behavior is media-scoped.
+   ============================================================ */
+.m3-burger { display: none; }
+
+@media (max-width: 640px) {
+  body.audit-immersive .m3-burger {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 38px;
+    margin-left: auto;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    color: #f0f0f0;
+    font-size: 17px;
+    line-height: 1;
+    padding: 0;
+  }
+
+  /* Closed: hide the menu rows entirely — content gets the space. */
+  body.audit-immersive .top-nav:not(.top-nav--menu-open) .top-nav__tabs,
+  body.audit-immersive .top-nav:not(.top-nav--menu-open) .top-nav__context,
+  body.audit-immersive .top-nav:not(.top-nav--menu-open) .top-nav__actions {
+    display: none !important;
+  }
+
+  /* Open: the header becomes a full-screen menu overlay. */
+  body.audit-immersive .top-nav--menu-open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 80 !important;
+    background: #0a0a0a !important;
+    overflow-y: auto !important;
+    padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__row--primary {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px !important;
+  }
+  body.audit-immersive .top-nav--menu-open .m3-burger {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    margin-left: 0;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__tabs {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 6px 0 0 !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__tab {
+    min-height: 46px;
+    text-align: left !important;
+    font-size: 15px !important;
+    padding: 10px 12px !important;
+    border: 1px solid #1e1e1e !important;
+    border-radius: 8px !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__context {
+    display: flex !important;
+    align-items: center !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__actions,
+  body.audit-immersive .top-nav--menu-open .top-nav__actions-primary {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+}
