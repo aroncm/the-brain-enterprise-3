@@ -23386,3 +23386,163 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
   .club-home__recent-date { font-size: 11px; }
   .club-home__recent-open { display: none; }
 }
+
+/* M3/M3.1 restore (2026-07-29): Bolt commit 8ec8987 (Updated index.html)
+   reverted src to a pre-M3 state and wiped these two sections. Re-appended
+   verbatim from the original commits (f85a025, 2b10f70). */
+
+/* ============================================================
+   M3 — Mobile section tabs for Game Replay (≤640px). The m3 bar
+   drives the existing rightTab state plus a Pitcher view. Hidden
+   entirely on desktop; every behavioral rule is media-scoped.
+   ============================================================ */
+.m3-tabs { display: none; }
+
+@media (max-width: 640px) {
+  .m3-tabs {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    order: -3;  /* above the zone: chip + tabs read as the section header */
+    padding: 2px 2px 4px;
+    min-width: 0;
+  }
+  .m3-chip {
+    margin-right: auto;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #a0a0a0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .m3-tab {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 8px 13px;
+    border-radius: 8px;
+    background: #1a1a1a;
+    border: 1px solid #1e1e1e;
+    color: #a0a0a0;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: none;
+  }
+  .m3-tab--active {
+    background: #f0f0f0;
+    color: #000000;
+    border-color: #f0f0f0;
+  }
+
+  /* Views: default shows the tabbed synthesis card; Pitcher swaps in
+     the pitch-window summary. The card's internal tab strip is hidden
+     on phones (the m3 bar is the affordance). */
+  body.audit-immersive .replay-layout > .pitch-window-summary,
+  .theme-mobian .replay-layout > .pitch-window-summary {
+    display: none !important;
+  }
+  body.audit-immersive .replay-layout.m3-pitcher > .pitch-window-summary,
+  .theme-mobian .replay-layout.m3-pitcher > .pitch-window-summary {
+    display: flex !important;
+    order: 0 !important;
+  }
+  body.audit-immersive .replay-layout.m3-pitcher > .model-synthesis-card,
+  .theme-mobian .replay-layout.m3-pitcher > .model-synthesis-card {
+    display: none !important;
+  }
+  body.audit-immersive .replay-tabs,
+  .theme-mobian .replay-tabs {
+    display: none !important;
+  }
+  /* Final mobile order: zone -2 (M2), m3 bar -1, synthesis/pitcher 0.
+     Overrides M2's order:-1 on the synthesis card (this block is later
+     in the file at equal specificity). */
+  body.audit-immersive .replay-layout > .model-synthesis-card,
+  .theme-mobian .replay-layout > .model-synthesis-card {
+    order: 0 !important;
+  }
+}
+
+/* ============================================================
+   M3.1 — Mobile hamburger nav for the immersive workflows
+   (Game Replays, Live Dugout, Briefings). Closed: slim brand bar.
+   Open: full-screen overlay with tabs/team/selector stacked.
+   Desktop never shows the burger; all behavior is media-scoped.
+   ============================================================ */
+.m3-burger { display: none; }
+
+@media (max-width: 640px) {
+  body.audit-immersive .m3-burger {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 38px;
+    margin-left: auto;
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    color: #f0f0f0;
+    font-size: 17px;
+    line-height: 1;
+    padding: 0;
+  }
+
+  /* Closed: hide the menu rows entirely — content gets the space. */
+  body.audit-immersive .top-nav:not(.top-nav--menu-open) .top-nav__tabs,
+  body.audit-immersive .top-nav:not(.top-nav--menu-open) .top-nav__context,
+  body.audit-immersive .top-nav:not(.top-nav--menu-open) .top-nav__actions {
+    display: none !important;
+  }
+
+  /* Open: the header becomes a full-screen menu overlay. */
+  body.audit-immersive .top-nav--menu-open {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 80 !important;
+    background: #0a0a0a !important;
+    overflow-y: auto !important;
+    padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__row--primary {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px !important;
+  }
+  body.audit-immersive .top-nav--menu-open .m3-burger {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    margin-left: 0;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__tabs {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 6px 0 0 !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__tab {
+    min-height: 46px;
+    text-align: left !important;
+    font-size: 15px !important;
+    padding: 10px 12px !important;
+    border: 1px solid #1e1e1e !important;
+    border-radius: 8px !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__context {
+    display: flex !important;
+    align-items: center !important;
+  }
+  body.audit-immersive .top-nav--menu-open .top-nav__actions,
+  body.audit-immersive .top-nav--menu-open .top-nav__actions-primary {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+}
