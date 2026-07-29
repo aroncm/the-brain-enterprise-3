@@ -6578,8 +6578,28 @@ export default function App() {
     }
 
     async function loadClubContext() {
+      const gamesPromise = fetchEnterpriseGames({ league: "mlb", team: selectedTeam.abbr, limit: 300 });
+      // TT.2 — the games catalog returns in well under a second, while
+      // pitcher profiles / audit summary are compute-on-demand and can take
+      // minutes on a club's first-ever load. Recent games and the Game
+      // Replays view only need the catalog, so apply it the moment it lands
+      // instead of holding the whole club behind the slowest leg; profiles
+      // and audit stream into state when the allSettled below resolves.
+      gamesPromise
+        .then((payload) => {
+          if (cancelled) return;
+          setGames(payload.games);
+          setSelectedGameId((current: string | null) => {
+            if (current && (shareMode || payload.games.some((game) => game.game_id === current))) return current;
+            return payload.games[0]?.game_id ?? null;
+          });
+          setClubLoading(false);
+        })
+        .catch(() => {
+          // The allSettled pass below owns the failure path (cached fallback).
+        });
       const [gameResult, profileResult, auditResult] = await Promise.allSettled([
-        fetchEnterpriseGames({ league: "mlb", team: selectedTeam.abbr, limit: 300 }),
+        gamesPromise,
         fetchPitcherProfiles({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 750 }),
         fetchPitchingAuditSummary({ league: "mlb", team: selectedTeam.abbr, year: season, limit: 1000 }),
       ]);
