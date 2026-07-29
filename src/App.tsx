@@ -38,7 +38,6 @@ import {
 } from "./api";
 import { LiveBadge, summarizeLiveOutcome, useLiveDugout } from "./LiveDugout";
 import type {
-  BullpenOption,
   EnterpriseGameSummary,
   PitcherProfile,
   PitcherProfilesPayload,
@@ -54,8 +53,6 @@ import type {
   PitchingReplayState,
   PreventableRunsOpportunityRow,
   PreventableRunsOpportunitiesPayload,
-  RunSavingBoardPayload,
-  TripleAConversionCandidate,
 } from "./types";
 import { teamAccents, teamLogoIsDark } from "./teamAccents";
 import { useAuth } from "./context/AuthContext";
@@ -68,8 +65,6 @@ import {
   setCachedRecap,
   getCachedClubContext,
   setCachedClubContext,
-  getCachedRunSavingBoard,
-  setCachedRunSavingBoard,
   getCachedPreventableRuns,
   setCachedPreventableRuns,
 } from "./cache";
@@ -2673,71 +2668,6 @@ function TopNav({
   );
 }
 
-function useRunSavingBoard({ league, team, limit, enabled = true }: { league: "mlb" | "triple_a"; team?: string; limit?: number; enabled?: boolean }) {
-  const cacheKey = `${league}:${team ?? ""}:${limit ?? ""}`;
-  const [loadState, setLoadState] = useState<LoadState>(enabled ? "loading" : "ready");
-  const [payload, setPayload] = useState<RunSavingBoardPayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  // `showLoading` distinguishes a first load / explicit refresh (flip to the
-  // loading state) from a silent background revalidation behind a cache hit
-  // (keep the cached board on screen; don't surface a transient error).
-  const fetchAndStore = useCallback(async (showLoading: boolean) => {
-    if (showLoading) setLoadState("loading");
-    setError(null);
-    try {
-      const data = await fetchRunSavingBoard({ league, team, limit });
-      setPayload(data);
-      setCachedRunSavingBoard(cacheKey, data);
-      setLoadState("ready");
-      return true;
-    } catch (caught) {
-      if (caught instanceof ApiConfigurationError) {
-        setLoadState("missing-config");
-      } else if (showLoading) {
-        setError(caught instanceof Error ? caught.message : String(caught));
-        setLoadState("error");
-      }
-      return false;
-    }
-  }, [league, team, limit, cacheKey]);
-
-  useEffect(() => {
-    if (!enabled) {
-      setLoadState("ready");
-      return;
-    }
-    // Re-selecting a team loaded this session: render its board instantly from
-    // cache and revalidate in the background; first visit waits on the network.
-    const cached = getCachedRunSavingBoard(cacheKey);
-    if (cached) {
-      setPayload(cached);
-      setLoadState("ready");
-      void fetchAndStore(false);
-      return;
-    }
-    // First visit: a cold Modal start can time the board fetch out and leave the
-    // "error"/"Warming up…" pill stuck on an otherwise-loaded page. Retry in the
-    // background (only the first attempt surfaces the pill) so it self-heals once
-    // the service warms, instead of lingering until a manual refresh.
-    let cancelled = false;
-    let attempt = 0;
-    const run = async () => {
-      const ok = await fetchAndStore(attempt === 0);
-      attempt += 1;
-      if (!ok && !cancelled && attempt <= 4) {
-        window.setTimeout(run, Math.min(8000, 1500 * attempt));
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchAndStore, enabled, cacheKey]);
-
-  return { loadState, payload, error, reload: () => fetchAndStore(true) };
-}
-
 function usePreventableRunsOpportunities({
   season,
   team,
@@ -4189,264 +4119,6 @@ function LegacyCommandReviewRowCard({
   );
 }
 
-function CommandCenter({
-  team,
-  season,
-  payload,
-  preventableRuns,
-  preventableRunsError,
-  preventableRunsLoading,
-  profiles,
-  auditSummary,
-  games,
-  onOpenAudit,
-  onOpenGameAudit,
-  onRefresh,
-  onSeasonChange,
-}: {
-  team: Team;
-  season: string;
-  payload: RunSavingBoardPayload;
-  preventableRuns: PreventableRunsOpportunitiesPayload | null;
-  preventableRunsError: string | null;
-  preventableRunsLoading: boolean;
-  profiles: PitcherProfile[];
-  auditSummary: PitchingAuditSummaryPayload | null;
-  games: EnterpriseGameSummary[];
-  onOpenAudit: () => void;
-  onOpenGameAudit: (gameId: string) => void;
-  onRefresh: () => void;
-  onSeasonChange: (season: string) => void;
-}) {
-  const seasonRuns = sum(profiles.map((profile) => profile.projectedRunsSaved));
-  const boardRuns = sum(payload.decisions.map((decision) => decision.projectedRunsSaved));
-  const calibratedSummary = preventableRuns?.summary ?? null;
-  const calibratedRows = (preventableRuns?.rows ?? []).filter((row) =>
-    isRegularSeasonDate(row.gameDate ?? record(row).game_date ?? record(row).date, season),
-  );
-  const calibratedRowsHaveRunExposure = calibratedRows.some((row) => typeof row.projectedPreventableRuns === "number");
-  const calibratedRuns = calibratedRowsHaveRunExposure
-    ? sum(calibratedRows.map((row) => row.projectedPreventableRuns))
-    : calibratedSummary?.totalProjectedPreventableRuns ?? 0;
-  const displayedRuns = calibratedSummary || calibratedRows.length > 0 ? calibratedRuns : seasonRuns || boardRuns;
-  const calibratedDamageFlags = calibratedRows
-    .map((row) => row.missedHookDamageFlag ?? row.damageFlag)
-    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  const calibratedDamageCount = calibratedDamageFlags.filter((value) => value > 0).length;
-  const calibratedDamageRate =
-    calibratedDamageFlags.length > 0 ? calibratedDamageCount / calibratedDamageFlags.length : calibratedSummary?.damageRate ?? null;
-  const damageWindowCount = calibratedDamageFlags.length > 0 ? calibratedDamageCount : calibratedSummary?.missedHookDamageCount ?? 0;
-  const windows = auditWindows(auditSummary).filter((window) => isRegularSeasonDate(auditGameDate(window), season));
-  const deploymentBuckets: MatrixCell[] = ["tandem", "push", "workload", "standard"];
-  const [allocationFilter, setAllocationFilter] = useState<MatrixCell | "all">("all");
-  const allCalibratedGames = groupCalibratedOpportunitiesByGame(calibratedRows);
-  const allSeasonAuditGames = attachCalibratedRowsToSeasonAuditGames(groupSeasonAuditWindowsByGame(windows), calibratedRows);
-  const useCalibratedQueue = allCalibratedGames.length > 0;
-  const bucketSourceGames = useCalibratedQueue ? allCalibratedGames : allSeasonAuditGames;
-  const auditMatrix = bucketSourceGames.reduce<Record<MatrixCell, number>>(
-    (counts, opportunity) => {
-      counts[opportunity.cell] += 1;
-      return counts;
-    },
-    { standard: 0, tandem: 0, push: 0, workload: 0 },
-  );
-  const dashboardBuckets = deploymentBuckets;
-  const filteredSeasonAuditGames = !useCalibratedQueue
-    ? allocationFilter === "all"
-      ? allSeasonAuditGames
-      : allSeasonAuditGames.filter((opportunity) => opportunity.cell === allocationFilter)
-    : [];
-  const filteredCalibratedGames = useCalibratedQueue
-    ? allocationFilter === "all"
-      ? allCalibratedGames
-      : allCalibratedGames.filter((opportunity) => opportunity.cell === allocationFilter)
-    : [];
-  const selectedBucketCopy = allocationFilter === "all" ? null : matrixBucketCopy(allocationFilter);
-  const visibleSeasonAuditGames = filteredSeasonAuditGames;
-  const visibleCalibratedGames = filteredCalibratedGames;
-  const visibleGameCount = visibleSeasonAuditGames.length || visibleCalibratedGames.length;
-  const visibleWindowCount = visibleSeasonAuditGames.length > 0
-    ? sum(visibleSeasonAuditGames.map((opportunity) => opportunity.windowCount))
-    : selectedBucketCopy
-      ? visibleCalibratedGames.length
-      : calibratedSummary?.windowCount ?? preventableRuns?.rowCount ?? visibleCalibratedGames.length;
-  const visibleAvgLeverage =
-    visibleSeasonAuditGames.length > 0
-      ? sum(visibleSeasonAuditGames.map((opportunity) => num(opportunity.row.leverage_index) ?? 0)) / visibleSeasonAuditGames.length
-      : null;
-  const nonEmptyBucketCount = deploymentBuckets.filter((bucket) => auditMatrix[bucket] > 0).length;
-  const allocationMapDetail =
-    nonEmptyBucketCount === 1
-      ? "These counts are from the regular-season audit inventory. Each unique game is assigned to one primary decision type based on its highest-priority review window."
-      : "These counts are from the regular-season audit inventory. Each unique game is assigned to one primary decision type, so the bucket counts add up to the total unique review games.";
-  const queuePitcherCount = new Set(
-    [
-      ...calibratedRows.map((row) => row.pitcherId || row.pitcherName),
-      ...uniqueAuditWindows(windows).map(auditPitcherId),
-    ].filter((pitcher): pitcher is string => Boolean(pitcher)),
-  ).size;
-  const coveredPitcherCount = queuePitcherCount || profiles.length;
-  const coveredPitcherDetail =
-    queuePitcherCount > 0
-      ? `${queuePitcherCount} unique pitchers surfaced in the season review queue.`
-      : `${profiles.length} pitcher profiles available; no season review queue pitchers were returned.`;
-  const queueSummaryWindowCount = visibleWindowCount || calibratedSummary?.missedHookDamageCount || damageWindowCount;
-  const reviewRows =
-    useCalibratedQueue
-      ? visibleCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games, team))
-      : visibleSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games, team));
-  reviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
-  const allReviewRows =
-    useCalibratedQueue
-      ? allCalibratedGames.map((opportunity) => calibratedCommandRow(opportunity, games, team))
-      : allSeasonAuditGames.map((opportunity) => seasonAuditCommandRow(opportunity, games, team));
-  allReviewRows.sort((a, b) => commandReviewRowSortValue(b) - commandReviewRowSortValue(a));
-  const averageDecisionDelta = avg(allReviewRows.map((row) => row.decisionDelta));
-  const totalRunExposure = sumIfAny(allReviewRows.map((row) => row.runExposure));
-  const overviewBuckets: Array<{
-    key: MatrixCell | "all";
-    label: string;
-    value: number;
-    definition?: string;
-    variant: "all" | "tandem" | "standard" | "empty";
-  }> = [
-    {
-      key: "all",
-      label: "Total Games Reviewed",
-      value: bucketSourceGames.length,
-      variant: "all",
-    },
-    {
-      key: "tandem",
-      label: "Tandem Mandatory",
-      value: auditMatrix.tandem,
-      definition: matrixBucketDefinition("tandem"),
-      variant: "tandem",
-    },
-    {
-      key: "push",
-      label: "Push The Starter",
-      value: auditMatrix.push,
-      definition: matrixBucketDefinition("push"),
-      variant: auditMatrix.push > 0 ? "standard" : "empty",
-    },
-    {
-      key: "workload",
-      label: "Workload Management",
-      value: auditMatrix.workload,
-      definition: matrixBucketDefinition("workload"),
-      variant: auditMatrix.workload > 0 ? "standard" : "empty",
-    },
-    {
-      key: "standard",
-      label: "Standard Usage",
-      value: auditMatrix.standard,
-      definition: matrixBucketDefinition("standard"),
-      variant: auditMatrix.standard > 0 ? "standard" : "empty",
-    },
-  ];
-
-  const selectedReviewHeading =
-    allocationFilter === "all"
-      ? "All Reviews"
-      : `${overviewBuckets.find((bucket) => bucket.key === allocationFilter)?.label ?? "Selected"} Review`;
-
-  return (
-    <section className="cmdx-command">
-      <header className="cmdx-command-header">
-        <div className="cmdx-command-title">
-          <h1>{team.name}</h1>
-          <p>Season Insights</p>
-        </div>
-
-        <div className="cmdx-head-strip" aria-label="Current review summary">
-          <div>
-            <span>Pitchers Reviewed</span>
-            <strong>{coveredPitcherCount}</strong>
-          </div>
-          <div>
-            <span>Average Decision Delta</span>
-            <strong>{fmtSigned(averageDecisionDelta, 2)}</strong>
-          </div>
-          <div>
-            <span>Total Run Exposure</span>
-            <strong>{fmtRuns(totalRunExposure)}</strong>
-          </div>
-          <label className="cmdx-season-select">
-            <span>Season</span>
-            <span className="cmdx-season-control">
-              <select value={season} onChange={(event) => onSeasonChange(event.target.value)}>
-                <option value="2026">2026</option>
-                <option value="2025">2025</option>
-              </select>
-              <CalendarBlank size={15} aria-hidden="true" />
-            </span>
-          </label>
-        </div>
-      </header>
-
-      <section className="cmdx-overview" aria-label="Staff allocation overview">
-        <div className="cmdx-section-title">
-          <SquaresFour size={22} aria-hidden="true" />
-          <div>
-            <h2>Staff Deployment Review</h2>
-          </div>
-        </div>
-
-        <div className="cmdx-stat-grid">
-          {overviewBuckets.map((bucket) => (
-            <button
-              key={bucket.key}
-              type="button"
-              className={[
-                "cmdx-stat-card",
-                `cmdx-stat-card--${bucket.variant}`,
-                `cmdx-stat-card--${bucket.key}`,
-                allocationFilter === bucket.key ? "active" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => setAllocationFilter(bucket.key)}
-            >
-              {bucket.key === "all" ? <Files size={92} aria-hidden="true" /> : null}
-              <span>{bucket.label}</span>
-              <strong>{bucket.value}</strong>
-              {bucket.definition ? <em className="cmdx-stat-tooltip">{bucket.definition}</em> : null}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {bucketSourceGames.length === 0 && preventableRunsLoading ? (
-        <EmptyState title="Loading review queue" detail="Retrieving the current staff-deployment opportunity set." />
-      ) : bucketSourceGames.length === 0 && preventableRunsError ? (
-        <EmptyState title="Review queue unavailable" detail={preventableRunsError} />
-      ) : visibleGameCount === 0 ? (
-        <EmptyState title="No games returned" detail="The evidence source is reachable, but no game-level review rows matched this club and season." />
-      ) : (
-        <section className="cmdx-queue">
-          <div className="cmdx-queue-title">
-            <div>
-              <ListDashes size={22} aria-hidden="true" />
-              <h2>{selectedReviewHeading}</h2>
-            </div>
-            <button type="button" className="cmdx-sort-button" onClick={onRefresh}>
-              <SortDescending size={16} aria-hidden="true" />
-              Sort by Decision Delta
-            </button>
-          </div>
-
-          <div className="cmdx-row-list">
-            {reviewRows.map((row) => (
-              <CommandReviewRowCard key={row.key} row={row} onOpenGameAudit={onOpenGameAudit} />
-            ))}
-          </div>
-        </section>
-      )}
-    </section>
-  );
-}
-
 function GameAudit({
   team,
   games,
@@ -5857,177 +5529,6 @@ function GameAudit({
   );
 }
 
-function PitcherAllocation({ profiles, bullpenOptions }: { profiles: PitcherProfile[]; bullpenOptions: BullpenOption[] }) {
-  const [mode, setMode] = useState<"starters" | "relievers">("starters");
-  const starterProfiles = profiles.slice().sort((a, b) => (b.projectedRunsSaved ?? -Infinity) - (a.projectedRunsSaved ?? -Infinity));
-  const relieverProfiles = profiles
-    .filter((profile) => profile.appearances >= 8 || (avg(profile.gameLog.map((game) => game.maxPitchCount)) ?? 99) <= 45)
-    .sort((a, b) => (b.pitchWindows ?? 0) - (a.pitchWindows ?? 0));
-
-  return (
-    <section className="workflow">
-      <div className="page-lead compact">
-        <div>
-          <p className="eyebrow">Pitcher Allocation</p>
-          <h2>Who should carry which innings and situations?</h2>
-          <p>Starter decay and relief stress are shown together so a club can separate “pull him” from “we need a better alternative.”</p>
-        </div>
-        <div className="toggle">
-          <button type="button" className={mode === "starters" ? "active" : ""} onClick={() => setMode("starters")}>Starters</button>
-          <button type="button" className={mode === "relievers" ? "active" : ""} onClick={() => setMode("relievers")}>Relievers</button>
-        </div>
-      </div>
-
-      {mode === "starters" ? (
-        <div className="profile-board">
-          {starterProfiles.slice(0, 12).map((profile) => (
-            <article key={profile.pitcherId || profile.pitcher} className="profile-card">
-              <div>
-                <p className="eyebrow">{profile.team}</p>
-                <h3>{profile.pitcher}</h3>
-                <p>{profile.appearances} appearances · {profile.pitchWindows} model windows</p>
-              </div>
-              <div className="profile-stats">
-                <span>Preventable Runs <strong>{fmtRuns(profile.projectedRunsSaved)}</strong></span>
-                <span>Pull Now Games <strong>{profile.pullNowGames}</strong></span>
-                <span>Avg Degradation <strong>{fmtNumber(profile.avgDegradation, 2)}</strong></span>
-                <span>Max Degradation <strong>{fmtNumber(profile.maxDegradation, 2)}</strong></span>
-              </div>
-              <MiniCurve values={profile.gameLog.flatMap((game) => game.stuffCurve).slice(-12)} />
-              <p className="recommendation-copy">
-                {profile.pullNowGames > 2
-                  ? "Review repeat late-game exposure and define a firmer hook window."
-                  : profile.projectedRunsSaved != null && profile.projectedRunsSaved > 0
-                    ? "Audit the specific games driving preventable-run concentration."
-                    : "No clear allocation change is indicated from current profile evidence."}
-              </p>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="two-column">
-          <article className="panel">
-            <div className="panel-title">
-              <p className="eyebrow">Current Relief Alternatives</p>
-              <h3>Arms attached to active model windows.</h3>
-            </div>
-            {bullpenOptions.length === 0 ? (
-              <EmptyState title="No current alternatives" detail="No active decision window returned a named relief alternative." />
-            ) : (
-              <div className="compact-list">
-                {bullpenOptions.map((option) => (
-                  <div key={option.id} className="compact-row">
-                    <strong>{option.name}</strong>
-                    <span>{option.availability}</span>
-                    <span>RSS {fmtNumber(option.rss, 2)}</span>
-                    <span>Usage {fmtNumber(option.usageCost, 2)}</span>
-                    <span>Net {fmtNumber(option.netOptionScore, 2)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </article>
-          <article className="panel">
-            <div className="panel-title">
-              <p className="eyebrow">Short-Window Profiles</p>
-              <h3>Possible multi-inning relief capacity.</h3>
-            </div>
-            {relieverProfiles.length === 0 ? (
-              <EmptyState title="No short-window profiles" detail="Relief-profile classification will remain unavailable until the role source is explicit." />
-            ) : (
-              <div className="compact-list">
-                {relieverProfiles.slice(0, 10).map((profile) => (
-                  <div key={profile.pitcherId || profile.pitcher} className="compact-row">
-                    <strong>{profile.pitcher}</strong>
-                    <span>{profile.appearances} app</span>
-                    <span>{profile.pitchWindows} windows</span>
-                    <span>Avg deg {fmtNumber(profile.avgDegradation, 2)}</span>
-                    <span>{fmtRuns(profile.projectedRunsSaved)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </article>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RosterConstruction({
-  team,
-  profiles,
-  auditSummary,
-  candidates,
-}: {
-  team: Team;
-  profiles: PitcherProfile[];
-  auditSummary: PitchingAuditSummaryPayload | null;
-  candidates: TripleAConversionCandidate[];
-}) {
-  const windows = auditWindows(auditSummary);
-  const tandem = windows.filter((window) => matrixCellForWindow(window) === "tandem").length;
-  const workload = windows.filter((window) => matrixCellForWindow(window) === "workload").length;
-  const repeatDecay = profiles.filter((profile) => profile.pullNowGames >= 2).length;
-  const teamCandidates = candidates.filter((candidate) => candidate.parentClub.toLowerCase().includes(team.club.toLowerCase()) || candidate.parentClub.toLowerCase().includes(team.abbr.toLowerCase()));
-  const visibleCandidates = (teamCandidates.length > 0 ? teamCandidates : candidates).slice(0, 8);
-
-  return (
-    <section className="workflow">
-      <div className="page-lead">
-        <div>
-          <p className="eyebrow">Roster Construction</p>
-          <h2>Turn repeated allocation stress into roster actions.</h2>
-          <p>This view translates the audit into staff-building questions: who needs protection, who needs support, and which internal arms could change the answer.</p>
-        </div>
-      </div>
-
-      <div className="kpi-row">
-        <KPI label="Tandem Need" value={String(tandem)} detail="Starter decay with a better relief alternative." tone="bad" />
-        <KPI label="Workload Constraint" value={String(workload)} detail="Starter and relief alternative both below target." tone="gold" />
-        <KPI label="Repeat Decay Profiles" value={String(repeatDecay)} detail="Pitchers with multiple Pull Now games." />
-        <KPI label="Triple-A Candidates" value={String(visibleCandidates.length)} detail="Potential internal relief conversion pool." />
-      </div>
-
-      <div className="roster-actions">
-        <article className="panel">
-          <p className="eyebrow">Staff-Building Questions</p>
-          <h3>What the front office should investigate.</h3>
-          <ul className="action-list">
-            <li><strong>Protect cliff droppers.</strong><span>Define firmer starter windows for pitchers with repeated Pull Now games.</span></li>
-            <li><strong>Add bridge capacity.</strong><span>If tandem and workload cells repeat, the club needs a reliable 2-inning relief answer.</span></li>
-            <li><strong>Convert selectively.</strong><span>Use Triple-A short-window quality plus decay risk to identify stretch-run relief candidates.</span></li>
-            <li><strong>Do not overclaim.</strong><span>Role and day-of availability remain rule-based unless club-confirmed data is supplied.</span></li>
-          </ul>
-        </article>
-
-        <article className="panel">
-          <p className="eyebrow">Triple-A Conversion Candidates</p>
-          <h3>Internal arms worth reviewing.</h3>
-          {visibleCandidates.length === 0 ? (
-            <EmptyState title="No candidates returned" detail="Triple-A candidates will populate when the API returns conversion data." />
-          ) : (
-            <div className="candidate-list">
-              {visibleCandidates.map((candidate) => (
-                <div key={candidate.id} className="candidate-card">
-                  <strong>{candidate.pitcher}</strong>
-                  <span>{candidate.affiliate} · {candidate.parentClub}</span>
-                  <em>{candidate.currentRole} → {candidate.recommendedRole}</em>
-                  <div>
-                    <span>Conversion {candidate.reliefConversionScore}</span>
-                    <span>Mirage risk {fmtPct(candidate.mirageRisk)}</span>
-                    <span>{fmtRuns(candidate.projectedRunsSaved)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-      </div>
-    </section>
-  );
-}
-
 function BriefingPreview({ response, team }: { response: PitchingRecapEmailResponse; team: Team }) {
   if (response.html) {
     return (
@@ -6481,24 +5982,21 @@ export default function App() {
   // "warming up" screen.
   const [clubLoading, setClubLoading] = useState(true);
   const [clubReloadKey, setClubReloadKey] = useState(0);
+  // TT.3 — games-catalog failure surface (feeds the derived loadState now
+  // that the run-saving board no longer exists to signal errors).
+  const [clubError, setClubError] = useState<string | null>(null);
+  const [gamesGeneratedAt, setGamesGeneratedAt] = useState<string | null>(null);
 
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   // Live Dugout: discovery + 30s polling of /v1/live/replay, active only on the live tab.
   const live = useLiveDugout(selectedTeam.abbr, workflow === "live" && teamConfirmed);
-  const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50, enabled: !shareMode && teamConfirmed });
-  const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50, enabled: !shareMode && teamConfirmed });
-  const {
-    payload: dashboardPreventableRuns,
-    error: dashboardPreventableRunsError,
-    loading: dashboardPreventableRunsLoading,
-    reload: reloadDashboardPreventableRuns,
-  } = usePreventableRunsOpportunities({
-    season,
-    team: selectedTeam.abbr,
-    limit: 5000,
-    scope: "game_matrix",
-    enabled: !shareMode && teamConfirmed,
-  });
+  // TT.3 — the run-saving board fetches (mlb + triple_a) and the game_matrix
+  // preventable-runs pull are GONE. They cost the API up to ~2 minutes of
+  // compute per cold club and fed only components that are no longer
+  // rendered (PitcherAllocation / RosterConstruction). loadState is now
+  // derived from the club-context load below; the footer timestamp comes
+  // from the games catalog. The per-game preventable-runs fetch (scope=top,
+  // the one the replay view actually displays) is unchanged.
   const {
     payload: auditPreventableRuns,
     loading: auditPreventableRunsLoading,
@@ -6555,6 +6053,7 @@ export default function App() {
     // cache-hit path and the network path so both behave identically.
     const applyClubContext = (ctx: ClubContextPayload) => {
       setGames(ctx.games);
+      setGamesGeneratedAt(ctx.gamesGeneratedAt);
       setSelectedGameId((current) => {
         // Keep the current game if it belongs to this club (e.g. the user
         // already drilled in); otherwise default to the most-recent game.
@@ -6570,6 +6069,7 @@ export default function App() {
     // screen, no flipping clubLoading back to true). First visit: show the
     // loading state and wait for the network.
     const cached = getCachedClubContext(cacheKey);
+    setClubError(null);
     if (cached) {
       applyClubContext(cached);
       setClubLoading(false);
@@ -6589,6 +6089,7 @@ export default function App() {
         .then((payload) => {
           if (cancelled) return;
           setGames(payload.games);
+          setGamesGeneratedAt(payload.summary?.generatedAt ?? null);
           setSelectedGameId((current: string | null) => {
             if (current && (shareMode || payload.games.some((game) => game.game_id === current))) return current;
             return payload.games[0]?.game_id ?? null;
@@ -6608,6 +6109,10 @@ export default function App() {
       // revalidation error never blanks out a working view.
       const next: ClubContextPayload = {
         games: gameResult.status === "fulfilled" ? gameResult.value.games : (cached?.games ?? []),
+        gamesGeneratedAt:
+          gameResult.status === "fulfilled"
+            ? (gameResult.value.summary?.generatedAt ?? null)
+            : (cached?.gamesGeneratedAt ?? null),
         profiles: profileResult.status === "fulfilled" ? profileResult.value : (cached?.profiles ?? null),
         auditSummary: auditResult.status === "fulfilled" ? auditResult.value : (cached?.auditSummary ?? null),
       };
@@ -6615,6 +6120,13 @@ export default function App() {
       // poisons the cache with an empty catalog (and a retry re-fetches cleanly).
       if (gameResult.status === "fulfilled") {
         setCachedClubContext(cacheKey, next);
+      }
+      // TT.3 — a failed games fetch with nothing cached is the club-level
+      // error state (drives the derived loadState + retry affordance).
+      if (gameResult.status === "rejected" && next.games.length === 0) {
+        setClubError(gameResult.reason instanceof Error ? gameResult.reason.message : String(gameResult.reason));
+      } else {
+        setClubError(null);
       }
       applyClubContext(next);
       setClubLoading(false);
@@ -6741,17 +6253,16 @@ export default function App() {
     };
   }, [games]);
 
-  const profiles = profilesPayload?.profiles ?? [];
-  const bullpenOptions = payload?.bullpenOptions ?? [];
-  const tripleA = tripleAPayload?.tripleAConversionCandidates ?? payload?.tripleAConversionCandidates ?? [];
-
-  function refreshAll() {
-    void reload();
-    void reloadTripleA();
-    void reloadDashboardPreventableRuns();
-    void reloadAuditPreventableRuns();
-    void loadRecapSettings();
-  }
+  // TT.3 — loadState is now derived from the club-context load (games
+  // catalog, <1s) instead of the retired run-saving board. Same LoadState
+  // vocabulary so TopNav's status pill and the workflow gates are unchanged.
+  const loadState: LoadState = !apiBase
+    ? "missing-config"
+    : clubLoading
+      ? "loading"
+      : clubError && games.length === 0
+        ? "error"
+        : "ready";
 
   // Phase JJ.3b — share-mode gates: nothing renders until the grant
   // resolves; an inactive/expired grant gets a friendly dead-end (no app
@@ -6885,7 +6396,7 @@ export default function App() {
             title="Baseball brAIn API is warming up"
             detail="The service didn't respond in time — it may be spinning up after an idle period. This usually clears in a few seconds."
             action={
-              <button type="button" className="empty-state__retry" onClick={() => void reload()}>
+              <button type="button" className="empty-state__retry" onClick={() => setClubReloadKey((key: number) => key + 1)}>
                 Retry now
               </button>
             }
@@ -7079,7 +6590,7 @@ export default function App() {
 
       {workflow !== "audit" && workflow !== "live" ? (
         <footer className="app-footer">
-          <span>Generated: {payload?.summary.generatedAt ?? LOADING_VALUE}</span>
+          <span>Generated: {gamesGeneratedAt ?? LOADING_VALUE}</span>
           <span>Confidential · Baseball brAIn, Inc.</span>
         </footer>
       ) : null}

@@ -17,7 +17,6 @@ import type {
   PitchingGameRecap,
   PitchingReplayResponse,
   PreventableRunsOpportunitiesPayload,
-  RunSavingBoardPayload,
 } from "./types";
 
 const replayCache = new Map<string, PitchingReplayResponse>();
@@ -31,6 +30,9 @@ const recapCache = new Map<string, PitchingGameRecap>();
 // the replay/recap caches above.
 export interface ClubContextPayload {
   games: EnterpriseGameSummary[];
+  // Freshness stamp from the games-catalog payload; feeds the app footer's
+  // "Generated:" line (TT.3 — previously sourced from the run-saving board).
+  gamesGeneratedAt: string | null;
   profiles: PitcherProfilesPayload | null;
   auditSummary: PitchingAuditSummaryPayload | null;
 }
@@ -45,19 +47,8 @@ export function setCachedClubContext(key: string, payload: ClubContextPayload): 
   clubContextCache.set(key, payload);
 }
 
-// Dashboard / Run Saving board + Preventable Runs opportunities — also re-fetched
-// on every team switch. Same stale-while-revalidate treatment so re-selecting a
-// team renders the board instantly. Keyed by the full request param set.
-const runSavingBoardCache = new Map<string, RunSavingBoardPayload>();
-
-export function getCachedRunSavingBoard(key: string): RunSavingBoardPayload | undefined {
-  return runSavingBoardCache.get(key);
-}
-
-export function setCachedRunSavingBoard(key: string, payload: RunSavingBoardPayload): void {
-  runSavingBoardCache.set(key, payload);
-}
-
+// Preventable Runs opportunities — also re-fetched on every team switch.
+// Same stale-while-revalidate treatment. Keyed by the full request param set.
 const preventableRunsCache = new Map<string, PreventableRunsOpportunitiesPayload>();
 
 export function getCachedPreventableRuns(key: string): PreventableRunsOpportunitiesPayload | undefined {
