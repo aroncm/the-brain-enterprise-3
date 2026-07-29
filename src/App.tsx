@@ -2338,8 +2338,8 @@ function readLastTeamAbbr(): string | null {
   }
 }
 
-function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; onSelect: (team: Team) => void }) {
-  const lastTeam = lastTeamAbbr ? MLB_TEAMS.find((team) => team.abbr === lastTeamAbbr) ?? null : null;
+function TeamSplash({ teams, lastTeamAbbr, onSelect }: { teams: Team[]; lastTeamAbbr: string | null; onSelect: (team: Team) => void }) {
+  const lastTeam = lastTeamAbbr ? teams.find((team) => team.abbr === lastTeamAbbr) ?? null : null;
   return (
     <main className="team-splash" aria-label="Choose a club">
       <div className="team-splash__inner">
@@ -2358,14 +2358,23 @@ function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; o
           </button>
         ) : null}
         <h2 className="team-splash__prompt">Select A Club</h2>
+        {teams.length === 0 ? (
+          <p className="team-splash__empty">
+            No clubs are assigned to your account yet. Ask your Baseball brAIn administrator
+            to grant access.
+          </p>
+        ) : null}
         {(["American League", "National League"] as const).map((league) => {
           const prefix = league === "American League" ? "AL" : "NL";
+          const leagueClubs = teams.filter((team) => team.division.startsWith(prefix));
+          if (leagueClubs.length === 0) return null;
           return (
             <section key={league} className="team-splash__league">
               <h3 className="team-splash__league-name">{league}</h3>
               {(["East", "Central", "West"] as const).map((divisionName) => {
                 const divisionLabel = `${prefix} ${divisionName}`;
-                const clubs = MLB_TEAMS.filter((team) => team.division === divisionLabel);
+                const clubs = teams.filter((team) => team.division === divisionLabel);
+                if (clubs.length === 0) return null;
                 return (
                   <div key={divisionLabel} className="team-splash__division">
                     <h4 className="team-splash__division-name">{divisionName}</h4>
@@ -2399,6 +2408,73 @@ function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; o
   );
 }
 
+// F2.2 — per-club landing page: branded entry surface rendered after a
+// club is chosen (and as home for single-club users). Pure presentation —
+// the club-context effect is already loading games behind it.
+function ClubHome({
+  team,
+  games,
+  loading,
+  onEnter,
+  onOpenGame,
+}: {
+  team: Team;
+  games: EnterpriseGameSummary[];
+  loading: boolean;
+  onEnter: (workflow: Workflow) => void;
+  onOpenGame: (gameId: string) => void;
+}) {
+  const accents = teamAccents(team.abbr);
+  const recent = games.slice(0, 5);
+  return (
+    <section className="club-home" style={{ "--team-accent": accents.accent } as CSSProperties}>
+      <header className="club-home__head">
+        <span className="club-home__logo">
+          <TeamLogo abbr={team.abbr} />
+        </span>
+        <div className="club-home__identity">
+          <h1 className="club-home__name">{team.name}</h1>
+          <span className="club-home__division">{team.division}</span>
+        </div>
+      </header>
+      <div className="club-home__cards">
+        <button type="button" className="club-home__card" onClick={() => onEnter("live")}>
+          <strong>Live Dugout</strong>
+          <span>The per-arm read, in real time</span>
+        </button>
+        <button type="button" className="club-home__card" onClick={() => onEnter("audit")}>
+          <strong>Game Replays</strong>
+          <span>Every start, pitch by pitch against the signal</span>
+        </button>
+        <button type="button" className="club-home__card" onClick={() => onEnter("briefings")}>
+          <strong>Game Briefings</strong>
+          <span>The morning-after record for your staff</span>
+        </button>
+      </div>
+      <div className="club-home__recent">
+        <h2 className="club-home__recent-title">Recent games</h2>
+        {loading && recent.length === 0 ? (
+          <p className="club-home__recent-empty">Loading {team.club} games…</p>
+        ) : recent.length === 0 ? (
+          <p className="club-home__recent-empty">No scored games yet for {team.club}.</p>
+        ) : (
+          <ul className="club-home__recent-list">
+            {recent.map((game) => (
+              <li key={game.game_id}>
+                <button type="button" className="club-home__recent-game" onClick={() => onOpenGame(game.game_id)}>
+                  <span className="club-home__recent-date">{game.date}</span>
+                  <span className="club-home__recent-matchup">{game.matchup ?? `${game.away_team} @ ${game.home_team}`}</span>
+                  <span className="club-home__recent-open">Open replay →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function TopNav({
   team,
   workflow,
@@ -2407,6 +2483,7 @@ function TopNav({
   selectedGameId,
   season,
   shareMode = false,
+  teams = MLB_TEAMS,
   onTeamChange,
   onWorkflowChange,
   onGameChange,
@@ -2419,6 +2496,9 @@ function TopNav({
   selectedGameId: string | null;
   season: string;
   shareMode?: boolean;
+  // F2.1 — the clubs this user may select (profile-scoped); defaults to
+  // all 30 so existing call sites keep their behavior.
+  teams?: Team[];
   onTeamChange: (team: Team) => void;
   onWorkflowChange: (workflow: Workflow) => void;
   onGameChange: (id: string) => void;
@@ -2524,9 +2604,9 @@ function TopNav({
                   placeholder="Select Club"
                   minWidth={200}
                   value={team?.abbr ?? ""}
-                  options={MLB_TEAMS.map((item) => ({ value: item.abbr, label: item.name }))}
+                  options={teams.map((item) => ({ value: item.abbr, label: item.name }))}
                   onChange={(next) => {
-                    const team = MLB_TEAMS.find((item) => item.abbr === next);
+                    const team = teams.find((item) => item.abbr === next);
                     if (team) onTeamChange(team);
                   }}
                 />
@@ -6314,6 +6394,36 @@ export default function App() {
     const teamParam = appSearchParams().get("team")?.toUpperCase();
     return Boolean(teamParam && MLB_TEAMS.some((team) => team.abbr === teamParam));
   });
+  // F2.1 — the profile's team assignments are the access surface. Admins
+  // (and share mode, where there is no profile) see all 30 clubs; viewers
+  // see exactly their assigned clubs. ProtectedApp guarantees the profile
+  // is loaded before App renders outside share mode.
+  const { profile: authProfile } = useAuth();
+  const allowedTeams: Team[] = useMemo((): Team[] => {
+    if (!authProfile || authProfile.role === "admin") return MLB_TEAMS;
+    const assigned = new Set(authProfile.teamAbbrs);
+    return MLB_TEAMS.filter((team) => assigned.has(team.abbr));
+  }, [authProfile]);
+  // F2.2 — per-club landing page, shown after choosing a club (and for
+  // single-club viewers) until a workflow is entered.
+  const [clubHome, setClubHome] = useState(false);
+  // F2.1 — a deep link to a club outside the viewer's assignment falls
+  // back to the splash, which only offers allowed clubs.
+  useEffect(() => {
+    if (shareMode || !teamConfirmed) return;
+    if (allowedTeams.length > 0 && !allowedTeams.some((team) => team.abbr === selectedTeamAbbr)) {
+      setTeamConfirmed(false);
+    }
+  }, [shareMode, teamConfirmed, allowedTeams, selectedTeamAbbr]);
+  // F2.1 — single-club viewers skip the splash straight to their club home.
+  useEffect(() => {
+    if (shareMode || teamConfirmed) return;
+    if (allowedTeams.length === 1) {
+      setSelectedTeamAbbr(allowedTeams[0].abbr);
+      setClubHome(true);
+      setTeamConfirmed(true);
+    }
+  }, [shareMode, teamConfirmed, allowedTeams]);
   const [shareGrant, setShareGrant] = useState<PitchingReplayShareGrant | null>(null);
   const [shareGrantStatus, setShareGrantStatus] = useState<"idle" | "loading" | "active" | "inactive">(shareMode ? "loading" : "idle");
   useEffect(() => {
@@ -6648,14 +6758,64 @@ export default function App() {
   // All hooks above have already run (order-stable); they are gated by
   // teamConfirmed so nothing fetches behind the splash.
   if (!shareMode && !teamConfirmed) {
+    const lastAbbr = readLastTeamAbbr();
     return (
       <TeamSplash
-        lastTeamAbbr={readLastTeamAbbr()}
+        teams={allowedTeams}
+        lastTeamAbbr={lastAbbr && allowedTeams.some((team) => team.abbr === lastAbbr) ? lastAbbr : null}
         onSelect={(team) => {
           setSelectedTeamAbbr(team.abbr);
+          setClubHome(true);
           setTeamConfirmed(true);
         }}
       />
+    );
+  }
+
+  // F2.2 — club landing page: branded entry surface for the chosen club.
+  // Entering any workflow (cards below or the nav tabs) leaves it.
+  if (!shareMode && clubHome && selectedTeam) {
+    return (
+      <main className="app-shell">
+        <TopNav
+          team={selectedTeam}
+          workflow={workflow}
+          loadState={loadState}
+          games={games}
+          selectedGameId={selectedGameId}
+          season={season}
+          shareMode={shareMode}
+          teams={allowedTeams}
+          onTeamChange={(team) => {
+            setSelectedTeamAbbr(team.abbr);
+          }}
+          onWorkflowChange={(next) => {
+            setClubHome(false);
+            setWorkflow(next);
+          }}
+          onGameChange={(id) => {
+            setClubHome(false);
+            setSelectedGameId(id);
+          }}
+          onSeasonChange={setSeason}
+        />
+        <div className="app-main">
+          <ClubHome
+            team={selectedTeam}
+            games={games}
+            loading={clubLoading}
+            onEnter={(next) => {
+              setClubHome(false);
+              setWorkflow(next);
+            }}
+            onOpenGame={(gameId) => {
+              setClubHome(false);
+              setWorkflow("audit");
+              setSelectedGameId(gameId);
+            }}
+          />
+        </div>
+      </main>
     );
   }
 
@@ -6669,6 +6829,7 @@ export default function App() {
         selectedGameId={selectedGameId}
         season={season}
         shareMode={shareMode}
+        teams={allowedTeams}
         onTeamChange={(team) => {
           setSelectedTeamAbbr(team.abbr);
         }}

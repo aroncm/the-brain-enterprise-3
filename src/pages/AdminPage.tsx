@@ -378,6 +378,22 @@ function InviteUserModal({
         {role === "viewer" ? (
           <fieldset className="admin-field">
             <legend className="admin-field__label">Assigned teams</legend>
+            <div className="admin-team-shortcuts">
+              <button
+                type="button"
+                className="admin-secondary-button admin-secondary-button--small"
+                onClick={() => setSelectedTeams(new Set(allTeams.map((team) => team.abbr)))}
+              >
+                All teams
+              </button>
+              <button
+                type="button"
+                className="admin-secondary-button admin-secondary-button--small"
+                onClick={() => setSelectedTeams(new Set())}
+              >
+                Clear
+              </button>
+            </div>
             <TeamCheckboxGrid allTeams={allTeams} selected={selectedTeams} onToggle={toggleTeam} />
           </fieldset>
         ) : null}
@@ -472,6 +488,22 @@ function EditUserModal({
         {role === "viewer" ? (
           <fieldset className="admin-field">
             <legend className="admin-field__label">Assigned teams</legend>
+            <div className="admin-team-shortcuts">
+              <button
+                type="button"
+                className="admin-secondary-button admin-secondary-button--small"
+                onClick={() => setSelectedTeams(new Set(allTeams.map((team) => team.abbr)))}
+              >
+                All teams
+              </button>
+              <button
+                type="button"
+                className="admin-secondary-button admin-secondary-button--small"
+                onClick={() => setSelectedTeams(new Set())}
+              >
+                Clear
+              </button>
+            </div>
             <TeamCheckboxGrid allTeams={allTeams} selected={selectedTeams} onToggle={toggleTeam} />
           </fieldset>
         ) : null}

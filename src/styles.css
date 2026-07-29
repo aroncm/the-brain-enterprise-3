@@ -23209,3 +23209,180 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
   .team-splash__points { font-size: 12px; }
   .team-splash__team { min-height: 88px; }
 }
+
+/* ============================================================
+   F2.2 — per-club landing page (ClubHome) + splash empty state
+   ============================================================ */
+.team-splash__empty {
+  margin: 24px 0 0;
+  max-width: 480px;
+  color: #8f8f8f;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.club-home {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 34px 18px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+.club-home__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--team-accent, #2ec4a0);
+}
+.club-home__logo .team-logo,
+.club-home__logo img {
+  width: 64px;
+  height: 64px;
+}
+.club-home__identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.club-home__name {
+  margin: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+}
+.club-home__division {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+.club-home__cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.club-home__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px solid #1e1e1e;
+  background: #101010;
+  color: #d0d0d0;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+  min-width: 0;
+}
+.club-home__card:hover,
+.club-home__card:focus-visible {
+  border-color: var(--team-accent, #2ec4a0);
+  transform: translateY(-2px);
+}
+.club-home__card strong {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+}
+.club-home__card span {
+  font-size: 12px;
+  color: #8a8a8a;
+  line-height: 1.45;
+}
+.club-home__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.club-home__recent-title {
+  margin: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+}
+.club-home__recent-empty {
+  margin: 0;
+  color: #8f8f8f;
+  font-size: 13px;
+}
+.club-home__recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.club-home__recent-game {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #1e1e1e;
+  background: #101010;
+  color: #d0d0d0;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+  min-width: 0;
+}
+.club-home__recent-game:hover,
+.club-home__recent-game:focus-visible {
+  border-color: var(--team-accent, #2ec4a0);
+}
+.club-home__recent-date {
+  font-family: "SF Mono", "Menlo", monospace;
+  font-size: 12px;
+  color: #8a8a8a;
+  flex-shrink: 0;
+}
+.club-home__recent-matchup {
+  font-size: 13px;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.club-home__recent-open {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--team-accent, #2ec4a0);
+  flex-shrink: 0;
+}
+
+/* Admin modals — All teams / Clear shortcuts */
+.admin-team-shortcuts {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+.admin-secondary-button--small {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+@media (max-width: 640px) {
+  .club-home { padding: 22px 14px 44px; gap: 20px; }
+  .club-home__logo .team-logo,
+  .club-home__logo img { width: 48px; height: 48px; }
+  .club-home__name { font-size: 20px; }
+  .club-home__cards { grid-template-columns: 1fr; }
+  .club-home__recent-date { font-size: 11px; }
+  .club-home__recent-open { display: none; }
+}
