@@ -23012,3 +23012,168 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     height: 20px !important;
   }
 }
+
+/* ============================================================
+   F1 — Team splash entry page. Rendered instead of the workflows
+   until a club is chosen. Dark, brand-first, club grid themed by
+   the existing per-team accents.
+   ============================================================ */
+.team-splash {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  background: #050505;
+  color: #f0f0f0;
+  padding: 48px 20px calc(40px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+.team-splash__inner {
+  width: min(920px, 100%);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+}
+.team-splash__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.team-splash__wordmark {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 300;
+  letter-spacing: 6px;
+  color: #ffffff;
+}
+.team-splash__wordmark strong {
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.team-splash__tagline {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+.team-splash__lede {
+  max-width: 640px;
+  margin: 0;
+  color: #c9c9c9;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.team-splash__points {
+  list-style: none;
+  white-space: normal;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #8f8f8f;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.team-splash__points li {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.team-splash__lede,
+.team-splash__prompt,
+.team-splash__wordmark {
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+.team-splash__continue {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid #2ec4a0;
+  background: rgba(46, 196, 160, 0.08);
+  color: #f0f0f0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.team-splash__continue .team-logo,
+.team-splash__continue img {
+  width: 26px;
+  height: 26px;
+}
+.team-splash__prompt {
+  margin: 18px 0 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: #a0a0a0;
+}
+.team-splash__grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.team-splash__team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 6px 10px;
+  border-radius: 12px;
+  border: 1px solid #1e1e1e;
+  background: #101010;
+  color: #d0d0d0;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 120ms ease;
+  min-width: 0;
+}
+.team-splash__team:hover,
+.team-splash__team:focus-visible {
+  border-color: var(--team-accent, #2ec4a0);
+  transform: translateY(-2px);
+}
+.team-splash__team .team-logo,
+.team-splash__team img {
+  width: 40px;
+  height: 40px;
+}
+.team-splash__team-abbr {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: #ffffff;
+}
+.team-splash__team-name {
+  font-size: 10px;
+  color: #8a8a8a;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .team-splash__grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .team-splash { padding-top: 28px; }
+  .team-splash__wordmark { font-size: 21px; letter-spacing: 3px; }
+  .team-splash__tagline { font-size: 9px; letter-spacing: 2px; }
+  .team-splash__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .team-splash__lede { font-size: 13.5px; }
+  .team-splash__points { font-size: 12px; }
+  .team-splash__team { min-height: 88px; }
+}

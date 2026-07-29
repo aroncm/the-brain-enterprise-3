@@ -2326,6 +2326,72 @@ function CustomSelect({
   );
 }
 
+// F1 — splash entry page: platform messaging + explicit club selection.
+// Rendered by App instead of the workflows until a club is chosen, so no
+// user (admin or viewer) defaults into a club they didn't pick.
+function readLastTeamAbbr(): string | null {
+  try {
+    const stored = window.localStorage.getItem("bbi:lastTeam");
+    return stored && MLB_TEAMS.some((team) => team.abbr === stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; onSelect: (team: Team) => void }) {
+  const lastTeam = lastTeamAbbr ? MLB_TEAMS.find((team) => team.abbr === lastTeamAbbr) ?? null : null;
+  return (
+    <main className="team-splash" aria-label="Choose a club">
+      <div className="team-splash__inner">
+        <div className="team-splash__brand">
+          <span className="team-splash__wordmark">
+            BASEBALL <strong>brAIn</strong>
+          </span>
+          <span className="team-splash__tagline">Advanced Baseball Intelligence</span>
+        </div>
+        <p className="team-splash__lede">
+          Every pitch, every game, every arm — scored nightly. The Hook Score is a per-arm,
+          per-night read on when the next batter is the wrong batter to face: an overlay for
+          the dugout's judgment, not a pitch counter.
+        </p>
+        <ul className="team-splash__points">
+          <li>Game Replays — every start replayed pitch by pitch against the signal</li>
+          <li>Live Dugout — the same read, in real time, refreshed on every pitch</li>
+          <li>Game Briefings — the morning-after record, delivered to your staff</li>
+        </ul>
+        {lastTeam ? (
+          <button type="button" className="team-splash__continue" onClick={() => onSelect(lastTeam)}>
+            <TeamLogo abbr={lastTeam.abbr} />
+            <span>
+              Continue with <strong>{lastTeam.name}</strong>
+            </span>
+          </button>
+        ) : null}
+        <h2 className="team-splash__prompt">Select your club</h2>
+        <div className="team-splash__grid" role="list">
+          {MLB_TEAMS.map((team) => {
+            const accent = teamAccents(team.abbr);
+            return (
+              <button
+                key={team.abbr}
+                type="button"
+                role="listitem"
+                className="team-splash__team"
+                style={{ "--team-accent": accent.accent } as CSSProperties}
+                onClick={() => onSelect(team)}
+              >
+                <TeamLogo abbr={team.abbr} />
+                <span className="team-splash__team-abbr">{team.abbr}</span>
+                <span className="team-splash__team-name">{team.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function TopNav({
   team,
   workflow,
@@ -6231,6 +6297,16 @@ export default function App() {
   // grant, pins team + game, and hides every navigation affordance.
   const shareGrantId = useMemo(() => shareGrantIdFromSearch(), []);
   const shareMode = shareGrantId != null;
+  // F1 — splash gate. No club data loads and no workflow renders until a
+  // club is explicitly chosen on the splash. Deep links (?team=) and share
+  // links skip the splash; a bare login sees it every time. selectedTeamAbbr
+  // keeps its existing type/default so nothing downstream changes shape —
+  // this flag only gates fetching + the top-level render.
+  const [teamConfirmed, setTeamConfirmed] = useState<boolean>(() => {
+    if (shareGrantIdFromSearch() != null) return true;
+    const teamParam = appSearchParams().get("team")?.toUpperCase();
+    return Boolean(teamParam && MLB_TEAMS.some((team) => team.abbr === teamParam));
+  });
   const [shareGrant, setShareGrant] = useState<PitchingReplayShareGrant | null>(null);
   const [shareGrantStatus, setShareGrantStatus] = useState<"idle" | "loading" | "active" | "inactive">(shareMode ? "loading" : "idle");
   useEffect(() => {
@@ -6291,9 +6367,9 @@ export default function App() {
 
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   // Live Dugout: discovery + 30s polling of /v1/live/replay, active only on the live tab.
-  const live = useLiveDugout(selectedTeam.abbr, workflow === "live");
-  const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50, enabled: !shareMode });
-  const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50, enabled: !shareMode });
+  const live = useLiveDugout(selectedTeam.abbr, workflow === "live" && teamConfirmed);
+  const { loadState, payload, error, reload } = useRunSavingBoard({ league: "mlb", team: selectedTeam.abbr, limit: 50, enabled: !shareMode && teamConfirmed });
+  const { payload: tripleAPayload, reload: reloadTripleA } = useRunSavingBoard({ league: "triple_a", limit: 50, enabled: !shareMode && teamConfirmed });
   const {
     payload: dashboardPreventableRuns,
     error: dashboardPreventableRunsError,
@@ -6304,7 +6380,7 @@ export default function App() {
     team: selectedTeam.abbr,
     limit: 5000,
     scope: "game_matrix",
-    enabled: !shareMode,
+    enabled: !shareMode && teamConfirmed,
   });
   const {
     payload: auditPreventableRuns,
@@ -6316,6 +6392,7 @@ export default function App() {
     gameId: selectedGameId,
     limit: 5000,
     scope: "top",
+    enabled: teamConfirmed,
   });
   const apiBase = getConfiguredApiBase();
 
@@ -6351,6 +6428,9 @@ export default function App() {
     // context load (games catalog + pitcher profiles + audit summary). The grant
     // effect already synthesized the one-game `games` list and cleared clubLoading.
     if (shareMode) return;
+    // F1 — no club context (and therefore no default most-recent replay)
+    // until a club is chosen on the splash.
+    if (!teamConfirmed) return;
     let cancelled = false;
     const cacheKey = `${selectedTeam.abbr}:${season}`;
 
@@ -6424,6 +6504,25 @@ export default function App() {
       document.body.classList.remove("audit-immersive");
     };
   }, [workflow]);
+
+  // F1 — reflect team + workflow into the URL (refresh/back keep context) and
+  // remember the last club for the splash's continue chip. Never in share mode.
+  useEffect(() => {
+    if (shareMode || !teamConfirmed) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("team", selectedTeam.abbr);
+      params.set("workflow", workflow);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    } catch {
+      // history API unavailable (very old browser) — cosmetic only.
+    }
+    try {
+      window.localStorage.setItem("bbi:lastTeam", selectedTeam.abbr);
+    } catch {
+      // storage blocked (private mode) — the continue chip just won't show.
+    }
+  }, [shareMode, teamConfirmed, selectedTeam.abbr, workflow]);
 
   // Phase R.3 — replay + recap fetch now checks the in-memory cache
   // FIRST. Cache hits (from Phase R.4 prefetch or a prior visit to
@@ -6535,6 +6634,21 @@ export default function App() {
         <h1>This replay link is no longer active</h1>
         <p className="share-gate__detail">Share links expire for security. Ask your Baseball brAIn contact to send a fresh Game Briefing.</p>
       </main>
+    );
+  }
+
+  // F1 — the splash renders instead of the app until a club is chosen.
+  // All hooks above have already run (order-stable); they are gated by
+  // teamConfirmed so nothing fetches behind the splash.
+  if (!shareMode && !teamConfirmed) {
+    return (
+      <TeamSplash
+        lastTeamAbbr={readLastTeamAbbr()}
+        onSelect={(team) => {
+          setSelectedTeamAbbr(team.abbr);
+          setTeamConfirmed(true);
+        }}
+      />
     );
   }
 
