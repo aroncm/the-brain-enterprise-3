@@ -2349,11 +2349,6 @@ function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; o
           </span>
           <span className="team-splash__tagline">Advanced Baseball Intelligence</span>
         </div>
-        <ul className="team-splash__points">
-          <li>Game Replays — every start replayed pitch by pitch against the signal</li>
-          <li>Live Dugout — the same read, in real time, refreshed on every pitch</li>
-          <li>Game Briefings — the morning-after record, delivered to your staff</li>
-        </ul>
         {lastTeam ? (
           <button type="button" className="team-splash__continue" onClick={() => onSelect(lastTeam)}>
             <TeamLogo abbr={lastTeam.abbr} />
