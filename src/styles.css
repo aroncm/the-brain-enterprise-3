@@ -23121,8 +23121,40 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
 .team-splash__grid {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
+}
+.team-splash__league {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.team-splash__league-name {
+  margin: 8px 0 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-align: left;
+}
+.team-splash__division {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.team-splash__division-name {
+  margin: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6f6f6f;
+  text-align: left;
 }
 .team-splash__team {
   display: flex;

@@ -2349,11 +2349,6 @@ function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; o
           </span>
           <span className="team-splash__tagline">Advanced Baseball Intelligence</span>
         </div>
-        <p className="team-splash__lede">
-          Every pitch, every game, every arm — scored nightly. The Hook Score is a per-arm,
-          per-night read on when the next batter is the wrong batter to face: an overlay for
-          the dugout's judgment, not a pitch counter.
-        </p>
         <ul className="team-splash__points">
           <li>Game Replays — every start replayed pitch by pitch against the signal</li>
           <li>Live Dugout — the same read, in real time, refreshed on every pitch</li>
@@ -2367,26 +2362,43 @@ function TeamSplash({ lastTeamAbbr, onSelect }: { lastTeamAbbr: string | null; o
             </span>
           </button>
         ) : null}
-        <h2 className="team-splash__prompt">Select your club</h2>
-        <div className="team-splash__grid" role="list">
-          {MLB_TEAMS.map((team) => {
-            const accent = teamAccents(team.abbr);
-            return (
-              <button
-                key={team.abbr}
-                type="button"
-                role="listitem"
-                className="team-splash__team"
-                style={{ "--team-accent": accent.accent } as CSSProperties}
-                onClick={() => onSelect(team)}
-              >
-                <TeamLogo abbr={team.abbr} />
-                <span className="team-splash__team-abbr">{team.abbr}</span>
-                <span className="team-splash__team-name">{team.name}</span>
-              </button>
-            );
-          })}
-        </div>
+        <h2 className="team-splash__prompt">Select A Club</h2>
+        {(["American League", "National League"] as const).map((league) => {
+          const prefix = league === "American League" ? "AL" : "NL";
+          return (
+            <section key={league} className="team-splash__league">
+              <h3 className="team-splash__league-name">{league}</h3>
+              {(["East", "Central", "West"] as const).map((divisionName) => {
+                const divisionLabel = `${prefix} ${divisionName}`;
+                const clubs = MLB_TEAMS.filter((team) => team.division === divisionLabel);
+                return (
+                  <div key={divisionLabel} className="team-splash__division">
+                    <h4 className="team-splash__division-name">{divisionName}</h4>
+                    <div className="team-splash__grid" role="list">
+                      {clubs.map((team) => {
+                        const accent = teamAccents(team.abbr);
+                        return (
+                          <button
+                            key={team.abbr}
+                            type="button"
+                            role="listitem"
+                            className="team-splash__team"
+                            style={{ "--team-accent": accent.accent } as CSSProperties}
+                            onClick={() => onSelect(team)}
+                          >
+                            <TeamLogo abbr={team.abbr} />
+                            <span className="team-splash__team-abbr">{team.abbr}</span>
+                            <span className="team-splash__team-name">{team.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </section>
+          );
+        })}
       </div>
     </main>
   );
