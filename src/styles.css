@@ -23622,3 +23622,104 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
 @media (max-width: 640px) {
   .fp-strip--mobile { display: flex; margin-top: 0; margin-bottom: 10px; }
 }
+
+/* ============================================================
+   PP.3 — Model Signal slab relocated to the center column,
+   directly above the pitch cards (out of the sticky banner's
+   right zone). Same visual language as the PP.2 slab: dark
+   surface, tier-colored rail on the top+left edges, tier-colored
+   signal word, gray small-cap labels.
+   ============================================================ */
+body.audit-immersive .signal-slab {
+  display: flex;
+  align-items: flex-start;
+  gap: 34px;
+  padding: 10px 18px 12px 16px;
+  margin-bottom: 14px;
+  background: #141414;
+  border-left: 3px solid #3a3a3a;
+  border-top: 3px solid #3a3a3a;
+}
+body.audit-immersive .signal-slab--stay { border-left-color: #2ec4a0; border-top-color: #2ec4a0; }
+body.audit-immersive .signal-slab--watch { border-left-color: #fce066; border-top-color: #fce066; }
+body.audit-immersive .signal-slab--prep { border-left-color: #f5a03b; border-top-color: #f5a03b; }
+body.audit-immersive .signal-slab--pull_now,
+body.audit-immersive .signal-slab--distress { border-left-color: #e05b4b; border-top-color: #e05b4b; }
+body.audit-immersive .signal-slab__stat {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+body.audit-immersive .signal-slab__label {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+  line-height: 1;
+  white-space: nowrap;
+}
+body.audit-immersive .signal-slab__value {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #d6d6d6;
+  line-height: 1.05;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+body.audit-immersive .signal-slab__value--signal {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+body.audit-immersive .signal-slab--stay .signal-slab__value--signal { color: #2ec4a0; }
+body.audit-immersive .signal-slab--watch .signal-slab__value--signal { color: #fce066; }
+body.audit-immersive .signal-slab--prep .signal-slab__value--signal { color: #f5a03b; }
+body.audit-immersive .signal-slab--pull_now .signal-slab__value--signal,
+body.audit-immersive .signal-slab--distress .signal-slab__value--signal { color: #e05b4b; }
+body.audit-immersive .signal-slab__directive {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #b8b8b8;
+  line-height: 1.25;
+}
+/* Secondary stats (Dwell / Pressure) sit on the signal word's baseline. */
+body.audit-immersive .signal-slab__stat:not(.signal-slab__stat--signal) {
+  padding-top: 3px;
+}
+
+/* F3.1 UI — fingerprint card Show/Hide (fixed values for the game, so it
+   can be tucked away; the link lives in the card's top-right corner). */
+.fp-strip__head { position: relative; padding-right: 34px; }
+.fp-strip__toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-size: 10.5px;
+  color: #8a8a8a;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.fp-strip__toggle:hover { color: #d6d6d6; }
+.fp-strip--collapsed { gap: 0; }
+
+@media (max-width: 640px) {
+  body.audit-immersive .signal-slab {
+    gap: 22px;
+    padding: 8px 12px 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  body.audit-immersive .signal-slab__value--signal { font-size: 22px; }
+}

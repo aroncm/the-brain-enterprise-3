@@ -4200,32 +4200,54 @@ function useSpFingerprint(pitcherId: string, replay: PitchingReplayResponse | nu
 // F3 — the fingerprint strip: three-segment family bar, primary-driver chip,
 // and the one-line dugout cue. Same words as the club decks. House rules:
 // "trigger" (never flag/alert), relative phrasing, no absolutes.
-function FingerprintStrip({ fingerprint, mobile = false }: { fingerprint: SpFingerprint; mobile?: boolean }) {
+function FingerprintStrip({
+  fingerprint,
+  mobile = false,
+  collapsed = false,
+  onToggle,
+}: {
+  fingerprint: SpFingerprint;
+  mobile?: boolean;
+  // The card's values are fixed for the duration of the game, so it can be
+  // hidden to calm the screen; the preference is shared by the desktop and
+  // mobile instances and persists for the session (GameAudit owns the state).
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
   const total = fingerprint.command_pct + fingerprint.contact_pct + fingerprint.mix_pct || 1;
   const seg = (value: number) => `${Math.max(0, (value / total) * 100)}%`;
   const driverLabel = fingerprint.primary_driver === "mix" ? "MIX-DRIFT" : fingerprint.primary_driver.toUpperCase();
   return (
-    <div className={`fp-strip${mobile ? " fp-strip--mobile" : ""}`}>
+    <div className={`fp-strip${mobile ? " fp-strip--mobile" : ""}${collapsed ? " fp-strip--collapsed" : ""}`}>
       <div className="fp-strip__head">
-        <span className="fp-strip__eyebrow">SP Fingerprint</span>
+        <span className="fp-strip__eyebrow">Baseball brAIn SP Fingerprint</span>
         <span className={`fp-strip__chip fp-strip__chip--${fingerprint.primary_driver}`}>
           {driverLabel} · {Math.round(fingerprint.primary_driver_pct)}%
         </span>
-        {fingerprint.thin_sample ? <span className="fp-strip__thin">early read</span> : null}
+        {!collapsed && fingerprint.thin_sample ? <span className="fp-strip__thin">early read</span> : null}
+        {onToggle ? (
+          <button type="button" className="fp-strip__toggle" onClick={onToggle}>
+            {collapsed ? "Show" : "Hide"}
+          </button>
+        ) : null}
       </div>
-      <div className="fp-strip__bar" aria-hidden="true">
-        <span className="fp-strip__seg fp-strip__seg--command" style={{ width: seg(fingerprint.command_pct) }} />
-        <span className="fp-strip__seg fp-strip__seg--contact" style={{ width: seg(fingerprint.contact_pct) }} />
-        <span className="fp-strip__seg fp-strip__seg--mix" style={{ width: seg(fingerprint.mix_pct) }} />
-      </div>
-      <span className="fp-strip__legend">
-        Command {Math.round(fingerprint.command_pct)}% · Contact {Math.round(fingerprint.contact_pct)}% · Mix {Math.round(fingerprint.mix_pct)}%
-      </span>
-      <p className="fp-strip__cue">{fingerprint.dugout_cue}</p>
-      {fingerprint.mean_trigger_pitch != null ? (
-        <span className="fp-strip__meta">
-          Typically triggers near pitch {Math.round(fingerprint.mean_trigger_pitch)} · {fingerprint.triggers} triggers in {fingerprint.starts_window} starts
-        </span>
+      {!collapsed ? (
+        <>
+          <div className="fp-strip__bar" aria-hidden="true">
+            <span className="fp-strip__seg fp-strip__seg--command" style={{ width: seg(fingerprint.command_pct) }} />
+            <span className="fp-strip__seg fp-strip__seg--contact" style={{ width: seg(fingerprint.contact_pct) }} />
+            <span className="fp-strip__seg fp-strip__seg--mix" style={{ width: seg(fingerprint.mix_pct) }} />
+          </div>
+          <span className="fp-strip__legend">
+            Command {Math.round(fingerprint.command_pct)}% · Contact {Math.round(fingerprint.contact_pct)}% · Mix {Math.round(fingerprint.mix_pct)}%
+          </span>
+          <p className="fp-strip__cue">{fingerprint.dugout_cue}</p>
+          {fingerprint.mean_trigger_pitch != null ? (
+            <span className="fp-strip__meta">
+              Typically triggers near pitch {Math.round(fingerprint.mean_trigger_pitch)} · {fingerprint.triggers} triggers in {fingerprint.starts_window} starts
+            </span>
+          ) : null}
+        </>
       ) : null}
     </div>
   );
@@ -4378,6 +4400,24 @@ function GameAudit({
   // payload, or fetched once for live-app payloads).
   const selectedPitcherId = selected?.snapshot.pitcher_id != null ? String(selected.snapshot.pitcher_id) : "";
   const spFingerprint = useSpFingerprint(selectedPitcherId, replay);
+  const [fpCollapsed, setFpCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("bbi:fpStripCollapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleFpCollapsed = useCallback(() => {
+    setFpCollapsed((current: boolean) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("bbi:fpStripCollapsed", next ? "1" : "0");
+      } catch {
+        // localStorage unavailable (private mode) — session-only toggle.
+      }
+      return next;
+    });
+  }, []);
   const displayStatus = selected ? displayStatuses[selectedIndex] ?? statusLabel(selected.recommendation.status) : "STAY";
   const selectedGame = games.find((game) => game.game_id === selectedGameId) ?? games[0] ?? null;
   // Live "pitcher idle" state: when the tracked club is at bat, none of its
@@ -4505,6 +4545,10 @@ function GameAudit({
   const selectedOpportunity = opportunityForPitch(selected, preventableRows, selectedGameId);
   const selectedPreventableRuns = preventableRunsForPitch(selected, selectedOpportunity);
   const signalDwellSummary = replaySignalDwellSummary(entries, displayStatuses, selectedIndex);
+  // PP.3 — slab inputs (previously computed inline in the banner's right zone).
+  const signalDwellCount = currentSignalCount(displayStatuses, selectedIndex);
+  const rawPitchStatus = !selectedIsReliever && selected ? statusLabel(selected.recommendation.status) : null;
+  const pressureEasing = rawPitchStatus != null && statusRank(rawPitchStatus) < statusRank(displayStatus);
   const modelDecisionSummary = replayRecommendationSummary(pullEntry ?? selected);
   // Headline peak (cumulative max of decision_pressure_score with fallback)
   // — replaces the previous cumulativeSignalAlignedDegradation arithmetic.
@@ -4744,59 +4788,9 @@ function GameAudit({
                     </div>
                   ) : null}
                 </div>
-                {/* Phase Z.5 — center zone removed; pill moved into
-                  * the right zone alongside the count badge so they
-                  * share the colored cell that sits flush above the
-                  * right panel below. */}
-                <div className="signal-banner__zone signal-banner__zone--right">
-                  {/* Phase JJ.2 — scoreboard slab. The gray label band that
-                    * sat ABOVE the slab (FF.4/GG/II) read as a second tab
-                    * row; the labels now live INSIDE the colored slab as
-                    * small contrast text over plain typographic values —
-                    * no pill or badge chrome. GG invariant kept: the slab
-                    * still starts at the Season/Game dropdown-top line. */}
-                  {(() => {
-                    const count = currentSignalCount(displayStatuses, selectedIndex);
-                    // Phase II — pressure-easing read (monotonicity option a):
-                    // shown when the model's raw per-pitch status sits below
-                    // the held display status. Starters only.
-                    const rawStatus = !selectedIsReliever && selected ? statusLabel(selected.recommendation.status) : null;
-                    const easing = rawStatus != null && statusRank(rawStatus) < statusRank(displayStatus);
-                    return (
-                      <>
-                        <div className="signal-banner__stat signal-banner__stat--signal">
-                          <span className="signal-banner__stat-label">Model Signal</span>
-                          <strong className="signal-banner__stat-value signal-banner__stat-value--signal">
-                            {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
-                          </strong>
-                          {/* Directive eyebrow — keyed on the displayed status so it always matches
-                            * the signal (replaces the old Hook-Score-tooltip directive). */}
-                          <span className="signal-banner__directive">{statusDirective(displayStatus, selectedIsReliever)}</span>
-                        </div>
-                        {count > 0 ? (
-                          <div
-                            className="signal-banner__stat signal-banner__stat--dwell"
-                            title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
-                          >
-                            <span className="signal-banner__stat-label">Signal Dwell</span>
-                            <strong className="signal-banner__stat-value">
-                              {count} {count === 1 ? "pitch" : "pitches"}
-                            </strong>
-                          </div>
-                        ) : null}
-                        {easing ? (
-                          <div
-                            className="signal-banner__stat signal-banner__stat--easing"
-                            title={`Underlying pressure has eased to ${rawStatus} on this pitch; the operational signal holds at ${displayStatus}.`}
-                          >
-                            <span className="signal-banner__stat-label">Pressure</span>
-                            <strong className="signal-banner__stat-value">▾ Easing</strong>
-                          </div>
-                        ) : null}
-                      </>
-                    );
-                  })()}
-                </div>
+                {/* PP.3 — the Model Signal slab moved out of this banner into
+                  * the center column above the pitch cards (Craig, 2026-07-29);
+                  * the sticky bar keeps only the Season/Game selectors. */}
               </div>
             </div>
             {/* Live: once the starter is hooked but the bullpen hasn't thrown yet (no
@@ -4957,10 +4951,43 @@ function GameAudit({
                 </div>
                 {/* F3 — fingerprint strip anchors the bottom of the left
                   * column, directly under the Velocity/Spin trend cards. */}
-                {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} /> : null}
+                {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} collapsed={fpCollapsed} onToggle={toggleFpCollapsed} /> : null}
               </aside>
 
               <div className="strike-zone-column">
+                {/* PP.3 — Model Signal slab, relocated from the sticky banner's
+                  * right zone to sit directly above the pitch cards. Same three
+                  * stats (signal + directive, dwell, pressure), same tier accent
+                  * language as the old slab (dark surface, tier rail + word). */}
+                <div className={`signal-slab signal-slab--${signalClass(displayStatus)}`}>
+                  <div className="signal-slab__stat signal-slab__stat--signal">
+                    <span className="signal-slab__label">Model Signal</span>
+                    <strong className="signal-slab__value signal-slab__value--signal">
+                      {selectedIsReliever ? `RSS ${displayStatus}` : displayStatus}
+                    </strong>
+                    <span className="signal-slab__directive">{statusDirective(displayStatus, selectedIsReliever)}</span>
+                  </div>
+                  {signalDwellCount > 0 ? (
+                    <div
+                      className="signal-slab__stat"
+                      title={signalDwellSummary ? `Signal Dwell — ${signalDwellSummary}` : undefined}
+                    >
+                      <span className="signal-slab__label">Signal Dwell</span>
+                      <strong className="signal-slab__value">
+                        {signalDwellCount} {signalDwellCount === 1 ? "pitch" : "pitches"}
+                      </strong>
+                    </div>
+                  ) : null}
+                  {pressureEasing ? (
+                    <div
+                      className="signal-slab__stat"
+                      title={`Underlying pressure has eased to ${rawPitchStatus} on this pitch; the operational signal holds at ${displayStatus}.`}
+                    >
+                      <span className="signal-slab__label">Pressure</span>
+                      <strong className="signal-slab__value">▾ Easing</strong>
+                    </div>
+                  ) : null}
+                </div>
                 {/* Phase S.1 — pitch detail bar with TOP row of 4 boxes
                   * (Pitch / Velocity / H-Mov / V-Mov) and BOTTOM row of
                   * 2 boxes (Result + Current Score) so Result lines up
@@ -5052,7 +5079,7 @@ function GameAudit({
                     {/* F3 — mobile-only fingerprint strip at the top of the
                       * Signal tab (the pitcher-head strip lives in the left
                       * column, which phones only show in the Pitcher view). */}
-                    {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} mobile /> : null}
+                    {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} mobile collapsed={fpCollapsed} onToggle={toggleFpCollapsed} /> : null}
                     {/* Phase V.8 — 4-cell rings row + 2x2 below.
                       * Phase W.2 — when the selected entry is a reliever
                       * the same chrome renders RSS-specific data. */}
