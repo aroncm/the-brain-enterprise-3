@@ -2534,6 +2534,28 @@ function TopNav({
   useEffect(() => {
     setMobileNavOpen(false);
   }, [workflow, team?.abbr, selectedGameId]);
+  // NAV.1 — desktop nav minimize (Craig, 2026-07-30): collapse the header to
+  // a slim strip (small brand + team chip + expand control) so the immersive
+  // views get the vertical space back. Desktop-only (the ≤640px layer keeps
+  // the M3.1 hamburger); preference persists like the fingerprint card's.
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem("bbi:navCollapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleNavCollapsed = useCallback(() => {
+    setNavCollapsed((current: boolean) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("bbi:navCollapsed", next ? "1" : "0");
+      } catch {
+        // localStorage unavailable — session-only preference.
+      }
+      return next;
+    });
+  }, []);
   const handleLogout = async () => {
     setProfileMenuOpen(false);
     try {
@@ -2550,7 +2572,7 @@ function TopNav({
   // inline-styling each consumer.
   const headerStyle = { "--team-accent": teamColor } as CSSProperties;
   return (
-    <header className={`top-nav${mobileNavOpen ? " top-nav--menu-open" : ""}`} style={headerStyle}>
+    <header className={`top-nav${mobileNavOpen ? " top-nav--menu-open" : ""}${navCollapsed && !shareMode ? " top-nav--collapsed" : ""}`} style={headerStyle}>
       <div className="top-nav__row top-nav__row--primary">
         <a className="top-nav__brand" href={shareMode ? undefined : "/"} aria-label="Baseball brAIn">
           <svg className="top-nav__brain-svg" viewBox="0 0 565 115" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Baseball brAIn">
@@ -2598,6 +2620,17 @@ function TopNav({
           </nav>
         ) : null}
 
+        {/* NAV.1 — collapsed-mode context chip: logo + abbr + active workflow.
+          * Only visible while the header is collapsed (desktop CSS). */}
+        {!shareMode && team ? (
+          <span className="top-nav__mini">
+            <span className="top-nav__mini-logo"><TeamLogo abbr={team.abbr} /></span>
+            <strong style={{ color: teamColor }}>{team.abbr}</strong>
+            <span className="top-nav__mini-sep">·</span>
+            {WORKFLOWS.find((item) => item.id === workflow)?.label ?? ""}
+          </span>
+        ) : null}
+
         {team ? (
           // Phase H.1 — dropped the redundant <h2> page heading. The active
           // tab + underline already communicate which workflow is on.
@@ -2643,6 +2676,18 @@ function TopNav({
               * signed-in user's email and a Logout button. Previously the
               * avatar was a static <div> with no way to sign out.
               * Phase JJ.3b — hidden entirely in share mode. */}
+            {/* NAV.1 — desktop collapse/expand control (hidden ≤640px). */}
+            {!shareMode ? (
+              <button
+                type="button"
+                className="top-nav__collapse"
+                aria-label={navCollapsed ? "Expand navigation" : "Minimize navigation"}
+                aria-expanded={!navCollapsed}
+                onClick={toggleNavCollapsed}
+              >
+                {navCollapsed ? "Menu ⌄" : "Hide ⌃"}
+              </button>
+            ) : null}
             {shareMode ? null : (
             <div className="top-nav__profile-wrapper" ref={profileWrapperRef}>
               <button
