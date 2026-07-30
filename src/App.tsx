@@ -2711,28 +2711,46 @@ function usePreventableRunsOpportunities({
   const [payload, setPayload] = useState<PreventableRunsOpportunitiesPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(enabled);
+  const retryTimerRef = useRef<number | null>(null);
 
   // `showLoading` keeps a cached payload on screen during a silent background
   // revalidation (and suppresses its transient errors); a first load / explicit
   // refresh flips the loading state and surfaces failures normally.
-  const fetchAndStore = useCallback(async (showLoading: boolean) => {
+  //
+  // Cold-start patience: this endpoint computes on demand and a first-ever
+  // team/game can take past 100s server-side — longer than fetchJson's whole
+  // retry budget (~90s max). Without the outer retry loop a cold hit
+  // exhausted the budget and the card parked on "Unavailable" until a manual
+  // reload (Craig's LAD report, 2026-07-29). Keep `loading` true and re-try
+  // a few spaced rounds before settling.
+  const fetchAndStore = useCallback(async (showLoading: boolean, attempt = 0) => {
     if (showLoading) setLoading(true);
     setError(null);
     try {
       const data = await fetchPreventableRunsOpportunities({ season, team, gameId, limit, scope });
       setPayload(data);
       setCachedPreventableRuns(cacheKey, data);
-    } catch (caught) {
-      if (showLoading) {
-        setPayload(null);
-        setError(caught instanceof Error ? caught.message : String(caught));
-      }
-    } finally {
       if (showLoading) setLoading(false);
+    } catch (caught) {
+      if (!showLoading) return;
+      if (attempt < 3) {
+        retryTimerRef.current = window.setTimeout(() => {
+          void fetchAndStore(true, attempt + 1);
+        }, 20000);
+        return; // still loading — the card keeps showing "Loading…"
+      }
+      setPayload(null);
+      setError(caught instanceof Error ? caught.message : String(caught));
+      setLoading(false);
     }
   }, [season, team, gameId, limit, scope, cacheKey]);
 
   useEffect(() => {
+    // A key change (new team/game) abandons any pending cold-start retry.
+    if (retryTimerRef.current != null) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     if (!enabled) {
       setLoading(false);
       return;
@@ -2746,6 +2764,12 @@ function usePreventableRunsOpportunities({
     } else {
       void fetchAndStore(true);
     }
+    return () => {
+      if (retryTimerRef.current != null) {
+        window.clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
   }, [fetchAndStore, enabled, cacheKey]);
 
   return { payload, error, loading, reload: () => fetchAndStore(true) };
@@ -4818,7 +4842,6 @@ function GameAudit({
                 <section className="pws-section pws-pitcher-head">
                   <span className="pws-pitcher-head__eyebrow">{selectedIsReliever ? "Reliever" : "Starting Pitcher"}</span>
                   <strong className="pws-pitcher-head__name">{displayPersonName(selected.snapshot.pitcher_name)}{pitcherHandedness(selected) ? <span className="pws-batter__hand" style={{ marginLeft: 8 }}>{pitcherHandedness(selected)}H</span> : null}</strong>
-                  {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} /> : null}
                 </section>
                 <section className="pws-section pws-pitcher-section">
                   <div className="pws-stats">
@@ -4932,6 +4955,9 @@ function GameAudit({
                     );
                   })()}
                 </div>
+                {/* F3 — fingerprint strip anchors the bottom of the left
+                  * column, directly under the Velocity/Spin trend cards. */}
+                {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} /> : null}
               </aside>
 
               <div className="strike-zone-column">
