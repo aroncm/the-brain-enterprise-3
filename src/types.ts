@@ -493,6 +493,30 @@ export type PitchingReplayEntry = {
   top_candidates?: PitchingRelieverCandidate[];
 };
 
+// F3 — one starter's fingerprint from the league signal-attribution study:
+// which decay family (command / contact / mix) historically drives his
+// triggers, plus the dugout phrasing shared with the club decks.
+export type SpFingerprint = {
+  pitcher_id: number;
+  pitcher_name: string;
+  team: string;
+  starts_window: number;
+  triggers: number;
+  trigger_rate_pct: number | null;
+  command_pct: number;
+  contact_pct: number;
+  mix_pct: number;
+  relief_edge_heavy_pct: number | null;
+  high_leverage_pct: number | null;
+  mean_trigger_pitch: number | null;
+  primary_driver: "command" | "contact" | "mix";
+  primary_driver_pct: number;
+  thin_sample: boolean;
+  label: string;
+  watch: string;
+  dugout_cue: string;
+};
+
 export type PitchingReplayResponse = {
   game: {
     game_id: string;
@@ -530,6 +554,11 @@ export type PitchingReplayResponse = {
   // in the 1st). He has no entries, so the UI renders a display-only placeholder
   // card in the appearance switcher.
   early_pull_starters?: EarlyPullStarter[];
+  // F3 — SP fingerprints matched to this game's pitchers, keyed by MLBAM id
+  // (string). Attached by the pitching API at serve time; absent from
+  // live-app payloads (the UI falls back to /v1/pitching/fingerprint).
+  fingerprints?: Record<string, SpFingerprint>;
+  fingerprints_generated_at?: string | null;
 };
 
 export type EarlyPullStarter = {

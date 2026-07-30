@@ -12,6 +12,7 @@ import type {
   PreventableRunsPitcherSummary,
   PreventableRunsTeamSummary,
   RunSavingBoardPayload,
+  SpFingerprint,
 } from "./types";
 
 const DEFAULT_API_BASE = "https://aroncm--abs-challenge-api-tuned-fastapi-app-tuned.modal.run";
@@ -402,6 +403,15 @@ export function fetchPitchingReplay(gameId: string, league: "mlb" | "triple_a" =
 
 export function fetchPitchingRecap(gameId: string, league: "mlb" | "triple_a" = "mlb"): Promise<PitchingGameRecap> {
   return fetchJson<PitchingGameRecap>(`/v1/pitching/recap/${encodeURIComponent(gameId)}?league=${league}`);
+}
+
+// F3 — ad-hoc SP fingerprint lookup, used when a replay payload arrives
+// without the serve-time fingerprint overlay (the live app's payloads).
+// 404s for arms outside the study; callers cache the miss.
+export function fetchSpFingerprint(pitcherId: string): Promise<{ generated_at?: string | null; fingerprint: SpFingerprint }> {
+  return fetchJson<{ generated_at?: string | null; fingerprint: SpFingerprint }>(
+    `/v1/pitching/fingerprint/${encodeURIComponent(pitcherId)}?league=mlb`,
+  );
 }
 
 // Phase JJ.3b — Game Briefings share links resolve a grant to a single

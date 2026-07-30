@@ -30,6 +30,7 @@ import {
   type PitchingReplayShareGrant,
   fetchPitchingRecapSettings,
   fetchPitchingReplay,
+  fetchSpFingerprint,
   fetchPreventableRunsOpportunities,
   fetchRunSavingBoard,
   getConfiguredApiBase,
@@ -50,6 +51,7 @@ import type {
   PitchingReplayEntry,
   PitchingRelieverCandidate,
   PitchingReplayResponse,
+  SpFingerprint,
   PitchingReplayState,
   PreventableRunsOpportunityRow,
   PreventableRunsOpportunitiesPayload,
@@ -2572,7 +2574,7 @@ function TopNav({
             className="m3-burger"
             aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileNavOpen}
-            onClick={() => setMobileNavOpen((current) => !current)}
+            onClick={() => setMobileNavOpen((current: boolean) => !current)}
           >
             {mobileNavOpen ? "✕" : "☰"}
           </button>
@@ -4141,6 +4143,70 @@ function LegacyCommandReviewRowCard({
   );
 }
 
+// F3 — SP fingerprint resolution. Pitching-API replay payloads carry matched
+// fingerprints inline (serve-time overlay); the live app's payloads do not,
+// so fall back to the ad-hoc endpoint, cached per pitcher for the session
+// (misses cached as null so an arm outside the study never refetches).
+const spFingerprintCache = new Map<string, SpFingerprint | null>();
+
+function useSpFingerprint(pitcherId: string, replay: PitchingReplayResponse | null): SpFingerprint | null {
+  const hasInlineMap = Boolean(replay && replay.fingerprints);
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!pitcherId || hasInlineMap || spFingerprintCache.has(pitcherId)) return;
+    let cancelled = false;
+    fetchSpFingerprint(pitcherId)
+      .then((payload) => {
+        spFingerprintCache.set(pitcherId, payload.fingerprint ?? null);
+        if (!cancelled) bump((n: number) => n + 1);
+      })
+      .catch(() => {
+        spFingerprintCache.set(pitcherId, null);
+        if (!cancelled) bump((n: number) => n + 1);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pitcherId, hasInlineMap]);
+  if (!pitcherId) return null;
+  if (hasInlineMap) return replay?.fingerprints?.[pitcherId] ?? null;
+  return spFingerprintCache.get(pitcherId) ?? null;
+}
+
+// F3 — the fingerprint strip: three-segment family bar, primary-driver chip,
+// and the one-line dugout cue. Same words as the club decks. House rules:
+// "trigger" (never flag/alert), relative phrasing, no absolutes.
+function FingerprintStrip({ fingerprint, mobile = false }: { fingerprint: SpFingerprint; mobile?: boolean }) {
+  const total = fingerprint.command_pct + fingerprint.contact_pct + fingerprint.mix_pct || 1;
+  const seg = (value: number) => `${Math.max(0, (value / total) * 100)}%`;
+  const driverLabel = fingerprint.primary_driver === "mix" ? "MIX-DRIFT" : fingerprint.primary_driver.toUpperCase();
+  return (
+    <div className={`fp-strip${mobile ? " fp-strip--mobile" : ""}`}>
+      <div className="fp-strip__head">
+        <span className="fp-strip__eyebrow">SP Fingerprint</span>
+        <span className={`fp-strip__chip fp-strip__chip--${fingerprint.primary_driver}`}>
+          {driverLabel} · {Math.round(fingerprint.primary_driver_pct)}%
+        </span>
+        {fingerprint.thin_sample ? <span className="fp-strip__thin">early read</span> : null}
+      </div>
+      <div className="fp-strip__bar" aria-hidden="true">
+        <span className="fp-strip__seg fp-strip__seg--command" style={{ width: seg(fingerprint.command_pct) }} />
+        <span className="fp-strip__seg fp-strip__seg--contact" style={{ width: seg(fingerprint.contact_pct) }} />
+        <span className="fp-strip__seg fp-strip__seg--mix" style={{ width: seg(fingerprint.mix_pct) }} />
+      </div>
+      <span className="fp-strip__legend">
+        Command {Math.round(fingerprint.command_pct)}% · Contact {Math.round(fingerprint.contact_pct)}% · Mix {Math.round(fingerprint.mix_pct)}%
+      </span>
+      <p className="fp-strip__cue">{fingerprint.dugout_cue}</p>
+      {fingerprint.mean_trigger_pitch != null ? (
+        <span className="fp-strip__meta">
+          Typically triggers near pitch {Math.round(fingerprint.mean_trigger_pitch)} · {fingerprint.triggers} triggers in {fingerprint.starts_window} starts
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function GameAudit({
   team,
   games,
@@ -4284,6 +4350,10 @@ function GameAudit({
   const selectedIndex = Math.min(pitchIndex, Math.max(0, entries.length - 1));
   const displayStatuses = useMemo(() => monotonicStatuses(entries), [entries]);
   const selected = entries[selectedIndex] ?? null;
+  // F3 — the selected pitcher's SP fingerprint (inline from the replay
+  // payload, or fetched once for live-app payloads).
+  const selectedPitcherId = selected?.snapshot.pitcher_id != null ? String(selected.snapshot.pitcher_id) : "";
+  const spFingerprint = useSpFingerprint(selectedPitcherId, replay);
   const displayStatus = selected ? displayStatuses[selectedIndex] ?? statusLabel(selected.recommendation.status) : "STAY";
   const selectedGame = games.find((game) => game.game_id === selectedGameId) ?? games[0] ?? null;
   // Live "pitcher idle" state: when the tracked club is at bat, none of its
@@ -4748,6 +4818,7 @@ function GameAudit({
                 <section className="pws-section pws-pitcher-head">
                   <span className="pws-pitcher-head__eyebrow">{selectedIsReliever ? "Reliever" : "Starting Pitcher"}</span>
                   <strong className="pws-pitcher-head__name">{displayPersonName(selected.snapshot.pitcher_name)}{pitcherHandedness(selected) ? <span className="pws-batter__hand" style={{ marginLeft: 8 }}>{pitcherHandedness(selected)}H</span> : null}</strong>
+                  {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} /> : null}
                 </section>
                 <section className="pws-section pws-pitcher-section">
                   <div className="pws-stats">
@@ -4952,6 +5023,10 @@ function GameAudit({
 
                 {rightTab === "signal" ? (
                   <div className={`replay-tab-panel${selectedIsReliever ? " replay-tab-panel--reliever" : ""}`}>
+                    {/* F3 — mobile-only fingerprint strip at the top of the
+                      * Signal tab (the pitcher-head strip lives in the left
+                      * column, which phones only show in the Pitcher view). */}
+                    {spFingerprint ? <FingerprintStrip fingerprint={spFingerprint} mobile /> : null}
                     {/* Phase V.8 — 4-cell rings row + 2x2 below.
                       * Phase W.2 — when the selected entry is a reliever
                       * the same chrome renders RSS-specific data. */}

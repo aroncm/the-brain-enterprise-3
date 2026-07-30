@@ -23546,3 +23546,79 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
     gap: 12px !important;
   }
 }
+
+/* ============================================================
+   F3 — SP Fingerprint strip. Desktop: under the pitcher head in
+   the left column. Mobile (≤640px): the --mobile clone at the top
+   of the Signal tab (the left column is the Pitcher view there).
+   ============================================================ */
+.fp-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #232323;
+  background: #0d0d0d;
+}
+.fp-strip__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.fp-strip__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+.fp-strip__chip {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #0a0a0a;
+}
+.fp-strip__chip--command { background: #5aa9ff; }
+.fp-strip__chip--contact { background: #f0a13a; }
+.fp-strip__chip--mix { background: #b98bdd; }
+.fp-strip__thin {
+  font-size: 10px;
+  font-style: italic;
+  color: #8a8a8a;
+}
+.fp-strip__bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+.fp-strip__seg--command { background: #5aa9ff; }
+.fp-strip__seg--contact { background: #f0a13a; }
+.fp-strip__seg--mix { background: #b98bdd; }
+.fp-strip__legend {
+  font-size: 10.5px;
+  color: #9a9a9a;
+  letter-spacing: 0.2px;
+}
+.fp-strip__cue {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #d6d6d6;
+}
+.fp-strip__meta {
+  font-size: 10.5px;
+  color: #8a8a8a;
+  line-height: 1.4;
+}
+/* The mobile clone only exists ≤640px; the head strip covers desktop. */
+.fp-strip--mobile { display: none; }
+@media (max-width: 640px) {
+  .fp-strip--mobile { display: flex; margin-top: 0; margin-bottom: 10px; }
+}
