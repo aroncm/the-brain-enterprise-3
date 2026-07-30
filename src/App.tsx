@@ -2335,10 +2335,25 @@ function readLastTeamAbbr(): string | null {
   }
 }
 
-function TeamSplash({ teams, lastTeamAbbr, onSelect }: { teams: Team[]; lastTeamAbbr: string | null; onSelect: (team: Team) => void }) {
+function TeamSplash({
+  teams,
+  lastTeamAbbr,
+  onSelect,
+  onOpenAdmin,
+}: {
+  teams: Team[];
+  lastTeamAbbr: string | null;
+  onSelect: (team: Team) => void;
+  onOpenAdmin?: () => void;
+}) {
   const lastTeam = lastTeamAbbr ? teams.find((team) => team.abbr === lastTeamAbbr) ?? null : null;
   return (
     <main className="team-splash" aria-label="Choose a club">
+      {/* Account avatar + menu, so the signed-in user can reach their
+        * profile / Admin / Logout before picking a club. */}
+      <div className="team-splash__account">
+        <ProfileMenu onOpenAdmin={onOpenAdmin} />
+      </div>
       <div className="team-splash__inner">
         <div className="team-splash__brand">
           <span className="team-splash__wordmark">
@@ -2472,6 +2487,86 @@ function ClubHome({
   );
 }
 
+// Account avatar + dropdown (email · Admin · Logout). Self-contained so it
+// can render in the TopNav and on the splash (before a club is chosen).
+function ProfileMenu({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
+  const { user, profile, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!wrapperRef.current) return;
+      if (event.target instanceof Node && !wrapperRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+  const handleLogout = async () => {
+    setOpen(false);
+    try {
+      await signOut();
+    } catch (err) {
+      // Surface to console; AuthProvider will reset and the login screen
+      // takes over on the next render either way.
+      // eslint-disable-next-line no-console
+      console.warn("[profile-menu] signOut failed", err);
+    }
+  };
+  const initial = (user?.email ?? "?").trim().charAt(0).toUpperCase() || "?";
+  return (
+    <div className="top-nav__profile-wrapper" ref={wrapperRef}>
+      <button
+        type="button"
+        className="top-nav__profile"
+        aria-label="Account menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current: boolean) => !current)}
+      >
+        {initial}
+      </button>
+      {open ? (
+        <div className="top-nav__profile-menu" role="menu">
+          <div className="top-nav__profile-menu__email" role="presentation">
+            {user?.email ?? "Signed in"}
+          </div>
+          {profile?.role === "admin" && onOpenAdmin ? (
+            <button
+              type="button"
+              className="top-nav__profile-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenAdmin();
+              }}
+            >
+              Admin
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="top-nav__profile-menu__item"
+            role="menuitem"
+            onClick={handleLogout}
+          >
+            Logout
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function TopNav({
   team,
   workflow,
@@ -2503,28 +2598,6 @@ function TopNav({
 }) {
   const accents = team ? teamAccents(team.abbr) : null;
   const teamColor = accents?.accent ?? "#ffffff";
-  const { user, profile, signOut } = useAuth();
-  // Phase H.5 — profile dropdown state. Closes on outside-click / Escape.
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const profileWrapperRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!profileMenuOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!profileWrapperRef.current) return;
-      if (event.target instanceof Node && !profileWrapperRef.current.contains(event.target)) {
-        setProfileMenuOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setProfileMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [profileMenuOpen]);
   // M3.1 — mobile hamburger for the immersive workflows (Game Replays,
   // Live Dugout, Briefings). Closed = slim brand bar; open = full-screen
   // overlay with the tabs/team/selector stacked. Desktop never renders
@@ -2556,17 +2629,6 @@ function TopNav({
       return next;
     });
   }, []);
-  const handleLogout = async () => {
-    setProfileMenuOpen(false);
-    try {
-      await signOut();
-    } catch (err) {
-      // Surface to console; AuthProvider will reset and the login screen
-      // takes over on the next render either way.
-      // eslint-disable-next-line no-console
-      console.warn("[top-nav] signOut failed", err);
-    }
-  };
   // Phase H.2 — expose the team accent as a CSS variable so the active-tab
   // underline (and any other dynamic theming) can resolve it without
   // inline-styling each consumer.
@@ -2688,48 +2750,7 @@ function TopNav({
                 {navCollapsed ? "Menu ⌄" : "Hide ⌃"}
               </button>
             ) : null}
-            {shareMode ? null : (
-            <div className="top-nav__profile-wrapper" ref={profileWrapperRef}>
-              <button
-                type="button"
-                className="top-nav__profile"
-                aria-label="Account menu"
-                aria-haspopup="menu"
-                aria-expanded={profileMenuOpen}
-                onClick={() => setProfileMenuOpen((open) => !open)}
-              >
-                A
-              </button>
-              {profileMenuOpen ? (
-                <div className="top-nav__profile-menu" role="menu">
-                  <div className="top-nav__profile-menu__email" role="presentation">
-                    {user?.email ?? "Signed in"}
-                  </div>
-                  {profile?.role === "admin" ? (
-                    <button
-                      type="button"
-                      className="top-nav__profile-menu__item"
-                      role="menuitem"
-                      onClick={() => {
-                        setProfileMenuOpen(false);
-                        onWorkflowChange("admin");
-                      }}
-                    >
-                      Admin
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="top-nav__profile-menu__item"
-                    role="menuitem"
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </button>
-                </div>
-              ) : null}
-            </div>
-            )}
+            {shareMode ? null : <ProfileMenu onOpenAdmin={() => onWorkflowChange("admin")} />}
           </div>
         </div>
       </div>
@@ -6515,6 +6536,12 @@ export default function App() {
         onSelect={(team) => {
           setSelectedTeamAbbr(team.abbr);
           setClubHome(true);
+          setTeamConfirmed(true);
+        }}
+        onOpenAdmin={() => {
+          // Leave the splash for the Admin page. clubHome stays false so the
+          // main return renders the admin workflow (it doesn't need a club).
+          setWorkflow("admin");
           setTeamConfirmed(true);
         }}
       />

@@ -23027,6 +23027,21 @@ body.audit-immersive .top-nav__context .top-nav__team-logo {
   color: #f0f0f0;
   padding: 48px 20px calc(40px + env(safe-area-inset-bottom));
   overflow-y: auto;
+  /* Positioning context for the account menu corner. */
+  position: relative;
+}
+/* Account avatar + menu in the splash's top-right corner. */
+.team-splash__account {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 5;
+}
+.team-splash__account .top-nav__profile-wrapper {
+  margin-left: 0;
+}
+@media (max-width: 640px) {
+  .team-splash__account { top: 14px; right: 14px; }
 }
 .team-splash__inner {
   width: min(920px, 100%);
