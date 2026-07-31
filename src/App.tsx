@@ -6151,6 +6151,16 @@ export default function App() {
     const assigned = new Set(authProfile.teamAbbrs);
     return MLB_TEAMS.filter((team) => assigned.has(team.abbr));
   }, [authProfile]);
+  // Admin is admin-only. If a non-admin ends up on the admin workflow — e.g.
+  // stale `workflow` state after switching to a viewer account in the same
+  // browser without a reload — bounce them to the default view. The admin
+  // render branch below is also role-gated as a hard safety net (and the
+  // server rejects non-admin admin calls regardless).
+  useEffect(() => {
+    if (workflow === "admin" && authProfile && authProfile.role !== "admin") {
+      setWorkflow("audit");
+    }
+  }, [workflow, authProfile]);
   // F2.2 — per-club landing page, shown after choosing a club (and for
   // single-club viewers) until a workflow is entered.
   const [clubHome, setClubHome] = useState(false);
@@ -6840,7 +6850,7 @@ export default function App() {
           />
         )}
 
-        {workflow === "admin" && (
+        {workflow === "admin" && authProfile?.role === "admin" && (
           <AdminPage allTeams={MLB_TEAMS} />
         )}
       </div>
