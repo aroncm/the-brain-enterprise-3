@@ -23830,3 +23830,68 @@ body.audit-immersive .signal-slab__stat:not(.signal-slab__stat--signal) {
     font-size: 11px !important;
   }
 }
+
+/* ============================================================
+   LIVE GAME badge — splash grid tiles (above the logo) + the
+   ClubHome Live Dugout card. Driven by useLiveTeams (one
+   league-wide schedule call, off the critical path).
+   ============================================================ */
+.live-game-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e0231b;
+  color: #fff;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.live-game-badge__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: #fff;
+  animation: live-game-pulse 1.4s ease-in-out infinite;
+}
+@keyframes live-game-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-game-badge__dot { animation: none; }
+}
+
+/* Splash tile: reserve the top row for the badge so live/non-live tiles keep
+   the same logo baseline; the tile gets a subtle live accent ring. */
+.team-splash__team {
+  position: relative;
+}
+.team-splash__team .live-game-badge {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.team-splash__team--live {
+  border-color: #e0231b;
+  padding-top: 22px;
+}
+
+/* ClubHome Live Dugout card: inline badge next to the label. */
+.live-game-badge--inline {
+  margin-left: 9px;
+  vertical-align: middle;
+}
+.club-home__card--live {
+  border-color: #e0231b;
+}
+
+@media (max-width: 640px) {
+  .team-splash__team--live { padding-top: 20px; }
+  .live-game-badge { font-size: 8px; padding: 2px 6px; }
+}

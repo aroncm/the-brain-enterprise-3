@@ -37,7 +37,7 @@ import {
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
 } from "./api";
-import { LiveBadge, summarizeLiveOutcome, useLiveDugout } from "./LiveDugout";
+import { LiveBadge, summarizeLiveOutcome, useLiveDugout, useLiveTeams } from "./LiveDugout";
 import type {
   EnterpriseGameSummary,
   PitcherProfile,
@@ -2337,11 +2337,13 @@ function readLastTeamAbbr(): string | null {
 
 function TeamSplash({
   teams,
+  liveTeams,
   lastTeamAbbr,
   onSelect,
   onOpenAdmin,
 }: {
   teams: Team[];
+  liveTeams?: Set<string>;
   lastTeamAbbr: string | null;
   onSelect: (team: Team) => void;
   onOpenAdmin?: () => void;
@@ -2398,10 +2400,13 @@ function TeamSplash({
                             key={team.abbr}
                             type="button"
                             role="listitem"
-                            className="team-splash__team"
+                            className={`team-splash__team${liveTeams?.has(team.abbr) ? " team-splash__team--live" : ""}`}
                             style={{ "--team-accent": accent.accent } as CSSProperties}
                             onClick={() => onSelect(team)}
                           >
+                            {liveTeams?.has(team.abbr) ? (
+                              <span className="live-game-badge"><span className="live-game-badge__dot" />LIVE GAME</span>
+                            ) : null}
                             <TeamLogo abbr={team.abbr} />
                             <span className="team-splash__team-abbr">{team.abbr}</span>
                             <span className="team-splash__team-name">{team.name}</span>
@@ -2427,12 +2432,14 @@ function ClubHome({
   team,
   games,
   loading,
+  isLive = false,
   onEnter,
   onOpenGame,
 }: {
   team: Team;
   games: EnterpriseGameSummary[];
   loading: boolean;
+  isLive?: boolean;
   onEnter: (workflow: Workflow) => void;
   onOpenGame: (gameId: string) => void;
 }) {
@@ -2450,9 +2457,9 @@ function ClubHome({
         </div>
       </header>
       <div className="club-home__cards">
-        <button type="button" className="club-home__card" onClick={() => onEnter("live")}>
-          <strong>Live Dugout</strong>
-          <span>The per-arm read, in real time</span>
+        <button type="button" className={`club-home__card${isLive ? " club-home__card--live" : ""}`} onClick={() => onEnter("live")}>
+          <strong>Live Dugout{isLive ? <span className="live-game-badge live-game-badge--inline"><span className="live-game-badge__dot" />LIVE GAME</span> : null}</strong>
+          <span>{isLive ? "A game is in progress — jump in" : "The per-arm read, in real time"}</span>
         </button>
         <button type="button" className="club-home__card" onClick={() => onEnter("audit")}>
           <strong>Game Replays</strong>
@@ -6229,6 +6236,9 @@ export default function App() {
   const selectedTeam = MLB_TEAMS.find((team) => team.abbr === selectedTeamAbbr) ?? MLB_TEAMS[0];
   // Live Dugout: discovery + 30s polling of /v1/live/replay, active only on the live tab.
   const live = useLiveDugout(selectedTeam.abbr, workflow === "live" && teamConfirmed);
+  // League-wide live-team badges for the splash grid + club page. One cheap
+  // schedule call, off the critical path (see useLiveTeams). Off in share mode.
+  const liveTeams = useLiveTeams(!shareMode);
   // TT.3 — the run-saving board fetches (mlb + triple_a) and the game_matrix
   // preventable-runs pull are GONE. They cost the API up to ~2 minutes of
   // compute per cold club and fed only components that are no longer
@@ -6532,6 +6542,7 @@ export default function App() {
     return (
       <TeamSplash
         teams={allowedTeams}
+        liveTeams={liveTeams}
         lastTeamAbbr={lastAbbr && allowedTeams.some((team) => team.abbr === lastAbbr) ? lastAbbr : null}
         onSelect={(team) => {
           setSelectedTeamAbbr(team.abbr);
@@ -6580,6 +6591,7 @@ export default function App() {
             team={selectedTeam}
             games={games}
             loading={clubLoading}
+            isLive={liveTeams.has(selectedTeam.abbr)}
             onEnter={(next) => {
               setClubHome(false);
               setWorkflow(next);

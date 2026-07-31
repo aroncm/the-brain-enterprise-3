@@ -29,6 +29,48 @@ function scheduleUrl(): string {
   return `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${ymd(start)}&endDate=${ymd(today)}&hydrate=team`;
 }
 
+// League-wide "which teams are live right now" — ONE StatsAPI schedule call for
+// today gives every team's status, so the splash grid and club page can badge
+// live teams without any per-team polling. Deliberately lightweight and
+// off the critical path: it runs in an effect (after first paint, never blocking
+// render or any data fetch), is best-effort (no badge on failure), and refreshes
+// every 60s. Returns the set of team abbreviations with a game In Progress.
+export function useLiveTeams(enabled: boolean): Set<string> {
+  const [liveTeams, setLiveTeams] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const today = ymd(new Date());
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${today}&endDate=${today}&hydrate=team`;
+    const load = async () => {
+      try {
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        const data = (await res.json()) as { dates?: Array<{ games?: any[] }> };
+        const games = (data.dates ?? []).flatMap((d) => d.games ?? []);
+        const next = new Set<string>();
+        for (const g of games) {
+          if (String(g.status?.detailedState ?? "").includes("In Progress")) {
+            const home = g.teams?.home?.team?.abbreviation;
+            const away = g.teams?.away?.team?.abbreviation;
+            if (home) next.add(String(home));
+            if (away) next.add(String(away));
+          }
+        }
+        if (!cancelled) setLiveTeams(next);
+      } catch {
+        /* best-effort — leave the badge off if the schedule is unavailable */
+      }
+    };
+    void load();
+    const id = window.setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [enabled]);
+  return liveTeams;
+}
+
 export type LiveDugoutState = {
   games: EnterpriseGameSummary[];
   selectedGameId: string | null;
