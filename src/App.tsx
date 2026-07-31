@@ -6137,9 +6137,14 @@ export default function App() {
   // keeps its existing type/default so nothing downstream changes shape —
   // this flag only gates fetching + the top-level render.
   const [teamConfirmed, setTeamConfirmed] = useState<boolean>(() => {
-    if (shareGrantIdFromSearch() != null) return true;
-    const teamParam = appSearchParams().get("team")?.toUpperCase();
-    return Boolean(teamParam && MLB_TEAMS.some((team) => team.abbr === teamParam));
+    // Only a share grant bypasses the splash. A persisted ?team= (written by the
+    // URL refresh-persistence effect below) must NOT auto-skip it — that quietly
+    // re-created the "always lands on ATL" default that F1's splash exists to
+    // remove (a non-admin was dropped onto the ATL replay via a stale
+    // ?team=ATL&workflow=audit). The splash's "Continue with <last club>" chip
+    // (localStorage) covers returning-user convenience; share mode and
+    // single-club viewers still skip the splash via their own effects.
+    return shareGrantIdFromSearch() != null;
   });
   // F2.1 — the profile's team assignments are the access surface. Admins
   // (and share mode, where there is no profile) see all 30 clubs; viewers
