@@ -66,7 +66,10 @@ export function AdminPage({ allTeams }: { allTeams: Team[] }) {
 // `?view=scorecard&token=` bypass in ProtectedApp). Sharing this URL never
 // exposes anything else on the platform: the bypass renders ScorecardShare
 // directly and skips App/session state entirely.
-const SCORECARD_SHARE_TOKEN = "wRrlQUytXqd9qbLF6Pk6yA";
+// Permanent (ttl_days=0) share token minted 2026-07-31 — the prior token
+// (wRrlQUytXqd9qbLF6Pk6yA) had lapsed, 404-ing the embed. No-expiry so it
+// won't recur; re-mint via POST /v1/scorecard/share on the live-signal app.
+const SCORECARD_SHARE_TOKEN = "sHku9UH-jWIC5o4mSuSa_Q";
 
 function ScorecardTab() {
   const [copied, setCopied] = useState(false);
