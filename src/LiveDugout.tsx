@@ -40,8 +40,15 @@ export function useLiveTeams(enabled: boolean): Set<string> {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    const today = ymd(new Date());
-    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${today}&endDate=${today}&hydrate=team`;
+    // Query a 2-day window (yesterday→today, UTC). ymd() is a UTC date, so during
+    // US evening hours — prime MLB time — the UTC clock has already rolled to
+    // "tomorrow," and a same-UTC-day query would miss games filed under today's
+    // ET officialDate. The extra day is harmless: only In-Progress games get
+    // badged, and yesterday's are all Final.
+    const now = new Date();
+    const start = ymd(new Date(now.getTime() - 86_400_000));
+    const end = ymd(now);
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${start}&endDate=${end}&hydrate=team`;
     const load = async () => {
       try {
         const res = await fetch(url, { headers: { Accept: "application/json" } });
