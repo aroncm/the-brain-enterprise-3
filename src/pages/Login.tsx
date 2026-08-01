@@ -86,7 +86,23 @@ export function Login() {
       return;
     }
     setSubmitting(true);
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    // Guard: updateUser needs an active session. If a stale/expired invite link
+    // (single-use token already spent) left us on this form without one, show an
+    // actionable message instead of the raw "Auth session missing!" error.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setError(
+        "Your invite link has expired or was already opened. Sign in with the temporary password from your invite email, then set your password.",
+      );
+      setSubmitting(false);
+      return;
+    }
+    // Clear the temp-password flag in the same call so first-login setup isn't
+    // forced again on the next sign-in.
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+      data: { must_set_password: false },
+    });
     if (updateError) {
       setError(updateError.message);
       setSubmitting(false);

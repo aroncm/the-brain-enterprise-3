@@ -218,6 +218,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void loadProfile(session?.user?.id ?? null);
   }, [session?.user?.id, loadProfile]);
 
+  // Temp-password invites flag the account with user_metadata.must_set_password
+  // so a normal password sign-in still forces the password-setup form on first
+  // entry (the emailed temp password must be replaced). Cleared by
+  // Login.onSetPassword via updateUser({ data: { must_set_password: false } }).
+  useEffect(() => {
+    if (session?.user?.user_metadata?.must_set_password === true) {
+      setNeedsPasswordSetup(true);
+    }
+  }, [session?.user?.id, session?.user?.user_metadata?.must_set_password]);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setProfile(null);
