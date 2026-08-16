@@ -69,7 +69,7 @@ export function AdminPage({ allTeams }: { allTeams: Team[] }) {
 // Permanent (ttl_days=0) share token minted 2026-07-31 — the prior token
 // (wRrlQUytXqd9qbLF6Pk6yA) had lapsed, 404-ing the embed. No-expiry so it
 // won't recur; re-mint via POST /v1/scorecard/share on the live-signal app.
-const SCORECARD_SHARE_TOKEN = "sHku9UH-jWIC5o4mSuSa_Q";
+const SCORECARD_SHARE_TOKEN = "onZZJoSup8TKM_DZJT5OZw"; // re-minted 2026-08-16 after scorecard store loss
 
 function ScorecardTab() {
   const [copied, setCopied] = useState(false);
