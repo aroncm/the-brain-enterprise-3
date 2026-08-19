@@ -562,17 +562,12 @@ export type TeamRecipientRecord = {
   email: string;
   name: string | null;
   briefings_enabled: boolean;
-  phone_e164: string | null;
-  sms_alerts_enabled: boolean;
-  alert_scope: "own_starter" | "both_starters";
-  alert_levels: "PULL_NOW" | "PREP+PULL_NOW";
-  sms_consent_at: string | null;
 };
 
 export async function listTeamRecipients(teamAbbr: string): Promise<TeamRecipientRecord[]> {
   const { data, error } = await supabase
     .from("team_recipients")
-    .select("id, team_abbr, email, name, briefings_enabled, phone_e164, sms_alerts_enabled, alert_scope, alert_levels, sms_consent_at")
+    .select("id, team_abbr, email, name, briefings_enabled")
     .eq("team_abbr", teamAbbr.toUpperCase())
     .order("email");
   if (error) throw error;
@@ -582,11 +577,6 @@ export async function listTeamRecipients(teamAbbr: string): Promise<TeamRecipien
     email: String(row.email),
     name: row.name ?? null,
     briefings_enabled: Boolean(row.briefings_enabled),
-    phone_e164: row.phone_e164 ?? null,
-    sms_alerts_enabled: Boolean(row.sms_alerts_enabled),
-    alert_scope: (row.alert_scope === "own_starter" ? "own_starter" : "both_starters"),
-    alert_levels: (row.alert_levels === "PREP+PULL_NOW" ? "PREP+PULL_NOW" : "PULL_NOW"),
-    sms_consent_at: row.sms_consent_at ?? null,
   }));
 }
 
@@ -598,7 +588,7 @@ export async function addTeamRecipient(
   const { data, error } = await supabase
     .from("team_recipients")
     .insert({ team_abbr: teamAbbr.toUpperCase(), email, name: name ?? null })
-    .select("id, team_abbr, email, name, briefings_enabled, phone_e164, sms_alerts_enabled, alert_scope, alert_levels, sms_consent_at")
+    .select("id, team_abbr, email, name, briefings_enabled")
     .single();
   if (error) throw error;
   return {
@@ -607,17 +597,12 @@ export async function addTeamRecipient(
     email: String(data.email),
     name: data.name ?? null,
     briefings_enabled: Boolean(data.briefings_enabled),
-    phone_e164: data.phone_e164 ?? null,
-    sms_alerts_enabled: Boolean(data.sms_alerts_enabled),
-    alert_scope: (data.alert_scope === "own_starter" ? "own_starter" : "both_starters"),
-    alert_levels: (data.alert_levels === "PREP+PULL_NOW" ? "PREP+PULL_NOW" : "PULL_NOW"),
-    sms_consent_at: data.sms_consent_at ?? null,
   };
 }
 
 export async function updateTeamRecipient(
   recipientId: string,
-  patch: { briefings_enabled?: boolean; name?: string | null; phone_e164?: string | null; sms_alerts_enabled?: boolean; alert_scope?: string; alert_levels?: string; sms_consent_at?: string | null; sms_consent_recorded_by?: string | null },
+  patch: { briefings_enabled?: boolean; name?: string | null },
 ): Promise<void> {
   const { error } = await supabase.from("team_recipients").update(patch).eq("id", recipientId);
   if (error) throw error;
