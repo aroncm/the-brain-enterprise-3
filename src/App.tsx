@@ -36,6 +36,9 @@ import {
   getConfiguredApiBase,
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
+  listMyRecipientRows,
+  updateTeamRecipient,
+  type TeamRecipientRecord,
 } from "./api";
 import { LiveBadge, summarizeLiveOutcome, useLiveDugout, useLiveTeams } from "./LiveDugout";
 import type {
@@ -2494,11 +2497,171 @@ function ClubHome({
   );
 }
 
+// Self-serve alert preferences (profile menu). The user manages their own
+// briefings + text-alert settings on the recipient rows an admin designated
+// for them; admins can override the same rows from Admin > Recipients, and
+// the most recent change wins. Consent recorded here is stamped "self"
+// (this panel is the opt-in surface shown in the Twilio registration).
+function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () => void }) {
+  const [rows, setRows] = useState<TeamRecipientRecord[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [briefings, setBriefings] = useState<Record<string, boolean>>({});
+  const [phone, setPhone] = useState("");
+  const [smsOptIn, setSmsOptIn] = useState(false);
+  const [scope, setScope] = useState<string>("both_starters");
+  const [levels, setLevels] = useState<string>("PULL_NOW");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await listMyRecipientRows(email);
+        if (cancelled) return;
+        setRows(data);
+        const b: Record<string, boolean> = {};
+        for (const r of data) b[r.id] = r.briefings_enabled;
+        setBriefings(b);
+        const first = data.find((r) => r.phone_e164) ?? data[0];
+        if (first) {
+          setPhone(first.phone_e164 ?? "");
+          setSmsOptIn(data.some((r) => r.sms_alerts_enabled));
+          setScope(first.alert_scope);
+          setLevels(first.alert_levels);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load preferences");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [email]);
+
+  const onSave = async () => {
+    if (!rows) return;
+    const v = phone.trim();
+    if (smsOptIn && !/^\+1\d{10}$/.test(v)) {
+      setError("Enter your mobile number as +1 followed by 10 digits");
+      return;
+    }
+    setError(null);
+    setSaving(true);
+    try {
+      const now = new Date().toISOString();
+      for (const r of rows) {
+        const optingIn = smsOptIn && !r.sms_alerts_enabled;
+        await updateTeamRecipient(r.id, {
+          briefings_enabled: briefings[r.id] ?? r.briefings_enabled,
+          phone_e164: v || null,
+          sms_alerts_enabled: smsOptIn && Boolean(v),
+          alert_scope: scope,
+          alert_levels: levels,
+          ...(optingIn ? { sms_consent_at: now, sms_consent_recorded_by: "self" } : {}),
+        });
+      }
+      setSaved(true);
+      setTimeout(onClose, 900);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="admin-modal" role="dialog" aria-modal="true">
+      <div className="admin-modal__backdrop" onClick={onClose} />
+      <div className="admin-modal__card">
+        <header className="admin-modal__header">
+          <h3>Alert preferences</h3>
+          <button type="button" className="admin-icon-button" aria-label="Close" onClick={onClose}>✕</button>
+        </header>
+        <div className="admin-modal__body">
+          {error ? <div className="admin-error">{error}</div> : null}
+          {rows === null ? (
+            <div className="admin-loading">Loading…</div>
+          ) : rows.length === 0 ? (
+            <p>
+              Your account is not set up to receive briefings or alerts yet. Ask your
+              Baseball brAIn administrator to add you as a recipient for your club.
+            </p>
+          ) : (
+            <>
+              <h4 style={{ margin: "0 0 6px" }}>Email briefings</h4>
+              {rows.map((r: TeamRecipientRecord) => (
+                <label key={r.id} className="admin-switch" style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                  <input
+                    type="checkbox"
+                    checked={briefings[r.id] ?? r.briefings_enabled}
+                    onChange={(e) => setBriefings((prev: Record<string, boolean>) => ({ ...prev, [r.id]: e.target.checked }))}
+                  />
+                  <span>{r.team_abbr} game briefings to {r.email}</span>
+                </label>
+              ))}
+
+              <h4 style={{ margin: "14px 0 6px" }}>Text alerts</h4>
+              <label style={{ display: "block", marginBottom: 8 }}>
+                <span style={{ display: "block", fontSize: 12, marginBottom: 2 }}>Mobile number</span>
+                <input
+                  type="tel"
+                  className="admin-field__input"
+                  placeholder="+15551234567"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </label>
+              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={smsOptIn}
+                  onChange={(e) => setSmsOptIn(e.target.checked)}
+                  style={{ marginTop: 3 }}
+                />
+                <span style={{ fontSize: 13 }}>
+                  I agree to receive automated text alerts from Baseball brAIn when the
+                  model reaches a pitching-change trigger in my club's live games.
+                  Message frequency varies with the schedule. Message and data rates may
+                  apply. Reply STOP to opt out, HELP for help.
+                </span>
+              </label>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+                <label>
+                  <span style={{ display: "block", fontSize: 12, marginBottom: 2 }}>Games</span>
+                  <select value={scope} onChange={(e) => setScope(e.target.value)}>
+                    <option value="both_starters">Both starters</option>
+                    <option value="own_starter">Own starter only</option>
+                  </select>
+                </label>
+                <label>
+                  <span style={{ display: "block", fontSize: 12, marginBottom: 2 }}>Triggers</span>
+                  <select value={levels} onChange={(e) => setLevels(e.target.value)}>
+                    <option value="PULL_NOW">Pull Now only</option>
+                    <option value="PREP">Prep only</option>
+                    <option value="PREP+PULL_NOW">Prep + Pull Now</option>
+                  </select>
+                </label>
+              </div>
+              <p style={{ fontSize: 12, opacity: 0.75 }}>
+                Your administrator can also manage these settings. The most recent
+                change, yours or theirs, is the one in effect.
+              </p>
+              <button type="button" className="admin-primary-button" disabled={saving} onClick={() => { void onSave(); }}>
+                {saved ? "Saved" : saving ? "Saving…" : "Save preferences"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Account avatar + dropdown (email · Admin · Logout). Self-contained so it
 // can render in the TopNav and on the splash (before a club is chosen).
 function ProfileMenu({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
   const { user, profile, signOut } = useAuth();
   const [open, setOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -2564,11 +2727,25 @@ function ProfileMenu({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
             type="button"
             className="top-nav__profile-menu__item"
             role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setPrefsOpen(true);
+            }}
+          >
+            Alert preferences
+          </button>
+          <button
+            type="button"
+            className="top-nav__profile-menu__item"
+            role="menuitem"
             onClick={handleLogout}
           >
             Logout
           </button>
         </div>
+      ) : null}
+      {prefsOpen && user?.email ? (
+        <AlertPreferencesModal email={user.email} onClose={() => setPrefsOpen(false)} />
       ) : null}
     </div>
   );

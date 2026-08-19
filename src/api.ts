@@ -565,7 +565,7 @@ export type TeamRecipientRecord = {
   phone_e164: string | null;
   sms_alerts_enabled: boolean;
   alert_scope: "own_starter" | "both_starters";
-  alert_levels: "PULL_NOW" | "PREP+PULL_NOW";
+  alert_levels: "PULL_NOW" | "PREP" | "PREP+PULL_NOW";
   sms_consent_at: string | null;
 };
 
@@ -587,7 +587,35 @@ export async function listTeamRecipients(teamAbbr?: string): Promise<TeamRecipie
     phone_e164: row.phone_e164 ?? null,
     sms_alerts_enabled: Boolean(row.sms_alerts_enabled),
     alert_scope: (row.alert_scope === "own_starter" ? "own_starter" : "both_starters"),
-    alert_levels: (row.alert_levels === "PREP+PULL_NOW" ? "PREP+PULL_NOW" : "PULL_NOW"),
+    alert_levels: (row.alert_levels === "PREP+PULL_NOW" || row.alert_levels === "PREP" ? row.alert_levels : "PULL_NOW"),
+    sms_consent_at: row.sms_consent_at ?? null,
+  }));
+}
+
+// Self-serve alert preferences: the signed-in user's own recipient rows.
+// RLS restricts non-admins to rows matching their auth email; the eq() is
+// belt-and-suspenders so admins using this path also see only their own.
+export async function listMyRecipientRows(email: string): Promise<TeamRecipientRecord[]> {
+  return listTeamRecipientRowsForEmail(email);
+}
+
+async function listTeamRecipientRowsForEmail(email: string): Promise<TeamRecipientRecord[]> {
+  const { data, error } = await supabase
+    .from("team_recipients")
+    .select("id, team_abbr, email, name, briefings_enabled, phone_e164, sms_alerts_enabled, alert_scope, alert_levels, sms_consent_at")
+    .ilike("email", email)
+    .order("team_abbr");
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    team_abbr: String(row.team_abbr).toUpperCase(),
+    email: String(row.email),
+    name: row.name ?? null,
+    briefings_enabled: Boolean(row.briefings_enabled),
+    phone_e164: row.phone_e164 ?? null,
+    sms_alerts_enabled: Boolean(row.sms_alerts_enabled),
+    alert_scope: (row.alert_scope === "own_starter" ? "own_starter" : "both_starters"),
+    alert_levels: (row.alert_levels === "PREP+PULL_NOW" || row.alert_levels === "PREP" ? row.alert_levels : "PULL_NOW"),
     sms_consent_at: row.sms_consent_at ?? null,
   }));
 }
@@ -612,7 +640,7 @@ export async function addTeamRecipient(
     phone_e164: data.phone_e164 ?? null,
     sms_alerts_enabled: Boolean(data.sms_alerts_enabled),
     alert_scope: (data.alert_scope === "own_starter" ? "own_starter" : "both_starters"),
-    alert_levels: (data.alert_levels === "PREP+PULL_NOW" ? "PREP+PULL_NOW" : "PULL_NOW"),
+    alert_levels: (data.alert_levels === "PREP+PULL_NOW" || data.alert_levels === "PREP" ? data.alert_levels : "PULL_NOW"),
     sms_consent_at: data.sms_consent_at ?? null,
   };
 }
