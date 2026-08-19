@@ -14,6 +14,7 @@ import {
   updateTeamRecipient,
 } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 import { scorecardDashboardUrl } from "../components/ScorecardShare";
 
 type Team = { abbr: string; name: string };
@@ -69,7 +70,7 @@ export function AdminPage({ allTeams }: { allTeams: Team[] }) {
 // Permanent (ttl_days=0) share token minted 2026-07-31 — the prior token
 // (wRrlQUytXqd9qbLF6Pk6yA) had lapsed, 404-ing the embed. No-expiry so it
 // won't recur; re-mint via POST /v1/scorecard/share on the live-signal app.
-const SCORECARD_SHARE_TOKEN = "sHku9UH-jWIC5o4mSuSa_Q";
+const SCORECARD_SHARE_TOKEN = "onZZJoSup8TKM_DZJT5OZw"; // re-minted 2026-08-16 after scorecard store loss
 
 function ScorecardTab() {
   const [copied, setCopied] = useState(false);
@@ -595,6 +596,63 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
     }
   };
 
+  const onEditPhone = async (row: TeamRecipientRecord) => {
+    const phone = prompt("Mobile number (E.164, e.g. +15551234567)", row.phone_e164 ?? "+1");
+    if (phone === null) return;
+    const v = phone.trim();
+    if (v && !/^\+1\d{10}$/.test(v)) { setError("Phone must be E.164 US format: +1 then 10 digits"); return; }
+    try {
+      await updateTeamRecipient(row.id, { phone_e164: v || null, ...(v ? {} : { sms_alerts_enabled: false }) });
+      await refresh(selectedTeam);
+    } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
+  };
+
+  const onToggleSms = async (row: TeamRecipientRecord) => {
+    try {
+      if (!row.sms_alerts_enabled) {
+        if (!row.phone_e164) { setError("Add a mobile number first"); return; }
+        // Consent capture (recorded with timestamp; see SMS opt-in spec 2026-08-17)
+        const ok = confirm(
+          `Confirm: ${row.email} has agreed to receive automated text alerts from Baseball brAIn ` +
+          `when the model reaches a pitching-change trigger in their club's live games ` +
+          `(up to ~15 messages/week in season; reply STOP to cancel).`);
+        if (!ok) return;
+        await updateTeamRecipient(row.id, {
+          sms_alerts_enabled: true,
+          sms_consent_at: new Date().toISOString(),
+          sms_consent_recorded_by: "admin",
+        });
+      } else {
+        await updateTeamRecipient(row.id, { sms_alerts_enabled: false });
+      }
+      await refresh(selectedTeam);
+    } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
+  };
+
+  const onScopeChange = async (row: TeamRecipientRecord, scope: string) => {
+    try { await updateTeamRecipient(row.id, { alert_scope: scope }); await refresh(selectedTeam); }
+    catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
+  };
+
+  const onLevelsChange = async (row: TeamRecipientRecord, levels: string) => {
+    try { await updateTeamRecipient(row.id, { alert_levels: levels }); await refresh(selectedTeam); }
+    catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
+  };
+
+  const onTestSms = async (row: TeamRecipientRecord) => {
+    if (!row.phone_e164) { setError("Add a mobile number first"); return; }
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      const base = (import.meta.env.VITE_LIVE_SIGNAL_API_BASE as string | undefined) ??
+        "https://aroncm--abs-live-signal-fastapi-live-app.modal.run";
+      const res = await fetch(`${base}/v1/live/sms/test?to=${encodeURIComponent(row.phone_e164)}`,
+        { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const body = await res.json();
+      alert(res.ok ? `Test ${body.status ?? "sent"} (${body.sid ?? ""})` : `Failed: ${JSON.stringify(body.detail ?? body)}`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Test send failed"); }
+  };
+
   const onRemove = async (row: TeamRecipientRecord) => {
     if (!confirm(`Remove ${row.email} from ${row.team_abbr} recipients?`)) return;
     try {
@@ -661,6 +719,10 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
               <th>Email</th>
               <th>Name</th>
               <th>Briefings enabled</th>
+              <th>Mobile</th>
+              <th>Text alerts</th>
+              <th>Scope</th>
+              <th>Levels</th>
               <th aria-label="Actions" />
             </tr>
           </thead>
@@ -678,6 +740,33 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
                     />
                     <span>{row.briefings_enabled ? "On" : "Off"}</span>
                   </label>
+                </td>
+                <td>
+                  <button type="button" className="admin-link-button" onClick={() => { void onEditPhone(row); }}>
+                    {row.phone_e164 ?? "add"}
+                  </button>
+                </td>
+                <td>
+                  <label className="admin-switch">
+                    <input type="checkbox" checked={row.sms_alerts_enabled}
+                      onChange={() => { void onToggleSms(row); }} />
+                    <span>{row.sms_alerts_enabled ? "On" : "Off"}</span>
+                  </label>
+                  {row.sms_alerts_enabled ? (
+                    <button type="button" className="admin-link-button" onClick={() => { void onTestSms(row); }}>test</button>
+                  ) : null}
+                </td>
+                <td>
+                  <select value={row.alert_scope} onChange={(e) => { void onScopeChange(row, e.target.value); }}>
+                    <option value="both_starters">Both starters</option>
+                    <option value="own_starter">Own starter</option>
+                  </select>
+                </td>
+                <td>
+                  <select value={row.alert_levels} onChange={(e) => { void onLevelsChange(row, e.target.value); }}>
+                    <option value="PULL_NOW">Pull Now only</option>
+                    <option value="PREP+PULL_NOW">Prep + Pull Now</option>
+                  </select>
                 </td>
                 <td className="admin-row-actions">
                   <button
