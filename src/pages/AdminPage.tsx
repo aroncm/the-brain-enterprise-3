@@ -546,19 +546,20 @@ function TeamCheckboxGrid({
 }
 
 function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
-  const [selectedTeam, setSelectedTeam] = useState<string>(allTeams[0]?.abbr ?? "ATL");
+  const [viewTeam, setViewTeam] = useState<string>("ALL");
   const [recipients, setRecipients] = useState<TeamRecipientRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
+  const [pickedTeams, setPickedTeams] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
 
   const refresh = useCallback(async (team: string) => {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listTeamRecipients(team);
+      const rows = await listTeamRecipients(team === "ALL" ? undefined : team);
       setRecipients(rows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load recipients");
@@ -567,30 +568,43 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
     }
   }, []);
 
-  useEffect(() => {
-    void refresh(selectedTeam);
-  }, [selectedTeam, refresh]);
+  useEffect(() => { void refresh(viewTeam); }, [viewTeam, refresh]);
+
+  const allPicked = pickedTeams.size === allTeams.length;
+  const togglePick = (abbr: string) => {
+    setPickedTeams((prev) => {
+      const next = new Set(prev);
+      if (next.has(abbr)) next.delete(abbr); else next.add(abbr);
+      return next;
+    });
+  };
+  const toggleAll = () => {
+    setPickedTeams(allPicked ? new Set() : new Set(allTeams.map((t) => t.abbr)));
+  };
 
   const onAdd = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (pickedTeams.size === 0) { setError("Select at least one team (or All teams)"); return; }
     setError(null);
     setAdding(true);
-    try {
-      await addTeamRecipient(selectedTeam, newEmail.trim(), newName.trim() || null);
-      setNewEmail("");
-      setNewName("");
-      await refresh(selectedTeam);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add recipient");
-    } finally {
-      setAdding(false);
+    const failures: string[] = [];
+    for (const abbr of pickedTeams) {
+      try {
+        await addTeamRecipient(abbr, newEmail.trim(), newName.trim() || null);
+      } catch (err) {
+        failures.push(`${abbr}: ${err instanceof Error ? err.message : "failed"}`);
+      }
     }
+    setAdding(false);
+    if (failures.length) setError(`Some teams failed (likely already added): ${failures.join("; ")}`);
+    else { setNewEmail(""); setNewName(""); setPickedTeams(new Set()); }
+    await refresh(viewTeam);
   };
 
   const onToggleEnabled = async (row: TeamRecipientRecord) => {
     try {
       await updateTeamRecipient(row.id, { briefings_enabled: !row.briefings_enabled });
-      await refresh(selectedTeam);
+      await refresh(viewTeam);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
     }
@@ -603,7 +617,7 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
     if (v && !/^\+1\d{10}$/.test(v)) { setError("Phone must be E.164 US format: +1 then 10 digits"); return; }
     try {
       await updateTeamRecipient(row.id, { phone_e164: v || null, ...(v ? {} : { sms_alerts_enabled: false }) });
-      await refresh(selectedTeam);
+      await refresh(viewTeam);
     } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
   };
 
@@ -611,7 +625,6 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
     try {
       if (!row.sms_alerts_enabled) {
         if (!row.phone_e164) { setError("Add a mobile number first"); return; }
-        // Consent capture (recorded with timestamp; see SMS opt-in spec 2026-08-17)
         const ok = confirm(
           `Confirm: ${row.email} has agreed to receive automated text alerts from Baseball brAIn ` +
           `when the model reaches a pitching-change trigger in their club's live games ` +
@@ -625,17 +638,17 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
       } else {
         await updateTeamRecipient(row.id, { sms_alerts_enabled: false });
       }
-      await refresh(selectedTeam);
+      await refresh(viewTeam);
     } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
   };
 
   const onScopeChange = async (row: TeamRecipientRecord, scope: string) => {
-    try { await updateTeamRecipient(row.id, { alert_scope: scope }); await refresh(selectedTeam); }
+    try { await updateTeamRecipient(row.id, { alert_scope: scope }); await refresh(viewTeam); }
     catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
   };
 
   const onLevelsChange = async (row: TeamRecipientRecord, levels: string) => {
-    try { await updateTeamRecipient(row.id, { alert_levels: levels }); await refresh(selectedTeam); }
+    try { await updateTeamRecipient(row.id, { alert_levels: levels }); await refresh(viewTeam); }
     catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
   };
 
@@ -657,13 +670,11 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
     if (!confirm(`Remove ${row.email} from ${row.team_abbr} recipients?`)) return;
     try {
       await deleteTeamRecipient(row.id);
-      await refresh(selectedTeam);
+      await refresh(viewTeam);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
     }
   };
-
-  const teamOptions = useMemo(() => allTeams, [allTeams]);
 
   return (
     <div className="admin-section">
@@ -671,20 +682,21 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
         <div>
           <h2 className="admin-section__title">Recipients</h2>
           <p className="admin-section__hint">
-            People who receive the Game Briefings email automatically when each game's postgame artifact compiles.
+            Game Briefings email + Hook trigger text alerts. One row per recipient per club.
           </p>
         </div>
         <label className="admin-team-select">
-          <span>Team</span>
-          <select value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}>
-            {teamOptions.map((team) => (
+          <span>View</span>
+          <select value={viewTeam} onChange={(e) => setViewTeam(e.target.value)}>
+            <option value="ALL">All teams</option>
+            {allTeams.map((team) => (
               <option key={team.abbr} value={team.abbr}>{team.abbr} — {team.name}</option>
             ))}
           </select>
         </label>
       </div>
 
-      <form onSubmit={onAdd} className="admin-recipient-form">
+      <form onSubmit={onAdd} className="admin-recipient-form" style={{ flexWrap: "wrap" }}>
         <input
           type="email"
           required
@@ -702,8 +714,18 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
         />
         <button type="submit" className="admin-primary-button" disabled={adding}>
           <Plus size={14} />
-          <span>{adding ? "Adding…" : "Add recipient"}</span>
+          <span>{adding ? "Adding…" : `Add to ${pickedTeams.size || "…"} team${pickedTeams.size === 1 ? "" : "s"}`}</span>
         </button>
+        <div style={{ width: "100%", display: "flex", flexWrap: "wrap", gap: "6px 12px", marginTop: 8 }}>
+          <label style={{ fontWeight: 700 }}>
+            <input type="checkbox" checked={allPicked} onChange={toggleAll} /> All teams
+          </label>
+          {allTeams.map((t) => (
+            <label key={t.abbr}>
+              <input type="checkbox" checked={pickedTeams.has(t.abbr)} onChange={() => togglePick(t.abbr)} /> {t.abbr}
+            </label>
+          ))}
+        </div>
       </form>
 
       {error ? <div className="admin-error">{error}</div> : null}
@@ -711,14 +733,15 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
       {loading ? (
         <div className="admin-loading">Loading recipients…</div>
       ) : recipients.length === 0 ? (
-        <div className="admin-empty">No recipients for {selectedTeam} yet.</div>
+        <div className="admin-empty">No recipients yet.</div>
       ) : (
         <table className="admin-table">
           <thead>
             <tr>
+              <th>Team</th>
               <th>Email</th>
               <th>Name</th>
-              <th>Briefings enabled</th>
+              <th>Briefings</th>
               <th>Mobile</th>
               <th>Text alerts</th>
               <th>Scope</th>
@@ -729,7 +752,8 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
           <tbody>
             {recipients.map((row) => (
               <tr key={row.id}>
-                <td><strong>{row.email}</strong></td>
+                <td><strong>{row.team_abbr}</strong></td>
+                <td>{row.email}</td>
                 <td className="admin-table__sub">{row.name ?? "—"}</td>
                 <td>
                   <label className="admin-switch">
@@ -765,6 +789,7 @@ function RecipientsTab({ allTeams }: { allTeams: Team[] }) {
                 <td>
                   <select value={row.alert_levels} onChange={(e) => { void onLevelsChange(row, e.target.value); }}>
                     <option value="PULL_NOW">Pull Now only</option>
+                    <option value="PREP">Prep only</option>
                     <option value="PREP+PULL_NOW">Prep + Pull Now</option>
                   </select>
                 </td>

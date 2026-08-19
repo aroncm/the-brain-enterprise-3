@@ -569,12 +569,14 @@ export type TeamRecipientRecord = {
   sms_consent_at: string | null;
 };
 
-export async function listTeamRecipients(teamAbbr: string): Promise<TeamRecipientRecord[]> {
-  const { data, error } = await supabase
+export async function listTeamRecipients(teamAbbr?: string): Promise<TeamRecipientRecord[]> {
+  let q = supabase
     .from("team_recipients")
     .select("id, team_abbr, email, name, briefings_enabled, phone_e164, sms_alerts_enabled, alert_scope, alert_levels, sms_consent_at")
-    .eq("team_abbr", teamAbbr.toUpperCase())
+    .order("team_abbr")
     .order("email");
+  if (teamAbbr) q = q.eq("team_abbr", teamAbbr.toUpperCase());
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []).map((row) => ({
     id: String(row.id),
