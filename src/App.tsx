@@ -36,6 +36,7 @@ import {
   getConfiguredApiBase,
   sendPitchingRecapEmail,
   savePitchingRecapSettings,
+  addTeamRecipient,
   listMyRecipientRows,
   updateTeamRecipient,
   type TeamRecipientRecord,
@@ -2497,17 +2498,22 @@ function ClubHome({
   );
 }
 
-// Self-serve alert preferences (profile menu). The user manages their own
-// briefings + text-alert settings on the recipient rows an admin designated
-// for them; admins can override the same rows from Admin > Recipients, and
-// the most recent change wins. Consent recorded here is stamped "self"
-// (this panel is the opt-in surface shown in the Twilio registration).
+// Self-serve alert preferences (profile menu). Club users manage briefings +
+// text alerts on the recipient rows an admin designated for them (their club
+// only). Admins see the full 30-team grid for both channels and their saves
+// create rows as needed. Both surfaces edit the same team_recipients rows as
+// Admin > Recipients; the most recent change wins. Consent recorded here is
+// stamped "self" (this panel is the opt-in surface from the Twilio
+// registration).
 function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () => void }) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const [rows, setRows] = useState<TeamRecipientRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [briefings, setBriefings] = useState<Record<string, boolean>>({});
+  const [briefTeams, setBriefTeams] = useState<Set<string>>(new Set());
+  const [smsTeams, setSmsTeams] = useState<Set<string>>(new Set());
   const [phone, setPhone] = useState("");
   const [smsOptIn, setSmsOptIn] = useState(false);
   const [scope, setScope] = useState<string>("both_starters");
@@ -2520,9 +2526,8 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
         const data = await listMyRecipientRows(email);
         if (cancelled) return;
         setRows(data);
-        const b: Record<string, boolean> = {};
-        for (const r of data) b[r.id] = r.briefings_enabled;
-        setBriefings(b);
+        setBriefTeams(new Set(data.filter((r) => r.briefings_enabled).map((r) => r.team_abbr)));
+        setSmsTeams(new Set(data.filter((r) => r.sms_alerts_enabled).map((r) => r.team_abbr)));
         const first = data.find((r) => r.phone_e164) ?? data[0];
         if (first) {
           setPhone(first.phone_e164 ?? "");
@@ -2537,10 +2542,21 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
     return () => { cancelled = true; };
   }, [email]);
 
+  // Admins pick from every club; club users from their designated rows only.
+  const pickableTeams: string[] = isAdmin
+    ? MLB_TEAMS.map((t) => t.abbr)
+    : Array.from(new Set((rows ?? []).map((r: TeamRecipientRecord) => r.team_abbr)));
+
+  const toggleIn = (set: Set<string>, abbr: string) => {
+    const next = new Set(set);
+    if (next.has(abbr)) next.delete(abbr); else next.add(abbr);
+    return next;
+  };
+
   const onSave = async () => {
     if (!rows) return;
     const v = phone.trim();
-    if (smsOptIn && !/^\+1\d{10}$/.test(v)) {
+    if (smsOptIn && smsTeams.size > 0 && !/^\+1\d{10}$/.test(v)) {
       setError("Enter your mobile number as +1 followed by 10 digits");
       return;
     }
@@ -2548,12 +2564,21 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      for (const r of rows) {
-        const optingIn = smsOptIn && !r.sms_alerts_enabled;
-        await updateTeamRecipient(r.id, {
-          briefings_enabled: briefings[r.id] ?? r.briefings_enabled,
+      for (const abbr of pickableTeams) {
+        const row = rows.find((r: TeamRecipientRecord) => r.team_abbr === abbr);
+        const wantBrief = briefTeams.has(abbr);
+        const wantSms = smsOptIn && smsTeams.has(abbr) && Boolean(v);
+        if (!row && !wantBrief && !wantSms) continue;
+        let id = row?.id;
+        if (!id) {
+          const created = await addTeamRecipient(abbr, email, null);
+          id = created.id;
+        }
+        const optingIn = wantSms && !row?.sms_alerts_enabled;
+        await updateTeamRecipient(id, {
+          briefings_enabled: wantBrief,
           phone_e164: v || null,
-          sms_alerts_enabled: smsOptIn && Boolean(v),
+          sms_alerts_enabled: wantSms,
           alert_scope: scope,
           alert_levels: levels,
           ...(optingIn ? { sms_consent_at: now, sms_consent_recorded_by: "self" } : {}),
@@ -2574,19 +2599,21 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
       display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     } as CSSProperties,
     card: {
-      width: "min(560px, 100%)", maxHeight: "85vh", overflowY: "auto",
+      width: "min(600px, 100%)", maxHeight: "85vh", overflowY: "auto",
       background: "#10141c", border: "1px solid rgba(255,255,255,0.14)",
       borderRadius: 14, padding: "20px 22px", color: "#e8eaf0",
       boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
     } as CSSProperties,
-    header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 } as CSSProperties,
+    header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 } as CSSProperties,
     title: { margin: 0, fontSize: 18, fontWeight: 700 } as CSSProperties,
     close: {
       background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8,
       color: "#e8eaf0", width: 30, height: 30, cursor: "pointer", lineHeight: 1,
     } as CSSProperties,
     sectionTitle: { margin: "16px 0 8px", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.8 } as CSSProperties,
-    row: { display: "flex", gap: 10, alignItems: "center", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" } as CSSProperties,
+    grid: { display: "flex", flexWrap: "wrap", gap: "6px 14px", fontSize: 13 } as CSSProperties,
+    gridItem: { display: "flex", gap: 5, alignItems: "center", width: 74 } as CSSProperties,
+    allToggle: { display: "flex", gap: 6, alignItems: "center", fontWeight: 700, fontSize: 13, marginBottom: 6 } as CSSProperties,
     fieldLabel: { display: "block", fontSize: 12, marginBottom: 4, opacity: 0.75 } as CSSProperties,
     input: {
       width: "100%", boxSizing: "border-box", background: "#0a0d13",
@@ -2609,6 +2636,31 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
     } as CSSProperties,
   };
 
+  const teamGrid = (picked: Set<string>, onChange: (next: Set<string>) => void) => (
+    <div>
+      {isAdmin ? (
+        <label style={ui.allToggle}>
+          <input
+            type="checkbox"
+            checked={picked.size === pickableTeams.length && pickableTeams.length > 0}
+            onChange={() =>
+              onChange(picked.size === pickableTeams.length ? new Set() : new Set(pickableTeams))
+            }
+          />
+          All teams
+        </label>
+      ) : null}
+      <div style={ui.grid}>
+        {pickableTeams.map((abbr) => (
+          <label key={abbr} style={ui.gridItem}>
+            <input type="checkbox" checked={picked.has(abbr)} onChange={() => onChange(toggleIn(picked, abbr))} />
+            {abbr}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div style={ui.overlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div style={ui.card} onClick={(e) => e.stopPropagation()}>
@@ -2620,7 +2672,7 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
         {error ? <div style={ui.error}>{error}</div> : null}
         {rows === null ? (
           <div style={{ padding: "12px 0", opacity: 0.75 }}>Loading…</div>
-        ) : rows.length === 0 ? (
+        ) : !isAdmin && pickableTeams.length === 0 ? (
           <p style={{ fontSize: 14, lineHeight: 1.5 }}>
             Your account is not set up to receive briefings or alerts yet. Ask your
             Baseball brAIn administrator to add you as a recipient for your club.
@@ -2628,16 +2680,7 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
         ) : (
           <>
             <h4 style={ui.sectionTitle}>Email briefings</h4>
-            {rows.map((r: TeamRecipientRecord) => (
-              <label key={r.id} style={ui.row}>
-                <input
-                  type="checkbox"
-                  checked={briefings[r.id] ?? r.briefings_enabled}
-                  onChange={(e) => setBriefings((prev: Record<string, boolean>) => ({ ...prev, [r.id]: e.target.checked }))}
-                />
-                <span style={{ fontSize: 14 }}><strong>{r.team_abbr}</strong> game briefings</span>
-              </label>
-            ))}
+            {teamGrid(briefTeams, setBriefTeams)}
 
             <h4 style={ui.sectionTitle}>Text alerts</h4>
             <label style={{ display: "block", marginBottom: 10 }}>
@@ -2664,6 +2707,12 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
                 apply. Reply STOP to opt out, HELP for help.
               </span>
             </label>
+            {smsOptIn ? (
+              <div style={{ marginBottom: 10 }}>
+                <span style={ui.fieldLabel}>Text alerts for these clubs</span>
+                {teamGrid(smsTeams, setSmsTeams)}
+              </div>
+            ) : null}
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 4 }}>
               <label>
                 <span style={ui.fieldLabel}>Games</span>
