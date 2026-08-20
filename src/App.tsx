@@ -2568,89 +2568,128 @@ function AlertPreferencesModal({ email, onClose }: { email: string; onClose: () 
     }
   };
 
-  return (
-    <div className="admin-modal" role="dialog" aria-modal="true">
-      <div className="admin-modal__backdrop" onClick={onClose} />
-      <div className="admin-modal__card">
-        <header className="admin-modal__header">
-          <h3>Alert preferences</h3>
-          <button type="button" className="admin-icon-button" aria-label="Close" onClick={onClose}>✕</button>
-        </header>
-        <div className="admin-modal__body">
-          {error ? <div className="admin-error">{error}</div> : null}
-          {rows === null ? (
-            <div className="admin-loading">Loading…</div>
-          ) : rows.length === 0 ? (
-            <p>
-              Your account is not set up to receive briefings or alerts yet. Ask your
-              Baseball brAIn administrator to add you as a recipient for your club.
-            </p>
-          ) : (
-            <>
-              <h4 style={{ margin: "0 0 6px" }}>Email briefings</h4>
-              {rows.map((r: TeamRecipientRecord) => (
-                <label key={r.id} className="admin-switch" style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-                  <input
-                    type="checkbox"
-                    checked={briefings[r.id] ?? r.briefings_enabled}
-                    onChange={(e) => setBriefings((prev: Record<string, boolean>) => ({ ...prev, [r.id]: e.target.checked }))}
-                  />
-                  <span>{r.team_abbr} game briefings to {r.email}</span>
-                </label>
-              ))}
+  const ui = {
+    overlay: {
+      position: "fixed", inset: 0, zIndex: 1000, background: "rgba(4, 6, 10, 0.72)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+    } as CSSProperties,
+    card: {
+      width: "min(560px, 100%)", maxHeight: "85vh", overflowY: "auto",
+      background: "#10141c", border: "1px solid rgba(255,255,255,0.14)",
+      borderRadius: 14, padding: "20px 22px", color: "#e8eaf0",
+      boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+    } as CSSProperties,
+    header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 } as CSSProperties,
+    title: { margin: 0, fontSize: 18, fontWeight: 700 } as CSSProperties,
+    close: {
+      background: "transparent", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8,
+      color: "#e8eaf0", width: 30, height: 30, cursor: "pointer", lineHeight: 1,
+    } as CSSProperties,
+    sectionTitle: { margin: "16px 0 8px", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", opacity: 0.8 } as CSSProperties,
+    row: { display: "flex", gap: 10, alignItems: "center", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" } as CSSProperties,
+    fieldLabel: { display: "block", fontSize: 12, marginBottom: 4, opacity: 0.75 } as CSSProperties,
+    input: {
+      width: "100%", boxSizing: "border-box", background: "#0a0d13",
+      border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8,
+      color: "#e8eaf0", padding: "8px 10px", fontSize: 14,
+    } as CSSProperties,
+    select: {
+      background: "#0a0d13", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 8,
+      color: "#e8eaf0", padding: "7px 10px", fontSize: 13,
+    } as CSSProperties,
+    consent: { display: "flex", gap: 10, alignItems: "flex-start", margin: "10px 0 12px", fontSize: 13, lineHeight: 1.45, opacity: 0.9 } as CSSProperties,
+    note: { fontSize: 12, opacity: 0.65, margin: "10px 0 14px" } as CSSProperties,
+    save: {
+      background: "#1f6f4a", border: "1px solid #2c9a67", borderRadius: 8,
+      color: "#fff", padding: "9px 18px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+    } as CSSProperties,
+    error: {
+      background: "rgba(191, 54, 54, 0.15)", border: "1px solid rgba(220, 90, 90, 0.5)",
+      borderRadius: 8, padding: "8px 10px", fontSize: 13, marginBottom: 10,
+    } as CSSProperties,
+  };
 
-              <h4 style={{ margin: "14px 0 6px" }}>Text alerts</h4>
-              <label style={{ display: "block", marginBottom: 8 }}>
-                <span style={{ display: "block", fontSize: 12, marginBottom: 2 }}>Mobile number</span>
-                <input
-                  type="tel"
-                  className="admin-field__input"
-                  placeholder="+15551234567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </label>
-              <label style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+  return (
+    <div style={ui.overlay} role="dialog" aria-modal="true" onClick={onClose}>
+      <div style={ui.card} onClick={(e) => e.stopPropagation()}>
+        <div style={ui.header}>
+          <h3 style={ui.title}>Alert preferences</h3>
+          <button type="button" style={ui.close} aria-label="Close" onClick={onClose}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, opacity: 0.65, marginBottom: 4 }}>{email}</div>
+        {error ? <div style={ui.error}>{error}</div> : null}
+        {rows === null ? (
+          <div style={{ padding: "12px 0", opacity: 0.75 }}>Loading…</div>
+        ) : rows.length === 0 ? (
+          <p style={{ fontSize: 14, lineHeight: 1.5 }}>
+            Your account is not set up to receive briefings or alerts yet. Ask your
+            Baseball brAIn administrator to add you as a recipient for your club.
+          </p>
+        ) : (
+          <>
+            <h4 style={ui.sectionTitle}>Email briefings</h4>
+            {rows.map((r: TeamRecipientRecord) => (
+              <label key={r.id} style={ui.row}>
                 <input
                   type="checkbox"
-                  checked={smsOptIn}
-                  onChange={(e) => setSmsOptIn(e.target.checked)}
-                  style={{ marginTop: 3 }}
+                  checked={briefings[r.id] ?? r.briefings_enabled}
+                  onChange={(e) => setBriefings((prev: Record<string, boolean>) => ({ ...prev, [r.id]: e.target.checked }))}
                 />
-                <span style={{ fontSize: 13 }}>
-                  I agree to receive automated text alerts from Baseball brAIn when the
-                  model reaches a pitching-change trigger in my club's live games.
-                  Message frequency varies with the schedule. Message and data rates may
-                  apply. Reply STOP to opt out, HELP for help.
-                </span>
+                <span style={{ fontSize: 14 }}><strong>{r.team_abbr}</strong> game briefings</span>
               </label>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-                <label>
-                  <span style={{ display: "block", fontSize: 12, marginBottom: 2 }}>Games</span>
-                  <select value={scope} onChange={(e) => setScope(e.target.value)}>
-                    <option value="both_starters">Both starters</option>
-                    <option value="own_starter">Own starter only</option>
-                  </select>
-                </label>
-                <label>
-                  <span style={{ display: "block", fontSize: 12, marginBottom: 2 }}>Triggers</span>
-                  <select value={levels} onChange={(e) => setLevels(e.target.value)}>
-                    <option value="PULL_NOW">Pull Now only</option>
-                    <option value="PREP">Prep only</option>
-                    <option value="PREP+PULL_NOW">Prep + Pull Now</option>
-                  </select>
-                </label>
-              </div>
-              <p style={{ fontSize: 12, opacity: 0.75 }}>
-                Your administrator can also manage these settings. The most recent
-                change, yours or theirs, is the one in effect.
-              </p>
-              <button type="button" className="admin-primary-button" disabled={saving} onClick={() => { void onSave(); }}>
-                {saved ? "Saved" : saving ? "Saving…" : "Save preferences"}
-              </button>
-            </>
-          )}
-        </div>
+            ))}
+
+            <h4 style={ui.sectionTitle}>Text alerts</h4>
+            <label style={{ display: "block", marginBottom: 10 }}>
+              <span style={ui.fieldLabel}>Mobile number</span>
+              <input
+                type="tel"
+                style={ui.input}
+                placeholder="+15551234567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+            <label style={ui.consent}>
+              <input
+                type="checkbox"
+                checked={smsOptIn}
+                onChange={(e) => setSmsOptIn(e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                I agree to receive automated text alerts from Baseball brAIn when the
+                model reaches a pitching-change trigger in my club's live games.
+                Message frequency varies with the schedule. Message and data rates may
+                apply. Reply STOP to opt out, HELP for help.
+              </span>
+            </label>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 4 }}>
+              <label>
+                <span style={ui.fieldLabel}>Games</span>
+                <select style={ui.select} value={scope} onChange={(e) => setScope(e.target.value)}>
+                  <option value="both_starters">Both starters</option>
+                  <option value="own_starter">Own starter only</option>
+                </select>
+              </label>
+              <label>
+                <span style={ui.fieldLabel}>Triggers</span>
+                <select style={ui.select} value={levels} onChange={(e) => setLevels(e.target.value)}>
+                  <option value="PULL_NOW">Pull Now only</option>
+                  <option value="PREP">Prep only</option>
+                  <option value="PREP+PULL_NOW">Prep + Pull Now</option>
+                </select>
+              </label>
+            </div>
+            <p style={ui.note}>
+              Your administrator can also manage these settings. The most recent
+              change, yours or theirs, is the one in effect.
+            </p>
+            <button type="button" style={ui.save} disabled={saving} onClick={() => { void onSave(); }}>
+              {saved ? "Saved" : saving ? "Saving…" : "Save preferences"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
