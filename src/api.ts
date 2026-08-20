@@ -97,11 +97,26 @@ function retryDelayMs(response: Response, attempt: number): number {
   return backoffWithJitter(attempt);
 }
 
+// Team scoping (F2.3): every API call carries the signed-in session's JWT so
+// the backend can resolve role + team memberships. Share-grant surfaces have
+// no session; the header is simply omitted there (those endpoints are exempt
+// from scoping by design).
+async function sessionAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_BASE) {
     throw new ApiConfigurationError();
   }
 
+  const auth = await sessionAuthHeader();
   const method = (init.method ?? "GET").toUpperCase();
   const isIdempotent = method === "GET" || method === "HEAD";
   let attempt = 0;
@@ -117,6 +132,7 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
         signal: init.signal ?? controller?.signal,
         headers: {
           Accept: "application/json",
+          ...auth,
           ...(init.body ? { "Content-Type": "application/json" } : {}),
           ...(init.headers ?? {}),
         },
