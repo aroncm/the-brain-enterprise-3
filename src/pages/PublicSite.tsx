@@ -155,10 +155,7 @@ function Shell({ children, onSignIn }: { children: ReactNode; onSignIn?: () => v
         {children}
         <footer style={ui.footer}>
           <span>
-            Baseball brAIn is a product of Clearmeadow Partners LLC · Delray Beach, FL ·{" "}
-            <a href="mailto:aroncm@gmail.com" style={ui.link}>
-              aroncm@gmail.com
-            </a>
+            Baseball brAIn is a product of Clearmeadow Partners LLC · Delray Beach, FL
           </span>
           <br />
           <a href="/?page=terms" style={ui.link}>
@@ -236,10 +233,7 @@ function Landing({ onSignIn }: { onSignIn: () => void }) {
 
       <p style={{ ...ui.p, marginBottom: 0 }}>
         Baseball brAIn is available by invitation to Major League Baseball club
-        personnel. Inquiries:{" "}
-        <a href="mailto:aroncm@gmail.com" style={ui.link}>
-          aroncm@gmail.com
-        </a>
+        personnel.
       </p>
     </Shell>
   );
