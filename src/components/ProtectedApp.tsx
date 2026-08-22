@@ -1,10 +1,12 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Login } from "../pages/Login";
+import { PublicSite } from "../pages/PublicSite";
 import { ScorecardShare } from "./ScorecardShare";
 
 export function ProtectedApp({ children }: { children: ReactNode }) {
   const { session, profile, loading, profileLoading, needsPasswordSetup } = useAuth();
+  const [showLogin, setShowLogin] = useState(false);
 
   // Phase JJ.3b — Game Briefings share links render the locked single-game
   // replay WITHOUT a session. The pitching data endpoints are public; the
@@ -13,6 +15,13 @@ export function ProtectedApp({ children }: { children: ReactNode }) {
   const shareParams = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   if (shareParams.get("view") === "shared-replay" && (shareParams.get("grant") || "").trim()) {
     return <>{children}</>;
+  }
+
+  // Public, no-login pages (terms + privacy) — reachable regardless of
+  // session so carrier/partner reviewers and recipients can read them.
+  const publicPage = shareParams.get("page");
+  if (publicPage === "terms" || publicPage === "privacy") {
+    return <PublicSite page={publicPage} onSignIn={() => { window.location.href = "/?signin=1"; }} />;
   }
 
   // Model Scorecard share link — public, no-login embed of the standalone
@@ -41,7 +50,14 @@ export function ProtectedApp({ children }: { children: ReactNode }) {
   }
 
   if (!session) {
-    return <Login />;
+    // Public landing for signed-out visitors (the login form itself sits
+    // behind the Sign in button, or directly via /?signin=1). Toll-free
+    // verification requires the root domain to describe the business and
+    // the text-alert program without requiring a login.
+    if (showLogin || shareParams.get("signin") === "1") {
+      return <Login />;
+    }
+    return <PublicSite page="landing" onSignIn={() => setShowLogin(true)} />;
   }
 
   if (profileLoading && !profile) {
