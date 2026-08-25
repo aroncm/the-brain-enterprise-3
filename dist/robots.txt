@@ -1,1 +1,4 @@
-User-agent: *\nAllow: /\n\nSitemap: https://baseballbrain.club/sitemap.xml\n
+User-agent: *
+Allow: /
+
+Sitemap: https://baseballbrain.club/sitemap.xml
