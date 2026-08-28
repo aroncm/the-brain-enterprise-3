@@ -155,7 +155,7 @@ function Shell({ children, onSignIn }: { children: ReactNode; onSignIn?: () => v
         {children}
         <footer style={ui.footer}>
           <span>
-            Baseball brAIn is a product of Clearmeadow Partners LLC · Delray Beach, FL
+            Baseball brAIn is the trade name of Clearmeadow Partners LLC · Delray Beach, FL
           </span>
           <br />
           <a href="/?page=terms" style={ui.link}>
