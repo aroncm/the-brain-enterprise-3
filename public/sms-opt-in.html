@@ -1,0 +1,104 @@
+<!doctype html><html lang="en"><head><title>Baseball brAIn · Text Alert Opt-In</title><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Opt in to Baseball brAIn text alerts. Baseball brAIn is the trade name of Clearmeadow Partners LLC.">
+<style>
+  body { margin:0; background:#0a0d13; color:#e8eaf0; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; }
+  .wrap { max-width:640px; margin:0 auto; padding:32px 20px 56px; }
+  .brand { font-size:20px; letter-spacing:.18em; font-weight:300; }
+  .brand b { letter-spacing:.02em; font-weight:800; }
+  .brand .ai { color:#2ec4a0; }
+  h1 { font-size:28px; line-height:1.2; margin:36px 0 10px; }
+  p, li, label { font-size:15px; line-height:1.6; color:rgba(232,234,240,.85); }
+  .muted { color:rgba(232,234,240,.6); font-size:13px; }
+  form { background:#10141c; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:24px; margin:24px 0; }
+  .field { margin-bottom:16px; }
+  .field span { display:block; font-weight:600; font-size:14px; margin-bottom:6px; }
+  input[type=text], input[type=email], input[type=tel] {
+    width:100%; box-sizing:border-box; padding:11px 12px; border-radius:8px; font-size:15px;
+    border:1px solid rgba(255,255,255,.18); background:#0a0d13; color:#e8eaf0; }
+  .consent { display:flex; gap:10px; align-items:flex-start; margin:14px 0; }
+  .consent input { margin-top:4px; width:16px; height:16px; }
+  .consent label { font-size:13.5px; line-height:1.55; }
+  button { background:#2ec4a0; color:#06251d; border:none; border-radius:8px; padding:12px 26px;
+    font-size:15px; font-weight:700; cursor:pointer; margin-top:6px; }
+  button:disabled { opacity:.5; cursor:default; }
+  .links { margin-top:10px; font-size:13.5px; }
+  a { color:#2ec4a0; text-decoration:none; }
+  #msg { margin-top:14px; font-size:14px; }
+  footer { margin-top:44px; padding-top:16px; border-top:1px solid rgba(255,255,255,.1); font-size:13px; color:rgba(232,234,240,.6); line-height:1.8; }
+  .hp { position:absolute; left:-9999px; }
+</style></head><body><div class="wrap">
+<div class="brand">BASEBALL <b>br<span class="ai">AI</span>n</b></div>
+<h1>Text alert opt-in</h1>
+<p>Baseball brAIn scores every pitch of every Major League Baseball game and marks the moment a
+pitching change is warranted. Use this form to receive those trigger alerts by text message.</p>
+<p><b>Who sends the messages:</b> texts are sent by <b>Baseball brAIn</b>, the trade name of
+<b>Clearmeadow Partners LLC</b>, from toll-free number <b>(866)&nbsp;205-1399</b>. No other company
+or club sends messages under this program.</p>
+
+<form id="optinForm" autocomplete="on">
+  <div class="field"><span>Full Name</span><input type="text" id="fname" placeholder="Type your full name"></div>
+  <div class="field"><span>Email*</span><input type="email" id="email" required placeholder="Enter your email"></div>
+  <div class="field"><span>Phone Number*</span><input type="tel" id="phone" required placeholder="Enter your phone number here"></div>
+  <input class="hp" type="text" id="company" tabindex="-1" autocomplete="off">
+  <div class="consent"><input type="checkbox" id="c_alerts">
+    <label for="c_alerts">I consent to receive non-marketing text messages from Baseball brAIn
+    (Clearmeadow Partners LLC) at the phone number provided, containing pitching-change trigger
+    alerts and related account notifications for games I follow. Message frequency varies with the
+    game schedule. Message &amp; data rates may apply. Text HELP for assistance, reply STOP to opt out.</label></div>
+  <div class="consent"><input type="checkbox" id="c_mktg">
+    <label for="c_mktg">I consent to receive marketing text messages from Baseball brAIn
+    (Clearmeadow Partners LLC) at the phone number provided, such as product news and feature
+    announcements. Frequency may vary. Message &amp; data rates may apply. Text HELP for assistance,
+    reply STOP to opt out.</label></div>
+  <div class="links"><a href="/terms.html">Terms of Service</a> &amp; <a href="/privacy.html">Privacy Policy</a></div>
+  <button type="submit" id="submitBtn">Submit</button>
+  <div id="msg"></div>
+  <noscript><p class="muted">This form requires JavaScript. Without it, you can opt in from your
+  account settings after signing in, or write to us at the address below.</p></noscript>
+</form>
+
+<p class="muted">Consent is not a condition of purchase. Alert texts are sent only for the game
+alerts you select; you can opt out at any time by replying STOP. Club account holders can also
+manage text alerts in their account settings. Program details:
+<a href="/sms-program.html">Text Alert Program</a>.</p>
+
+<footer>
+  Baseball brAIn is the trade name of Clearmeadow Partners LLC · 16768 Matisse Drive, Delray Beach, FL 33446<br>
+  Phone: (866) 205-1399 · Email: support@baseballbrain.club<br>
+  <a href="/">Home</a> · <a href="/sms-program.html">Text Alert Program</a> · <a href="/terms.html">Terms of Service</a> · <a href="/privacy.html">Privacy Policy</a>
+</footer>
+</div>
+<script>
+var SB_URL = "https://bnadqrlrbxfrlwwhcocm.supabase.co";
+var SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJuYWRxcmxyYnhmcmx3d2hjb2NtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI0NTY2NTgsImV4cCI6MjA4ODAzMjY1OH0.FqvyqEj8TySWzthJt7AtkjY81m6By432WR7xVJ7fwCM";
+document.getElementById("optinForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var msg = document.getElementById("msg");
+  var alerts = document.getElementById("c_alerts").checked;
+  var mktg = document.getElementById("c_mktg").checked;
+  if (document.getElementById("company").value) { return; }
+  if (!alerts && !mktg) { msg.style.color = "#ff8a80"; msg.textContent = "Please check at least one consent box to enroll."; return; }
+  var phone = document.getElementById("phone").value.replace(/[^0-9+]/g, "");
+  if (phone.length < 10) { msg.style.color = "#ff8a80"; msg.textContent = "Please enter a valid phone number."; return; }
+  var btn = document.getElementById("submitBtn"); btn.disabled = true;
+  fetch(SB_URL + "/rest/v1/sms_optins", {
+    method: "POST",
+    headers: { "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY, "Content-Type": "application/json", "Prefer": "return=minimal" },
+    body: JSON.stringify({
+      full_name: document.getElementById("fname").value || null,
+      email: document.getElementById("email").value,
+      phone: phone,
+      consent_alerts: alerts,
+      consent_marketing: mktg,
+      source: "sms-opt-in.html",
+      user_agent: navigator.userAgent.slice(0, 300)
+    })
+  }).then(function(r){
+    if (r.ok) { msg.style.color = "#2ec4a0"; msg.textContent = "You're enrolled. A confirmation text will follow from (866) 205-1399. Reply STOP at any time to opt out."; document.getElementById("optinForm").reset(); }
+    else { throw new Error("status " + r.status); }
+  }).catch(function(){ msg.style.color = "#ff8a80"; msg.textContent = "Something went wrong. Please try again or opt in from your account settings."; })
+    .finally(function(){ btn.disabled = false; });
+});
+</script>
+</body></html>
