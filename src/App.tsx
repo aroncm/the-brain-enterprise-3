@@ -27,6 +27,7 @@ import {
   fetchPitchingAuditSummary,
   fetchPitchingRecap,
   fetchReplayShareGrant,
+  fetchShareReplayBundle,
   type PitchingReplayShareGrant,
   fetchPitchingRecapSettings,
   fetchPitchingReplay,
@@ -6453,6 +6454,7 @@ export default function App() {
   }, [shareMode, teamConfirmed, allowedTeams]);
   const [shareGrant, setShareGrant] = useState<PitchingReplayShareGrant | null>(null);
   const [shareGrantStatus, setShareGrantStatus] = useState<"idle" | "loading" | "active" | "inactive">(shareMode ? "loading" : "idle");
+  const [shareLoadError, setShareLoadError] = useState<string | null>(null);
   useEffect(() => {
     if (!shareGrantId) return;
     let cancelled = false;
@@ -6721,6 +6723,31 @@ export default function App() {
       return;
     }
     let cancelled = false;
+    if (shareMode && shareGrantId) {
+      // Shared-replay visitors have no session, and since the Aug 20 backend
+      // scoping fix the plain replay/recap routes answer 401 without one
+      // (the page sat on "Loading replay…" forever). The grant token itself
+      // is the credential: one call returns the replay and the recap.
+      setShareLoadError(null);
+      (async () => {
+        try {
+          const bundle = await fetchShareReplayBundle(shareGrantId);
+          if (cancelled) return;
+          setReplay(bundle.replay);
+          setRecap(bundle.recap);
+          setCachedReplay(selectedGameId as string, bundle.replay);
+          setCachedRecap(selectedGameId as string, bundle.recap);
+        } catch (error) {
+          if (cancelled) return;
+          setReplay(null);
+          setRecap(null);
+          setShareLoadError(error instanceof Error ? error.message : "Couldn't load this replay.");
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
     async function loadGameContext() {
       try {
         const replayPromise = cachedReplay
@@ -6749,7 +6776,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedGameId]);
+  }, [selectedGameId, shareMode, shareGrantId]);
 
   // Phase R.4 — background pre-fetch the most-recent game's replay +
   // recap as soon as the games list arrives, so when the dropdown
@@ -6801,6 +6828,15 @@ export default function App() {
       <main className="share-gate">
         <p className="share-gate__eyebrow">Baseball brAIn</p>
         <h1>Loading shared replay…</h1>
+      </main>
+    );
+  }
+  if (shareMode && shareLoadError) {
+    return (
+      <main className="share-gate">
+        <p className="share-gate__eyebrow">Baseball brAIn</p>
+        <h1>This replay didn't load</h1>
+        <p className="share-gate__detail">{shareLoadError} Reload the page to try again, or ask your Baseball brAIn contact for a fresh Game Briefing.</p>
       </main>
     );
   }
