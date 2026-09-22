@@ -6666,7 +6666,11 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedTeam.abbr, season, clubReloadKey]);
+    // teamConfirmed is a dependency on purpose: the effect returns early while the
+    // splash is up, and choosing the club that is already selected (the remembered
+    // last club, or the first in the list) changes nothing else, so without it the
+    // games catalog never loads and the club home sits on "Loading … games" (Sep 22).
+  }, [selectedTeam.abbr, season, clubReloadKey, teamConfirmed]);
 
   // Phase R.1 — audit-immersive class application moved from
   // GameAudit's mount-effect to App level so the new Phase H–Q nav
